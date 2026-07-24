@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="muted small" style="margin-bottom:8px;">Step3：文法形式との線結び</div>
+<div class="card">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div style="font-size:2.4rem;">{{ word.emoji }}</div>
+    <div>
+      <h2 style="margin:0;">「{{ word.word }}」</h2>
+      <div class="muted small">場面：{{ word.scene }}</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="/step3/{{ word.id }}/check" id="step3Form">
+
+  <div class="card" style="position: relative;">
+    <h2 style="font-size:1rem;">結びつく表現は？（線結び）</h2>
+    <p class="muted small" style="margin-bottom:8px;">
+      Step2で判定した素性を思い出しながら、「{{ word.word }}」の左側の●から、
+      文法的に正しく結びつく表現の右側の●へ線を引いてください。<br>
+      迷ったら <strong style="color:var(--orange);">💡ヒント</strong> ボタンで、
+      オノマトペの素性や各表現の前接条件を確認できます。
+    </p>
+    <div class="infobox" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <span>考え方：表現が必要とする素性 ⊆ オノマトペが持つ素性 なら結びつく</span>
+      <button type="button" id="btnResetLines" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.75rem;">線を引き直す</button>
+    </div>
+
+    <!-- 各表現が「○」か「×」かを送信するための隠しフィールド群 -->
+    {% for e in expressions %}
+    <input type="hidden" name="{{ e.key }}" id="input-{{ e.key }}" value="×">
+    {% endfor %}
+
+    <!-- 線結びコンテナ -->
+    <div id="matchingContainer" style="position: relative; display: flex; justify-content: space-between; gap: 40px; margin: 20px 0; min-height: 300px; user-select: none;">
+
+      <!-- 線描画用SVGレイヤー -->
+      <svg id="matchingSvg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></svg>
+
+      <!-- 左側：オノマトペ（起点）＋素性ヒント -->
+      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; z-index: 2; max-width: 220px;">
+        <div id="leftNode" style="position: relative; padding: 14px 20px; background: var(--blue-soft); border: 2px solid var(--blue); border-radius: 10px; font-weight: 700; text-align: center;">
+          {{ word.word }}
+          <div class="hint-text" id="hint-word" style="display:none; font-size: 0.72rem; font-weight: 400; color: var(--muted); margin-top: 6px;">
+            素性：<span style="color:var(--blue); font-weight:700;">{{ word_hint }}</span>
+          </div>
+          <div class="dot left-dot" style="position: absolute; right: -11px; top: 50%; margin-top: -10px; width: 20px; height: 20px; background: var(--blue); border: 4px solid #fff; border-radius: 50%; cursor: pointer; transition: transform 0.1s; box-shadow: 0 0 0 1px var(--border);"></div>
+        </div>
+        <button type="button" class="hint-btn" data-hint="hint-word"
+                style="background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:8px; color:var(--orange); font-size:0.72rem; padding:4px 10px; cursor:pointer; font-weight:700;">💡この語の素性ヒント</button>
+      </div>
+
+      <!-- 右側：文法表現（終点リスト） -->
+      <div style="display: flex; flex-direction: column; justify-content: space-around; gap: 10px; z-index: 2; flex: 1; max-width: 400px;">
+        {% for e in expressions %}
+        <div class="right-node" id="node-{{ e.key }}" data-key="{{ e.key }}" style="position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 22px; background: #fff; border: 2px solid var(--border); border-radius: 10px; transition: border-color 0.15s;">
+          <div class="dot right-dot" style="position: absolute; left: -11px; width: 20px; height: 20px; background: #b3c1d6; border: 4px solid #fff; border-radius: 50%; cursor: pointer; transition: transform 0.1s; box-shadow: 0 0 0 1px var(--border);"></div>
+          <div style="flex: 1;">
+            <div style="font-weight: 700; font-size: 0.88rem;">〜{{ e.label }}</div>
+            <div class="hint-text" id="hint-{{ e.key }}" style="display:none; font-size: 0.72rem; color: var(--muted); margin-top: 2px;">
+              ヒント：<span style="color:var(--blue);">{{ e.cond_text }}</span>
+            </div>
+          </div>
+          <button type="button" class="hint-btn" data-hint="hint-{{ e.key }}"
+                  style="flex-shrink:0; background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:8px; color:var(--orange); font-size:0.7rem; padding:4px 8px; cursor:pointer; font-weight:700;">💡ヒント</button>
+        </div>
+        {% endfor %}
+      </div>
+
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">判定する →</button>
+  <a href="/step2/{{ word.id }}" class="btn btn-secondary" style="margin-left:12px;">← Step2に戻る</a>
+</form>
+
+<style>
+  .dot:hover { transform: scale(1.3); background-color: var(--blue) !important; }
+  .dot.connected { background-color: var(--green) !important; }
+  .right-node.active-connection { border-color: var(--green) !important; background: var(--green-soft) !important; }
+  .hint-btn:hover { border-color: var(--orange) !important; }
+  line.matching-line {
+    stroke: #1d9e57; stroke-width: 3; stroke-linecap: round;
+    animation: drawLine 0.2s ease-out;
+  }
+  line.drag-line { stroke: #2f6fed; stroke-width: 2; stroke-dasharray: 4 4; }
+  @keyframes drawLine {
+    from { stroke-dasharray: 1000; stroke-dashoffset: 1000; }
+    to { stroke-dashoffset: 0; }
+  }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const container = document.getElementById("matchingContainer");
+  const svg = document.getElementById("matchingSvg");
+  const leftNode = document.getElementById("leftNode");
+  const leftDot = leftNode.querySelector(".left-dot");
+  const rightNodes = document.querySelectorAll(".right-node");
+  const btnReset = document.getElementById("btnResetLines");
+
+  let isDragging = false;
+  let activeLine = null;
+  const connections = new Map();
+
+  function getDotCoords(dotElement) {
+    const rect = dotElement.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2 - containerRect.left,
+      y: rect.top + rect.height / 2 - containerRect.top
+    };
+  }
+
+  function startDrag(e) {
+    e.preventDefault();
+    isDragging = true;
+    leftDot.style.transform = "scale(1.3)";
+    const coords = getDotCoords(leftDot);
+    activeLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    activeLine.setAttribute("x1", coords.x);
+    activeLine.setAttribute("y1", coords.y);
+    activeLine.setAttribute("x2", coords.x);
+    activeLine.setAttribute("y2", coords.y);
+    activeLine.classList.add("drag-line");
+    svg.appendChild(activeLine);
+  }
+
+  function onDrag(e) {
+    if (!isDragging || !activeLine) return;
+    const containerRect = container.getBoundingClientRect();
+    let clientX, clientY;
+    if (e.touches) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+    else { clientX = e.clientX; clientY = e.clientY; }
+    activeLine.setAttribute("x2", clientX - containerRect.left);
+    activeLine.setAttribute("y2", clientY - containerRect.top);
+
+    const target = document.elementFromPoint(clientX, clientY);
+    rightNodes.forEach(node => {
+      const dot = node.querySelector(".right-dot");
+      if (target === dot || node.contains(target)) { dot.style.transform = "scale(1.3)"; }
+      else { dot.style.transform = ""; }
+    });
+  }
+
+  function endDrag(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    leftDot.style.transform = "";
+    let clientX, clientY;
+    if (e.changedTouches) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; }
+    else { clientX = e.clientX; clientY = e.clientY; }
+
+    const target = document.elementFromPoint(clientX, clientY);
+    let matchedNode = null;
+    rightNodes.forEach(node => {
+      const dot = node.querySelector(".right-dot");
+      if (target === dot || node.contains(target)) { matchedNode = node; }
+    });
+
+    if (matchedNode) {
+      const key = matchedNode.getAttribute("data-key");
+      const rightDot = matchedNode.querySelector(".right-dot");
+      if (connections.has(key)) { removeConnection(key, matchedNode, rightDot); }
+      else { createConnection(key, matchedNode, rightDot); }
+    }
+
+    if (activeLine) { svg.removeChild(activeLine); activeLine = null; }
+  }
+
+  function createConnection(key, node, dot) {
+    const start = getDotCoords(leftDot);
+    const end = getDotCoords(dot);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", start.x);
+    line.setAttribute("y1", start.y);
+    line.setAttribute("x2", end.x);
+    line.setAttribute("y2", end.y);
+    line.classList.add("matching-line");
+    svg.appendChild(line);
+    connections.set(key, line);
+    node.classList.add("active-connection");
+    dot.classList.add("connected");
+    document.getElementById(`input-${key}`).value = "○";
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+
+  function removeConnection(key, node, dot) {
+    const line = connections.get(key);
+    if (line) { svg.removeChild(line); connections.delete(key); }
+    node.classList.remove("active-connection");
+    dot.classList.remove("connected");
+    document.getElementById(`input-${key}`).value = "×";
+  }
+
+  btnReset.addEventListener("click", () => {
+    rightNodes.forEach(node => {
+      const key = node.getAttribute("data-key");
+      const dot = node.querySelector(".right-dot");
+      removeConnection(key, node, dot);
+    });
+  });
+
+  // ヒント表示（トグル）＋ レイアウト変化に合わせて線を再描画
+  // （単語の素性ヒント・各表現の条件ヒントの両方に対応）
+  document.querySelectorAll(".hint-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const hintEl = document.getElementById(btn.getAttribute("data-hint"));
+      hintEl.style.display = (hintEl.style.display === "none" || !hintEl.style.display) ? "block" : "none";
+      redrawLines();
+    });
+  });
+
+  leftDot.addEventListener("mousedown", startDrag);
+  leftDot.addEventListener("touchstart", startDrag, { passive: false });
+  document.addEventListener("mousemove", onDrag);
+  document.addEventListener("touchmove", onDrag, { passive: false });
+  document.addEventListener("mouseup", endDrag);
+  document.addEventListener("touchend", endDrag);
+
+  function redrawLines() {
+    connections.forEach((line, key) => {
+      const node = document.getElementById(`node-${key}`);
+      const dot = node.querySelector(".right-dot");
+      const start = getDotCoords(leftDot);
+      const end = getDotCoords(dot);
+      line.setAttribute("x1", start.x);
+      line.setAttribute("y1", start.y);
+      line.setAttribute("x2", end.x);
+      line.setAttribute("y2", end.y);
+    });
+  }
+  window.addEventListener("resize", redrawLines);
+});
+</script>
+
+{% endblock %}

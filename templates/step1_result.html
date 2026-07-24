@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  {% if all_correct %}
+    <div style="font-size:2rem;">✅</div>
+    <h2 style="color:var(--green);">よくできました！</h2>
+  {% else %}
+    <div style="font-size:2rem;">📝</div>
+    <h2 style="color:var(--orange);">惜しい！解説を確認しましょう</h2>
+  {% endif %}
+  <p class="muted small">「{{ word.word }}」の意味・音韻形態・種類</p>
+</div>
+
+<!-- 1-1：意味 -->
+<div class="card">
+  <h2 style="font-size:1rem;">1-1：意味の確認</h2>
+  <div class="result-item {% if not meaning_correct %}ng{% endif %}">
+    {% if meaning_correct %}✅{% else %}❌{% endif %}
+    あなたの選択：<strong>{{ chosen_meaning_text }}</strong>
+    {% if not meaning_correct %}
+    <div class="small" style="color:var(--green); margin-top:6px;">正解：{{ word.meaning }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 1-2：音韻形態 -->
+<div class="card">
+  <h2 style="font-size:1rem;">1-2：音韻形態の確認</h2>
+  <div class="result-item {% if not phon_correct %}ng{% endif %}">
+    {% if phon_correct %}✅{% else %}❌{% endif %}
+    あなたの選択：<strong>{{ chosen_phon.label if chosen_phon else "(不明)" }}</strong>
+    {% if not phon_correct %}
+    <div class="small" style="color:var(--green); margin-top:6px;">正解：{{ correct_phon.label }}</div>
+    {% endif %}
+  </div>
+  <div class="infobox" style="margin-top:8px;">
+    「{{ word.word }}」は <strong>{{ correct_phon.label }}</strong>（{{ correct_phon.term }}）です。
+    この形は「{{ correct_phon.hint }}」という特徴があります。
+  </div>
+</div>
+
+<!-- 1-3：種類 -->
+<div class="card">
+  <h2 style="font-size:1rem;">1-3：種類の判断</h2>
+  <div class="result-item {% if not kind_correct %}ng{% endif %}">
+    {% if kind_correct %}✅{% else %}❌{% endif %}
+    あなたの選択：<strong>{{ chosen_kind }}のオノマトペ</strong>
+    {% if not kind_correct %}
+    <div class="small" style="color:var(--green); margin-top:6px;">正解：{{ category.kind }}のオノマトペ</div>
+    {% endif %}
+  </div>
+  <div class="infobox" style="margin-top:8px;">
+    「{{ word.word }}」は<strong>{{ category.kind }}のオノマトペ</strong>です。
+    Step2 では、3つの素性（継続性・動作性・意志性）を考えて、8つのカテゴリーのどれに入るかを判断します。
+  </div>
+</div>
+
+<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  <a href="/step2/{{ word.id }}" class="btn btn-primary">Step2へ：素性とカテゴリー →</a>
+  <a href="/step1/{{ word.id }}" class="btn btn-secondary">もう一度</a>
+  <a href="/" class="btn btn-secondary">一覧に戻る</a>
+</div>
+
+{% endblock %}

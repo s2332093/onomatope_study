@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 170" font-family="sans-serif">
+  <!-- 軸 -->
+  <line x1="40" y1="140" x2="200" y2="140" stroke="#1f2937" stroke-width="4"/>
+  <polygon points="200,140 188,134 188,146" fill="#1f2937"/>
+  <line x1="40" y1="140" x2="40" y2="20" stroke="#1f2937" stroke-width="4"/>
+  <polygon points="40,20 34,32 46,32" fill="#1f2937"/>
+  <text x="14" y="24" font-size="15" fill="#1f2937" font-weight="bold">感情</text>
+  <text x="168" y="162" font-size="15" fill="#1f2937" font-weight="bold">時間</text>
+  <!-- 継続性＋：水平の線（状態がずっと続く） -->
+  <line x1="42" y1="70" x2="192" y2="70" stroke="#c0392b" stroke-width="5" stroke-linecap="round"/>
+</svg>

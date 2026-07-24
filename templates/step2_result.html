@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  {% if all_correct %}
+    <div style="font-size:2rem;">✅</div>
+    <h2 style="color:var(--green);">よくできました！</h2>
+  {% else %}
+    <div style="font-size:2rem;">📝</div>
+    <h2 style="color:var(--orange);">惜しい！解説を確認しましょう</h2>
+  {% endif %}
+  <p class="muted small">「{{ word.word }}」の素性（{{ n_feature_correct }}/{{ total_features }} 正解）とカテゴリー</p>
+</div>
+
+<!-- 2-1：素性 -->
+<div class="card">
+  <h2 style="font-size:1rem;">2-1：3つの素性</h2>
+  {% for r in feature_results %}
+  <div class="result-item {% if not r.ok %}ng{% endif %}">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+      <span style="font-weight:700;">{{ r.name }}</span>
+      <span class="small muted">
+        あなた：<strong style="color:var(--text);">{{ r.user }}</strong>
+        ／ 正解：<strong style="color:var(--green);">{{ r.correct_value }}</strong>
+        {% if r.ok %}<span style="color:var(--green);"> ✓</span>{% else %}<span style="color:var(--red);"> ✗</span>{% endif %}
+      </span>
+    </div>
+    <div class="small" style="color:var(--blue); margin-top:4px;">{{ r.explain }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 2-2：カテゴリー -->
+<div class="card">
+  <h2 style="font-size:1rem;">2-2：カテゴリーの判断</h2>
+  <div class="result-item {% if not category_correct %}ng{% endif %}">
+    {% if category_correct %}✅{% else %}❌{% endif %}
+    あなたの選択：<strong>{{ chosen_cat_name }}</strong>
+    {% if not category_correct %}
+    <div class="small" style="color:var(--green); margin-top:6px;">正解：{{ category.name }}</div>
+    {% endif %}
+  </div>
+  <div class="infobox" style="margin-top:8px;">
+    「{{ word.word }}」は<strong>「{{ category.name }}」</strong>です。<br>
+    語彙的意味：<strong>{{ category.profile_text }}</strong><br>
+    Step3 では、この素性を手がかりに結びつく文法形式を線結びで考えます。
+  </div>
+</div>
+
+<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  <a href="/step3/{{ word.id }}" class="btn btn-primary">Step3へ：文法形式との線結び →</a>
+  <a href="/step2/{{ word.id }}" class="btn btn-secondary">もう一度</a>
+  <a href="/" class="btn btn-secondary">一覧に戻る</a>
+</div>
+
+{% endblock %}

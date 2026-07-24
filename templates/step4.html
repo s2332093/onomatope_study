@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="muted small" style="margin-bottom:8px;">Step4：例文の練習</div>
+<div class="card">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div style="font-size:2.4rem;">{{ word.emoji }}</div>
+    <div>
+      <h2 style="margin:0;">「{{ word.word }}」</h2>
+      <div class="muted small">場面：{{ word.scene }}</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="/step4/{{ word.id }}/check">
+  <div class="card">
+    <h2 style="font-size:1rem;">[ ？ ] に入る形はどれ？</h2>
+    <div style="background:var(--blue-soft); border-radius:10px; padding:18px 20px; font-size:1.05rem; font-weight:700; margin-bottom:18px;">
+      {{ question }}
+    </div>
+    {% for o in options %}
+    <label style="display:block; margin-bottom:10px;">
+      <input type="radio" name="choice" value="{{ o.label }}" required style="display:none;">
+      <div class="opt-card">
+        <span style="font-weight:700;">{{ o.label }}</span>
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+
+  <button type="submit" class="btn btn-primary">判定する →</button>
+  <a href="/step3/{{ word.id }}" class="btn btn-secondary" style="margin-left:12px;">← Step3に戻る</a>
+</form>
+
+{% endblock %}

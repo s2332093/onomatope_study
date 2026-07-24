@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  {% if all_correct %}
+    <div style="font-size:2rem;">✅</div>
+    <h2 style="color:var(--green);">よくできました！</h2>
+  {% else %}
+    <div style="font-size:2rem;">📝</div>
+    <h2 style="color:var(--orange);">惜しい！解説を確認しましょう</h2>
+  {% endif %}
+  <p class="muted small">「{{ word.word }}」と文法形式の線結び（{{ n_expr_correct }}/{{ total_expr }} 正解）</p>
+</div>
+
+<div class="card">
+  <div class="small muted">
+    「{{ word.word }}」は<strong style="color:var(--blue);">「{{ category.name }}」</strong>＝
+    <strong>{{ category.profile_text }}</strong>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="font-size:1rem;">線結びの判定</h2>
+  {% for r in expr_results %}
+  <div class="result-item {% if not r.ok %}ng{% endif %}" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+    <div>
+      <span style="font-weight:700;">{{ word.word }}〜{{ r.label }}</span>
+      <span class="small muted" style="margin-left:6px;">（{{ r.cond_text }}）</span>
+    </div>
+    <span class="small muted">
+      あなた：<strong style="color:var(--text);">{{ r.user }}</strong>
+      ／ 正解：<strong style="color:var(--green);">{{ r.correct_value }}</strong>
+      {% if r.ok %}<span style="color:var(--green);"> ✓</span>{% else %}<span style="color:var(--red);"> ✗</span>{% endif %}
+    </span>
+  </div>
+  {% endfor %}
+  <div class="infobox" style="margin-top:12px;">
+    <div style="font-weight:700; color:var(--blue); margin-bottom:6px;">なぜこの組み合わせ？</div>
+    {{ expr_explain }}
+  </div>
+</div>
+
+<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  <a href="/step4/{{ word.id }}" class="btn btn-primary">Step4へ：例文の練習 →</a>
+  <a href="/step3/{{ word.id }}" class="btn btn-secondary">もう一度</a>
+  <a href="/" class="btn btn-secondary">一覧に戻る</a>
+</div>
+
+{% endblock %}
