@@ -52,13 +52,15 @@ def load_all():
         "SELECT w.* FROM words w JOIN categories c ON w.category_id = c.id ORDER BY c.ord, w.rowid")]
     data["word_by_id"] = {w["id"]: w for w in data["words"]}
 
-    # 例文練習
+    # 例文練習（カテゴリーごとに複数問）
     data["practice"] = {}
-    for r in cur.execute("SELECT * FROM practice"):
-        data["practice"][r["category_id"]] = {
-            "frame": r["frame"], "explain": r["explain"], "options": []}
-    for r in cur.execute("SELECT * FROM practice_options ORDER BY category_id, ord"):
-        data["practice"][r["category_id"]]["options"].append({
+    by_pid = {}
+    for r in cur.execute("SELECT * FROM practice ORDER BY category_id, ord"):
+        q = {"frame": r["frame"], "explain": r["explain"], "options": []}
+        data["practice"].setdefault(r["category_id"], []).append(q)
+        by_pid[r["id"]] = q
+    for r in cur.execute("SELECT * FROM practice_options ORDER BY practice_id, ord"):
+        by_pid[r["practice_id"]]["options"].append({
             "label": r["label"], "meaning": r["meaning"], "correct": bool(r["correct"])})
 
     con.close()

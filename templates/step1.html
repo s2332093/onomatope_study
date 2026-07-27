@@ -59,8 +59,8 @@
       <div class="opt-card">
         <div style="font-weight:700;">{{ k }}のオノマトペ</div>
         <div class="muted small">
-          {% if k == "感情・感覚" %}心の中の気持ちや、体で感じる感覚を表す（例：いらいら・ずきずき）
-          {% else %}体の動きやふるまい、外から見えるようすを表す（例：ぶらぶら・きょろきょろ）{% endif %}
+          {% if k == "感情・感覚" %}心の中の気持ちや、体で感じる感覚を表す（例：{{ kind_examples[k] }}）
+          {% else %}体の動きやふるまい、外から見えるようすを表す（例：{{ kind_examples[k] }}）{% endif %}
         </div>
       </div>
     </label>

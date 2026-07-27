@@ -2,21 +2,23 @@
 {% block content %}
 
 <div class="card">
-  {% if correct %}
+  {% if all_correct %}
     <div style="font-size:2rem;">🎉</div>
-    <h2 style="color:var(--green);">正解！「{{ word.word }}」の学習が完了しました</h2>
+    <h2 style="color:var(--green);">全問正解！「{{ word.word }}」の学習が完了しました</h2>
   {% else %}
     <div style="font-size:2rem;">📝</div>
     <h2 style="color:var(--orange);">惜しい！解説を確認しましょう</h2>
   {% endif %}
-  <div style="background:var(--green-soft); border-radius:10px; padding:16px 20px; font-size:1.05rem; font-weight:700; margin-top:12px;">
-    {{ completed }}
-  </div>
+  <p class="muted small">例文の練習（{{ n_correct }}／{{ total }} 正解）</p>
 </div>
 
+{% for r in results %}
 <div class="card">
-  <h2 style="font-size:1rem;">選択肢の解説</h2>
-  {% for o in option_results %}
+  <h2 style="font-size:1rem;">問{{ r.no }}：{% if r.ok %}✅ 正解{% else %}❌ 不正解{% endif %}</h2>
+  <div style="background:var(--green-soft); border-radius:10px; padding:14px 18px; font-size:1rem; font-weight:700; margin-bottom:14px;">
+    {{ r.completed }}
+  </div>
+  {% for o in r.option_results %}
   <div class="result-item {% if o.is_chosen and not o.is_correct %}ng{% endif %}">
     <span style="font-weight:700;">{{ o.label }}</span>
     <span class="small muted" style="margin-left:8px;">{{ o.meaning }}</span>
@@ -24,15 +26,9 @@
     {% if o.is_chosen %}<span class="badge badge-blue" style="margin-left:6px;">あなたの選択</span>{% endif %}
   </div>
   {% endfor %}
-  <div class="infobox" style="margin-top:12px;">{{ explain }}</div>
+  <div class="infobox" style="margin-top:10px;">{{ r.explain }}</div>
 </div>
-
-<div class="card">
-  <div class="small muted">
-    現在のスコア：全問正解 <strong style="color:var(--green);">{{ score.correct }}</strong>
-    ／ 未達 <strong style="color:var(--red);">{{ score.wrong }}</strong>
-  </div>
-</div>
+{% endfor %}
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
   <a href="/" class="btn btn-primary">一覧に戻って次の語へ →</a>

@@ -16,7 +16,7 @@
 
   <!-- ============ 2-1：継続性の学習提示（図） ============ -->
   <div class="card">
-    <h2 style="font-size:1rem;">2-1：3つの素性を判定しよう</h2>
+    <h2 style="font-size:1rem;">3つの素性を判定しよう</h2>
     <p class="muted small" style="margin-bottom:14px;">
       まず、継続性のイメージを図で確認しましょう。
     </p>
@@ -56,21 +56,8 @@
     {% endfor %}
   </div>
 
-  <!-- ============ 2-2：カテゴリーの判断 ============ -->
-  <div class="card">
-    <h2 style="font-size:1rem;">2-2：どのカテゴリーに入る？</h2>
-    <p class="muted small" style="margin-bottom:14px;">
-      選んだ素性を手がかりに、「{{ word.word }}」が入るカテゴリーを1つ選んでください。
-    </p>
-    {% for c in categories %}
-    <label style="display:block; margin-bottom:10px;">
-      <input type="radio" name="category" value="{{ c.id }}" required style="display:none;">
-      <div class="opt-card">
-        <span class="badge {% if c.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ c.kind }}</span>
-        <span style="font-weight:700; margin-left:6px;">{{ c.name }}</span>
-      </div>
-    </label>
-    {% endfor %}
+  <div class="infobox" style="margin-bottom:20px;">
+    ℹ️ カテゴリーは、Step1で判断した種類（感情・感覚／動作）と上の3つの素性の組み合わせから<strong>自動的に判定</strong>されます。判定結果は次の画面で確認しましょう。
   </div>
 
   <button type="submit" class="btn btn-primary">判定する →</button>

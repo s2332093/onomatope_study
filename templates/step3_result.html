@@ -21,19 +21,44 @@
 
 <div class="card">
   <h2 style="font-size:1rem;">線結びの判定</h2>
-  {% for r in expr_results %}
+  <p class="muted small" style="margin-bottom:14px;">
+    「線を引く／引かない」の判断が正しかったかを、表現ごとに確認しましょう（{{ n_expr_correct }}／{{ total_expr }} 正解）。
+  </p>
+
+  <div class="small" style="font-weight:700; margin-bottom:8px; color:var(--green);">
+    ✅ 結びつく表現（線を引くのが正解）
+  </div>
+  {% for r in expr_results if r.should %}
   <div class="result-item {% if not r.ok %}ng{% endif %}" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
     <div>
       <span style="font-weight:700;">{{ word.word }}〜{{ r.label }}</span>
       <span class="small muted" style="margin-left:6px;">（{{ r.cond_text }}）</span>
     </div>
-    <span class="small muted">
-      あなた：<strong style="color:var(--text);">{{ r.user }}</strong>
-      ／ 正解：<strong style="color:var(--green);">{{ r.correct_value }}</strong>
-      {% if r.ok %}<span style="color:var(--green);"> ✓</span>{% else %}<span style="color:var(--red);"> ✗</span>{% endif %}
-    </span>
+    {% if r.ok %}
+    <span class="badge badge-green">○ 正しく結べました</span>
+    {% else %}
+    <span class="badge badge-red">✗ 結び忘れです</span>
+    {% endif %}
   </div>
   {% endfor %}
+
+  <div class="small" style="font-weight:700; margin:16px 0 8px; color:var(--red);">
+    🚫 結びつかない表現（線を引かないのが正解）
+  </div>
+  {% for r in expr_results if not r.should %}
+  <div class="result-item {% if not r.ok %}ng{% endif %}" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+    <div>
+      <span style="font-weight:700;">{{ word.word }}〜{{ r.label }}</span>
+      <span class="small muted" style="margin-left:6px;">（{{ r.cond_text }}）</span>
+    </div>
+    {% if r.ok %}
+    <span class="badge badge-green">○ 正しく結びませんでした</span>
+    {% else %}
+    <span class="badge badge-red">✗ 余分に結んでしまいました</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+
   <div class="infobox" style="margin-top:12px;">
     <div style="font-weight:700; color:var(--blue); margin-bottom:6px;">なぜこの組み合わせ？</div>
     {{ expr_explain }}

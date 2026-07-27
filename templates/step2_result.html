@@ -30,19 +30,19 @@
   {% endfor %}
 </div>
 
-<!-- 2-2：カテゴリー -->
+<!-- カテゴリー（素性から自動判定） -->
 <div class="card">
-  <h2 style="font-size:1rem;">2-2：カテゴリーの判断</h2>
+  <h2 style="font-size:1rem;">素性から決まるカテゴリー</h2>
   <div class="result-item {% if not category_correct %}ng{% endif %}">
     {% if category_correct %}✅{% else %}❌{% endif %}
-    あなたの選択：<strong>{{ chosen_cat_name }}</strong>
+    あなたが選んだ素性からは：<strong>{{ derived_cat_name }}</strong>
     {% if not category_correct %}
-    <div class="small" style="color:var(--green); margin-top:6px;">正解：{{ category.name }}</div>
+    <div class="small" style="color:var(--green); margin-top:6px;">正解のカテゴリー：{{ category.name }}</div>
     {% endif %}
   </div>
   <div class="infobox" style="margin-top:8px;">
-    「{{ word.word }}」は<strong>「{{ category.name }}」</strong>です。<br>
-    語彙的意味：<strong>{{ category.profile_text }}</strong><br>
+    カテゴリーは、Step1の種類（{{ category.kind }}）と3つの素性の組み合わせで自動的に決まります。<br>
+    「{{ word.word }}」は<strong>「{{ category.name }}」</strong>＝<strong>{{ category.profile_text }}</strong><br>
     Step3 では、この素性を手がかりに結びつく文法形式を線結びで考えます。
   </div>
 </div>

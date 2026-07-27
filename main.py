@@ -45,9 +45,6 @@ FEATURE_DEFS = [
      "options": ["＋", "ー", "関与しない"]},
 ]
 
-score_data = {"correct": 0, "wrong": 0, "history": []}
-
-
 # =====================================================================
 #  補助関数
 # =====================================================================
@@ -62,17 +59,56 @@ def feature_hint(cat):
     return f"継続性{cat['continuity']}・動作性（{cat['action']}）・意志性{cat['volition']}"
 
 def meaning_options(word, n=4):
-    others = [w for w in WORDS if w["id"] != word["id"]]
-    distractors = random.sample(others, min(n - 1, len(others)))
+    """1-1（意味の確認）の選択肢を作る。
+    誤答の選定基準：意味が紛らわしく学習効果が高い順に、
+      ① 同じカテゴリーの語（最大2語）
+      ② 同じ種類（感情・感覚／動作）の語
+      ③ その他の語
+    から不足分を補う。学習中の語は除外する。
+    """
+    kind = CAT_BY_ID[word["category_id"]]["kind"]
+    same_cat = [w for w in WORDS if w["id"] != word["id"]
+                and w["category_id"] == word["category_id"]]
+    same_kind = [w for w in WORDS if w["id"] != word["id"]
+                 and w["category_id"] != word["category_id"]
+                 and CAT_BY_ID[w["category_id"]]["kind"] == kind]
+    others = [w for w in WORDS if w["id"] != word["id"]
+              and CAT_BY_ID[w["category_id"]]["kind"] != kind]
+
+    distractors = random.sample(same_cat, min(2, len(same_cat)))
+    for pool in (same_kind, others):
+        need = (n - 1) - len(distractors)
+        if need <= 0:
+            break
+        distractors += random.sample(pool, min(need, len(pool)))
+
     opts = [{"text": word["meaning"], "src": word["id"]}]
     opts += [{"text": d["meaning"], "src": d["id"]} for d in distractors]
     random.shuffle(opts)
     return opts
 
-def record(step: str, word, ok: bool):
-    score_data["correct" if ok else "wrong"] += 1
-    score_data["history"].append({"word": word["word"], "step": step, "correct": ok})
 
+def phon_defs_for(word):
+    """1-2（音韻形態）用の選択肢。例示から学習中の語を除外し、
+    例がそのまま答えにならないようにする。"""
+    defs = []
+    for p in PHON_DEFS:
+        d = dict(p)
+        examples = [e for e in p["example"].split("・") if e != word["word"]]
+        d["example"] = "・".join(examples[:3])
+        defs.append(d)
+    return defs
+
+
+def kind_examples_for(word, n=3):
+    """1-3（種類の判断）用の例。学習中の語を除外してランダムに選ぶ。"""
+    result = {}
+    for kind in KIND_OPTIONS:
+        pool = [w["word"] for w in WORDS
+                if w["id"] != word["id"]
+                and CAT_BY_ID[w["category_id"]]["kind"] == kind]
+        result[kind] = "・".join(random.sample(pool, min(n, len(pool))))
+    return result
 
 # =====================================================================
 #  トップページ（知識の提示）
@@ -87,7 +123,6 @@ async def index(request: Request):
         "phon_defs": PHON_DEFS,
         "expressions": EXPRESSIONS,
         "groups": groups,
-        "score": score_data,
         "total": len(WORDS),
     })
 
@@ -103,8 +138,9 @@ async def step1(request: Request, word_id: str):
     return templates.TemplateResponse(request, "step1.html", {
         "word": w,
         "meaning_opts": meaning_options(w),
-        "phon_defs": PHON_DEFS,
+        "phon_defs": phon_defs_for(w),
         "kind_options": KIND_OPTIONS,
+        "kind_examples": kind_examples_for(w),
     })
 
 
@@ -126,7 +162,6 @@ async def step1_check(
     kind_correct = (kind == cat["kind"])
 
     all_correct = meaning_correct and phon_correct and kind_correct
-    record("Step1", w, all_correct)
 
     return templates.TemplateResponse(request, "step1_result.html", {
         "word": w, "category": cat,
@@ -134,7 +169,7 @@ async def step1_check(
         "phon_correct": phon_correct,
         "chosen_phon": PHON_BY_KEY.get(phon), "correct_phon": PHON_BY_KEY[w["phon"]],
         "kind_correct": kind_correct, "chosen_kind": kind,
-        "all_correct": all_correct, "score": score_data,
+        "all_correct": all_correct,
     })
 
 
@@ -151,7 +186,6 @@ async def step2(request: Request, word_id: str):
         "features": FEATURE_DEFS,
         "continuity_knowledge": KNOWLEDGE["continuity"],
         "rule": KNOWLEDGE["rule"][0],
-        "categories": CATEGORIES,
     })
 
 
@@ -159,7 +193,6 @@ async def step2(request: Request, word_id: str):
 async def step2_check(
     request: Request, word_id: str,
     continuity: str = Form(...), action: str = Form(...), volition: str = Form(...),
-    category: str = Form(...),
 ):
     w = get_word(word_id)
     if not w:
@@ -185,19 +218,23 @@ async def step2_check(
             "explain": explains[f["key"]],
         })
 
-    category_correct = (category == cat["id"])
-    chosen_cat = CAT_BY_ID.get(category)
+    # カテゴリーは選択させず、Step1の種類（感情・感覚／動作）＋3素性の組み合わせから自動判定する
+    derived = next((c for c in CATEGORIES
+                    if c["kind"] == cat["kind"]
+                    and c["continuity"] == continuity
+                    and c["action"] == action
+                    and c["volition"] == volition), None)
+    category_correct = (derived is not None and derived["id"] == cat["id"])
 
-    all_correct = category_correct and (n_feature_correct == len(FEATURE_DEFS))
-    record("Step2", w, all_correct)
+    all_correct = (n_feature_correct == len(FEATURE_DEFS))
 
     return templates.TemplateResponse(request, "step2_result.html", {
         "word": w, "category": cat,
         "feature_results": feature_results,
         "n_feature_correct": n_feature_correct, "total_features": len(FEATURE_DEFS),
         "category_correct": category_correct,
-        "chosen_cat_name": chosen_cat["name"] if chosen_cat else "(未選択)",
-        "all_correct": all_correct, "score": score_data,
+        "derived_cat_name": derived["name"] if derived else "該当なし（素性の組み合わせを見直しましょう）",
+        "all_correct": all_correct,
     })
 
 
@@ -238,20 +275,18 @@ async def step3_check(request: Request, word_id: str):
         n_expr_correct += 1 if ok else 0
         expr_results.append({
             "label": e["label"], "cond_text": e["cond_text"],
-            "user": "結ぶ" if user_connected else "結ばない",
-            "correct_value": "結ぶ" if can_combine else "結ばない",
+            "should": can_combine, "connected": user_connected,
             "ok": ok,
         })
 
     all_correct = (n_expr_correct == len(EXPRESSIONS))
-    record("Step3", w, all_correct)
 
     return templates.TemplateResponse(request, "step3_result.html", {
         "word": w, "category": cat,
         "expr_results": expr_results,
         "n_expr_correct": n_expr_correct, "total_expr": len(EXPRESSIONS),
         "expr_explain": cat["expr_explain"],
-        "all_correct": all_correct, "score": score_data,
+        "all_correct": all_correct,
     })
 
 
@@ -263,44 +298,51 @@ async def step4(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
-    tpl = PRACTICE[w["category_id"]]
-    question = tpl["frame"].replace("{word}", w["word"])
-    opts = tpl["options"][:]
-    random.shuffle(opts)
+    questions = []
+    for i, q in enumerate(PRACTICE[w["category_id"]]):
+        opts = q["options"][:]
+        random.shuffle(opts)
+        questions.append({
+            "idx": i,
+            "text": q["frame"].replace("{word}", w["word"]),
+            "options": opts,
+        })
     return templates.TemplateResponse(request, "step4.html", {
-        "word": w, "question": question, "options": opts,
+        "word": w, "questions": questions,
     })
 
 
 @app.post("/step4/{word_id}/check", response_class=HTMLResponse)
-async def step4_check(request: Request, word_id: str, choice: str = Form(...)):
+async def step4_check(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
     cat = get_category(w)
-    tpl = PRACTICE[w["category_id"]]
-    correct_label = next(o["label"] for o in tpl["options"] if o["correct"])
-    correct = (choice == correct_label)
-    completed = tpl["frame"].replace("{word}", w["word"]).replace("[ ？ ]", "〈" + correct_label + "〉")
+    form = await request.form()
 
-    option_results = [{
-        "label": o["label"], "meaning": o["meaning"],
-        "is_correct": o["correct"], "is_chosen": (o["label"] == choice),
-    } for o in tpl["options"]]
+    results = []
+    n_correct = 0
+    qs = PRACTICE[w["category_id"]]
+    for i, q in enumerate(qs):
+        choice = form.get(f"choice_{i}", "")
+        correct_label = next(o["label"] for o in q["options"] if o["correct"])
+        ok = (choice == correct_label)
+        n_correct += 1 if ok else 0
+        results.append({
+            "no": i + 1,
+            "ok": ok,
+            "completed": q["frame"].replace("{word}", w["word"]).replace("[ ？ ]", "〈" + correct_label + "〉"),
+            "explain": q["explain"],
+            "option_results": [{
+                "label": o["label"], "meaning": o["meaning"],
+                "is_correct": o["correct"], "is_chosen": (o["label"] == choice),
+            } for o in q["options"]],
+        })
 
-    record("Step4", w, correct)
+    all_correct = (n_correct == len(qs))
 
     return templates.TemplateResponse(request, "step4_result.html", {
-        "word": w, "category": cat, "correct": correct,
-        "correct_label": correct_label, "completed": completed,
-        "option_results": option_results, "explain": tpl["explain"], "score": score_data,
+        "word": w, "category": cat, "all_correct": all_correct,
+        "n_correct": n_correct, "total": len(qs),
+        "results": results,
     })
-
-
-@app.get("/reset")
-async def reset():
-    global score_data
-    score_data["correct"] = 0
-    score_data["wrong"] = 0
-    score_data["history"] = []
-    return RedirectResponse("/")
