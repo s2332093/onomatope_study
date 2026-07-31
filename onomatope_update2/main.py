@@ -142,24 +142,45 @@ async def phase1(request: Request):
     })
 
 
-DRILL_N = 6
+DRILL_N_WORD = 4   # オノマトペの素性を問う問題数
+DRILL_N_EXPR = 2   # 文法形式の前接条件を問う問題数
+DRILL_N = DRILL_N_WORD + DRILL_N_EXPR
 
 @app.get("/phase1/drill", response_class=HTMLResponse)
 async def phase1_drill(request: Request):
-    # ランダムな（単語, 素性）の組を出題
-    pairs = []
-    words = random.sample(WORDS, DRILL_N)
-    for w in words:
+    questions = []
+
+    # タイプA：オノマトペの素性を問う
+    for w in random.sample(WORDS, DRILL_N_WORD):
         f = random.choice(FEATURE_DEFS)
-        pairs.append({"word": w, "feature": f})
-    questions = [{
-        "idx": i,
-        "spec": f'{p["word"]["id"]}:{p["feature"]["key"]}',
-        "word": p["word"],
-        "feature": p["feature"],
-    } for i, p in enumerate(pairs)]
+        phon = PHON_BY_KEY[w["phon"]]
+        questions.append({
+            "type": "word",
+            "spec": f'w:{w["id"]}:{f["key"]}',
+            "word": w, "feature": f,
+            "hint_phon": f'音の形：{phon["label"]}（{phon["term"]}）→ {phon["hint"]}',
+        })
+
+    # タイプB：文法形式の前接条件を問う
+    cond_unique = list(dict.fromkeys(e["cond_text"] for e in EXPRESSIONS))
+    for e in random.sample(EXPRESSIONS, DRILL_N_EXPR):
+        distractors = random.sample([c for c in cond_unique if c != e["cond_text"]], 3)
+        opts = distractors + [e["cond_text"]]
+        random.shuffle(opts)
+        questions.append({
+            "type": "expr",
+            "spec": f'e:{e["key"]}',
+            "expr": e, "options": opts,
+            "hint": f'使い方の例：「{e["example"]}」（局面：{e["phase"]}）',
+        })
+
+    random.shuffle(questions)
+    for i, q in enumerate(questions):
+        q["idx"] = i
+
     return templates.TemplateResponse(request, "phase1_drill.html", {
-        "questions": questions, "n": DRILL_N,
+        "questions": questions, "n": len(questions),
+        "knowledge": KNOWLEDGE,
     })
 
 
@@ -171,23 +192,40 @@ async def phase1_drill_check(request: Request):
     for i in range(DRILL_N):
         spec = form.get(f"spec_{i}", "")
         choice = form.get(f"choice_{i}", "")
-        if ":" not in spec:
-            continue
-        word_id, fkey = spec.split(":", 1)
-        w = get_word(word_id)
-        if not w:
-            continue
-        cat = get_category(w)
-        fdef = next(f for f in FEATURE_DEFS if f["key"] == fkey)
-        correct_value = cat[fkey]
-        ok = (choice == correct_value)
-        n_correct += 1 if ok else 0
-        results.append({
-            "no": i + 1, "word": w, "feature_name": fdef["name"],
-            "user": choice, "correct_value": correct_value, "ok": ok,
-            "explain": (f'「{w["word"]}」は「{cat["name"]}」＝{profile_str(cat)}。'
-                        f'{FEATURE_EXPLAINS[fkey]}'),
-        })
+
+        if spec.startswith("w:"):
+            _, word_id, fkey = spec.split(":", 2)
+            w = get_word(word_id)
+            if not w:
+                continue
+            cat = get_category(w)
+            fdef = next(f for f in FEATURE_DEFS if f["key"] == fkey)
+            correct_value = cat[fkey]
+            ok = (choice == correct_value)
+            n_correct += 1 if ok else 0
+            results.append({
+                "type": "word", "no": i + 1, "word": w,
+                "title": f'「{w["word"]}」の{fdef["name"]}',
+                "user": choice, "correct_value": correct_value, "ok": ok,
+                "explain": (f'「{w["word"]}」は「{cat["name"]}」＝{profile_str(cat)}。'
+                            f'{FEATURE_EXPLAINS[fkey]}'),
+            })
+
+        elif spec.startswith("e:"):
+            key = spec[2:]
+            e = next((x for x in EXPRESSIONS if x["key"] == key), None)
+            if not e:
+                continue
+            ok = (choice == e["cond_text"])
+            n_correct += 1 if ok else 0
+            results.append({
+                "type": "expr", "no": i + 1, "word": None,
+                "title": f'「〜{e["label"]}」の前接条件',
+                "user": choice, "correct_value": e["cond_text"], "ok": ok,
+                "explain": (f'「〜{e["label"]}」は{e["phase"]}を表し、「{e["example"]}」のように使います。'
+                            f'前接できるのは「{e["cond_text"]}」の素性を持つオノマトペです。'),
+            })
+
     return templates.TemplateResponse(request, "phase1_drill_result.html", {
         "results": results, "n_correct": n_correct, "total": len(results),
     })

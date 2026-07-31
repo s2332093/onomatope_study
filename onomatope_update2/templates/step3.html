@@ -59,7 +59,8 @@
           <div style="flex: 1;">
             <div style="font-weight: 700; font-size: 0.88rem;">〜{{ e.label }}</div>
             <div class="hint-text" id="hint-{{ e.key }}" style="display:none; font-size: 0.72rem; color: var(--muted); margin-top: 2px;">
-              ヒント：<span style="color:var(--blue);">{{ e.cond_text }}</span>
+              ヒント：<span style="color:var(--blue);">{{ e.cond_text }}</span><br>
+              例：{{ e.example }}
             </div>
           </div>
           <button type="button" class="hint-btn" data-hint="hint-{{ e.key }}"

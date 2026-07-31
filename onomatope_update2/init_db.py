@@ -120,17 +120,17 @@ CATEGORIES = [
 #  4. アスペクチュアリティーの表現形式（前接条件つき）
 # =====================================================================
 EXPRESSIONS = [
-    # (key, ord, label, cond_text)
-    ("surutokoroda",     1,  "するところだ",     "動作性（高）・＋意志性"),
-    ("shiyoutosuru",     2,  "しようとする",     "動作性（高）・＋意志性"),
-    ("shihajimeru",      3,  "しはじめる",       "＋継続性・動作性（中・高）"),
-    ("shidasu",          4,  "しだす",           "＋継続性・動作性（中・高）"),
-    ("shitekuru",        5,  "してくる",         "＋継続性・動作性（中）（状態の出現）"),
-    ("shiteiku",         6,  "していく",         "＋継続性・ー動作性（長期的な変化・変化前に視点）"),
-    ("shitsuzukeru",     7,  "しつづける",       "＋継続性・動作性（高）（具体的な動き）"),
-    ("shiteirutokoroda", 8,  "しているところだ", "＋（変化結果の）継続性・動作性（低〜高）"),
-    ("shitatokoroda",    9,  "したところだ",     "＋変化結果の継続性・動作性（中）"),
-    ("shiteshimau",      10, "してしまう",       "±継続性・動作性（低〜高）"),
+    # (key, ord, label, phase, cond_text, example)
+    ("surutokoroda",     1,  "するところだ",     "直前",         "動作性（高）・＋意志性",                       "今から出かけるところだ"),
+    ("shiyoutosuru",     2,  "しようとする",     "直前（意志）", "動作性（高）・＋意志性",                       "席を立とうとする"),
+    ("shihajimeru",      3,  "しはじめる",       "開始",         "＋継続性・動作性（中・高）",                   "雨が降りはじめる"),
+    ("shidasu",          4,  "しだす",           "突発的開始",   "＋継続性・動作性（中・高）",                   "急に泣きだす"),
+    ("shitekuru",        5,  "してくる",         "出現・持続",   "＋継続性・動作性（中）（状態の出現）",         "だんだん眠くなってくる"),
+    ("shiteiku",         6,  "していく",         "変化の進行",   "＋継続性・ー動作性（長期的な変化・変化前に視点）", "これから寒くなっていく"),
+    ("shitsuzukeru",     7,  "しつづける",       "継続",         "＋継続性・動作性（高）（具体的な動き）",       "走りつづける"),
+    ("shiteirutokoroda", 8,  "しているところだ", "最中",         "＋（変化結果の）継続性・動作性（低〜高）",     "いまご飯を食べているところだ"),
+    ("shitatokoroda",    9,  "したところだ",     "完了直後",     "＋変化結果の継続性・動作性（中）",             "たった今駅に着いたところだ"),
+    ("shiteshimau",      10, "してしまう",       "完遂",         "±継続性・動作性（低〜高）",                   "全部食べてしまう"),
 ]
 
 # カテゴリー × 結びつく表現（docx の「表現形式」欄より）
@@ -406,7 +406,9 @@ def main():
         key       TEXT PRIMARY KEY,
         ord       INTEGER NOT NULL,
         label     TEXT NOT NULL,
-        cond_text TEXT NOT NULL
+        phase     TEXT NOT NULL,
+        cond_text TEXT NOT NULL,
+        example   TEXT NOT NULL
     );
     CREATE TABLE category_expression (
         category_id    TEXT NOT NULL REFERENCES categories(id),
@@ -442,7 +444,7 @@ def main():
     cur.executemany("INSERT INTO knowledge VALUES (?,?,?,?,?)", KNOWLEDGE)
     cur.executemany("INSERT INTO phon_forms VALUES (?,?,?,?,?,?)", PHON_FORMS)
     cur.executemany("INSERT INTO categories VALUES (?,?,?,?,?,?,?,?,?)", CATEGORIES)
-    cur.executemany("INSERT INTO expressions VALUES (?,?,?,?)", EXPRESSIONS)
+    cur.executemany("INSERT INTO expressions VALUES (?,?,?,?,?,?)", EXPRESSIONS)
     for cat_id, keys in CATEGORY_EXPRESSIONS.items():
         cur.executemany("INSERT INTO category_expression VALUES (?,?)",
                         [(cat_id, k) for k in keys])

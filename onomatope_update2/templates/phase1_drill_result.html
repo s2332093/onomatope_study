@@ -14,8 +14,8 @@
 {% for r in results %}
 <div class="card">
   <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-    <div style="font-size:1.6rem;">{{ r.word.emoji }}</div>
-    <span style="font-weight:700;">問{{ r.no }}：「{{ r.word.word }}」の{{ r.feature_name }}</span>
+    <div style="font-size:1.6rem;">{% if r.type == "word" %}{{ r.word.emoji }}{% else %}📝{% endif %}</div>
+    <span style="font-weight:700;">問{{ r.no }}：{{ r.title }}</span>
   </div>
   <div class="result-item {% if not r.ok %}ng{% endif %}">
     あなた：<strong>{{ r.user }}</strong>
