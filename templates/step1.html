@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="muted small" style="margin-bottom:8px;">Step1：意味・音韻形態・種類の学習</div>
+<div class="card">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div style="font-size:2.4rem;">{{ word.emoji }}</div>
+    <div>
+      <h2 style="margin:0;">「{{ word.word }}」</h2>
+      <div class="muted small">場面：{{ word.scene }}</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="/step1/{{ word.id }}/check">
+
+  <!-- ============ 1-1：意味の確認 ============ -->
+  <div class="card">
+    <h2 style="font-size:1rem;">1-1：意味の確認</h2>
+    <p class="muted small" style="margin-bottom:16px;">
+      この場面のオノマトペ「{{ word.word }}」に最も近い意味を選んでください。
+    </p>
+    {% for opt in meaning_opts %}
+    <label style="display:block; margin-bottom:10px;">
+      <input type="radio" name="meaning" value="{{ opt.src }}" required style="display:none;">
+      <div class="opt-card">{{ opt.text }}</div>
+    </label>
+    {% endfor %}
+  </div>
+
+  <!-- ============ 1-2：音韻形態の確認 ============ -->
+  <div class="card">
+    <h2 style="font-size:1rem;">1-2：音韻形態の確認</h2>
+    <p class="muted small" style="margin-bottom:14px;">
+      オノマトペは<strong>語形（音の形）</strong>によって、表しやすい時間的性質が変わります。
+      「{{ word.word }}」はどの形ですか？
+    </p>
+    {% for p in phon_defs %}
+    <label style="display:block; margin-bottom:10px;">
+      <input type="radio" name="phon" value="{{ p.key }}" required style="display:none;">
+      <div class="opt-card">
+        <div style="font-weight:700;">{{ p.label }}</div>
+        <div class="muted small">{{ p.term }}</div>
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+
+  <!-- ============ 1-3：種類の判断 ============ -->
+  <div class="card">
+    <h2 style="font-size:1rem;">1-3：どんな種類のオノマトペ？</h2>
+    <p class="muted small" style="margin-bottom:14px;">
+      「{{ word.word }}」は、<strong>感情・感覚</strong>を表すオノマトペですか？
+      それとも<strong>動作</strong>を表すオノマトペですか？
+    </p>
+    {% for k in kind_options %}
+    <label style="display:block; margin-bottom:10px;">
+      <input type="radio" name="kind" value="{{ k }}" required style="display:none;">
+      <div class="opt-card">
+        <div style="font-weight:700;">{{ k }}のオノマトペ</div>
+        <div class="muted small">
+          {% if k == "感情・感覚" %}心の中の気持ちや、体で感じる感覚を表す（例：{{ kind_examples[k] }}）
+          {% else %}体の動きやふるまい、外から見えるようすを表す（例：{{ kind_examples[k] }}）{% endif %}
+        </div>
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+
+  <button type="submit" class="btn btn-primary">判定する →</button>
+  <a href="/phase2" class="btn btn-secondary" style="margin-left:12px;">やめる</a>
+</form>
+
+{% endblock %}
