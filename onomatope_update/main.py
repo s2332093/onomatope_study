@@ -32,6 +32,17 @@ PRACTICE    = DB["practice"]
 
 KIND_OPTIONS = ["感情・感覚", "動作"]
 
+# 素性ごとの考え方（Step2・素性ドリルの解説で使用）
+FEATURE_EXPLAINS = {
+    "continuity": "継続性は図のイメージで判断します（＋：続く／変化結果の＋：変化後の結果が残る／ー：一瞬）。",
+    "action": "継続性が低いほど動作性は高くなります（ー継続性→高、続く状態→中、だらけた状態→低）。",
+    "volition": "自分の意志で行える動き・行為なら「＋」、感情・感覚など自然に起こるものは「ー」です。",
+}
+
+def profile_str(cat):
+    """カテゴリの素性を短い表記にする（フィードバック文生成用）"""
+    return f"継続性{cat['continuity']}・動作性（{cat['action']}）・意志性{cat['volition']}"
+
 # Step2 の3素性の選択肢
 FEATURE_DEFS = [
     {"key": "continuity", "name": "継続性",
@@ -115,15 +126,96 @@ def kind_examples_for(word, n=3):
 # =====================================================================
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    groups = [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
-              for c in CATEGORIES]
     return templates.TemplateResponse(request, "index.html", {
+        "total": len(WORDS),
+    })
+
+
+# =====================================================================
+#  フェーズ1：素性の理解（知識 + ミックスドリル）
+# =====================================================================
+@app.get("/phase1", response_class=HTMLResponse)
+async def phase1(request: Request):
+    return templates.TemplateResponse(request, "phase1.html", {
         "knowledge": KNOWLEDGE,
         "categories": CATEGORIES,
-        "phon_defs": PHON_DEFS,
+    })
+
+
+DRILL_N = 6
+
+@app.get("/phase1/drill", response_class=HTMLResponse)
+async def phase1_drill(request: Request):
+    # ランダムな（単語, 素性）の組を出題
+    pairs = []
+    words = random.sample(WORDS, DRILL_N)
+    for w in words:
+        f = random.choice(FEATURE_DEFS)
+        pairs.append({"word": w, "feature": f})
+    questions = [{
+        "idx": i,
+        "spec": f'{p["word"]["id"]}:{p["feature"]["key"]}',
+        "word": p["word"],
+        "feature": p["feature"],
+    } for i, p in enumerate(pairs)]
+    return templates.TemplateResponse(request, "phase1_drill.html", {
+        "questions": questions, "n": DRILL_N,
+    })
+
+
+@app.post("/phase1/drill/check", response_class=HTMLResponse)
+async def phase1_drill_check(request: Request):
+    form = await request.form()
+    results = []
+    n_correct = 0
+    for i in range(DRILL_N):
+        spec = form.get(f"spec_{i}", "")
+        choice = form.get(f"choice_{i}", "")
+        if ":" not in spec:
+            continue
+        word_id, fkey = spec.split(":", 1)
+        w = get_word(word_id)
+        if not w:
+            continue
+        cat = get_category(w)
+        fdef = next(f for f in FEATURE_DEFS if f["key"] == fkey)
+        correct_value = cat[fkey]
+        ok = (choice == correct_value)
+        n_correct += 1 if ok else 0
+        results.append({
+            "no": i + 1, "word": w, "feature_name": fdef["name"],
+            "user": choice, "correct_value": correct_value, "ok": ok,
+            "explain": (f'「{w["word"]}」は「{cat["name"]}」＝{profile_str(cat)}。'
+                        f'{FEATURE_EXPLAINS[fkey]}'),
+        })
+    return templates.TemplateResponse(request, "phase1_drill_result.html", {
+        "results": results, "n_correct": n_correct, "total": len(results),
+    })
+
+
+# =====================================================================
+#  フェーズ2：文法形式の判断（知識 + 単語選択）
+# =====================================================================
+@app.get("/phase2", response_class=HTMLResponse)
+async def phase2(request: Request):
+    groups = [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
+              for c in CATEGORIES]
+    return templates.TemplateResponse(request, "phase2.html", {
         "expressions": EXPRESSIONS,
+        "expr_guide": KNOWLEDGE["expr_guide"],
         "groups": groups,
-        "total": len(WORDS),
+    })
+
+
+# =====================================================================
+#  フェーズ3：例文への適用（単語選択）
+# =====================================================================
+@app.get("/phase3", response_class=HTMLResponse)
+async def phase3(request: Request):
+    groups = [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
+              for c in CATEGORIES]
+    return templates.TemplateResponse(request, "phase3.html", {
+        "groups": groups,
     })
 
 
@@ -200,11 +292,7 @@ async def step2_check(
     cat = get_category(w)
 
     submitted = {"continuity": continuity, "action": action, "volition": volition}
-    explains = {
-        "continuity": "継続性は図のイメージで判断します（＋：続く／変化結果の＋：変化後の結果が残る／ー：一瞬）。",
-        "action": "継続性が低いほど動作性は高くなります（ー継続性→高、続く状態→中、だらけた状態→低）。",
-        "volition": "自分の意志で行える動き・行為なら「＋」、感情・感覚など自然に起こるものは「ー」です。",
-    }
+    explains = FEATURE_EXPLAINS
 
     feature_results = []
     n_feature_correct = 0
@@ -277,6 +365,9 @@ async def step3_check(request: Request, word_id: str):
             "label": e["label"], "cond_text": e["cond_text"],
             "should": can_combine, "connected": user_connected,
             "ok": ok,
+            "reason": (f'「{w["word"]}」の素性は {profile_str(cat)}。'
+                       f'「〜{e["label"]}」は「{e["cond_text"]}」を必要とする'
+                       f' → {"条件を満たすので結びつく" if can_combine else "条件を満たさないので結びつかない"}。'),
         })
 
     all_correct = (n_expr_correct == len(EXPRESSIONS))
@@ -304,7 +395,7 @@ async def step4(request: Request, word_id: str):
         random.shuffle(opts)
         questions.append({
             "idx": i,
-            "text": q["frame"].replace("{word}", w["word"]),
+            "text": q["frame"].replace("{word}", w["word"]).replace("{ctx}", w["ctx"]),
             "options": opts,
         })
     return templates.TemplateResponse(request, "step4.html", {
@@ -331,7 +422,7 @@ async def step4_check(request: Request, word_id: str):
         results.append({
             "no": i + 1,
             "ok": ok,
-            "completed": q["frame"].replace("{word}", w["word"]).replace("[ ？ ]", "〈" + correct_label + "〉"),
+            "completed": q["frame"].replace("{word}", w["word"]).replace("{ctx}", w["ctx"]).replace("[ ？ ]", "〈" + correct_label + "〉"),
             "explain": q["explain"],
             "option_results": [{
                 "label": o["label"], "meaning": o["meaning"],
@@ -346,3 +437,4 @@ async def step4_check(request: Request, word_id: str):
         "n_correct": n_correct, "total": len(qs),
         "results": results,
     })
+

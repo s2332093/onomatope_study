@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  {% if n_correct == total %}
+    <div style="font-size:2rem;">🎉</div>
+    <h2 style="color:var(--green);">全問正解！素性の感覚がつかめています</h2>
+  {% else %}
+    <div style="font-size:2rem;">📝</div>
+    <h2 style="color:var(--orange);">{{ n_correct }}／{{ total }} 正解。解説を確認しましょう</h2>
+  {% endif %}
+</div>
+
+{% for r in results %}
+<div class="card">
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+    <div style="font-size:1.6rem;">{{ r.word.emoji }}</div>
+    <span style="font-weight:700;">問{{ r.no }}：「{{ r.word.word }}」の{{ r.feature_name }}</span>
+  </div>
+  <div class="result-item {% if not r.ok %}ng{% endif %}">
+    あなた：<strong>{{ r.user }}</strong>
+    ／ 正解：<strong style="color:var(--green);">{{ r.correct_value }}</strong>
+    {% if r.ok %}<span style="color:var(--green);"> ✓</span>{% else %}<span style="color:var(--red);"> ✗</span>{% endif %}
+    <div class="small" style="color:var(--blue); margin-top:6px;">{{ r.explain }}</div>
+  </div>
+</div>
+{% endfor %}
+
+<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  <a href="/phase1/drill" class="btn btn-primary">もう一度ドリル（別の問題）→</a>
+  <a href="/phase2" class="btn btn-primary" style="background:var(--purple);">フェーズ2へ進む →</a>
+  <a href="/phase1" class="btn btn-secondary">知識ページに戻る</a>
+</div>
+
+{% endblock %}

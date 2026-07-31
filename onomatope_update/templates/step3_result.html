@@ -39,6 +39,7 @@
     {% else %}
     <span class="badge badge-red">✗ 結び忘れです</span>
     {% endif %}
+    <div class="small" style="color:var(--blue); flex-basis:100%;">{{ r.reason }}</div>
   </div>
   {% endfor %}
 
@@ -56,6 +57,7 @@
     {% else %}
     <span class="badge badge-red">✗ 余分に結んでしまいました</span>
     {% endif %}
+    <div class="small" style="color:var(--blue); flex-basis:100%;">{{ r.reason }}</div>
   </div>
   {% endfor %}
 
@@ -66,9 +68,9 @@
 </div>
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/step4/{{ word.id }}" class="btn btn-primary">Step4へ：例文の練習 →</a>
+  <a href="/step4/{{ word.id }}" class="btn btn-primary">フェーズ3へ：この語の例文練習 →</a>
   <a href="/step3/{{ word.id }}" class="btn btn-secondary">もう一度</a>
-  <a href="/" class="btn btn-secondary">一覧に戻る</a>
+  <a href="/phase2" class="btn btn-secondary">フェーズ2の一覧に戻る</a>
 </div>
 
 {% endblock %}
