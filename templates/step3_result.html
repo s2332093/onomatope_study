@@ -9,60 +9,71 @@
     <div style="font-size:2rem;">📝</div>
     <h2 style="color:var(--orange);">惜しい！解説を確認しましょう</h2>
   {% endif %}
-  <p class="muted small">「{{ word.word }}」と文法形式の線結び（{{ n_expr_correct }}/{{ total_expr }} 正解）</p>
+  <p class="muted small">
+    「{{ word.word }}」と文法形式の線結び（{{ n_expr_correct }}/{{ total_expr }} 正解）
+    {% if hint_level != "0" %}／ ヒント{{ hint_level }}まで使用{% endif %}
+  </p>
 </div>
 
 <div class="card">
   <div class="small muted">
     「{{ word.word }}」は<strong style="color:var(--blue);">「{{ category.name }}」</strong>＝
-    <strong>{{ category.profile_text }}</strong>
+    <strong>{{ profile }}</strong><br>
+    この素性と、各表現形式の前接条件を照合した結果が下です。
   </div>
 </div>
 
 <div class="card">
-  <h2 style="font-size:1rem;">線結びの判定</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    「線を引く／引かない」の判断が正しかったかを、表現ごとに確認しましょう（{{ n_expr_correct }}／{{ total_expr }} 正解）。
-  </p>
-
-  <div class="small" style="font-weight:700; margin-bottom:8px; color:var(--green);">
-    ✅ 結びつく表現（線を引くのが正解）
-  </div>
+  <h2 style="font-size:1rem;">✅ 結びつく表現（線を引くのが正解）</h2>
   {% for r in expr_results if r.should %}
-  <div class="result-item {% if not r.ok %}ng{% endif %}" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-    <div>
-      <span style="font-weight:700;">{{ word.word }}〜{{ r.label }}</span>
-      <span class="small muted" style="margin-left:6px;">（{{ r.cond_text }}）</span>
+  <div class="result-item {% if not r.ok %}ng{% endif %}">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div>
+        <span style="font-weight:700;">{{ word.word }}〜{{ r.label }}</span>
+        <span class="badge badge-gray" style="margin-left:6px;">{{ r.phase }}</span>
+      </div>
+      {% if r.ok %}
+      <span class="badge badge-green">○ 正しく結べました</span>
+      {% else %}
+      <span class="badge badge-red">✗ 結び忘れです</span>
+      {% endif %}
     </div>
-    {% if r.ok %}
-    <span class="badge badge-green">○ 正しく結べました</span>
-    {% else %}
-    <span class="badge badge-red">✗ 結び忘れです</span>
-    {% endif %}
-    <div class="small" style="color:var(--blue); flex-basis:100%;">{{ r.reason }}</div>
+    <div class="small" style="color:var(--blue); margin-top:6px;">{{ r.headline }}</div>
+    <ul class="checklines">
+      {% for line in r.lines %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+    <div class="small" style="color:var(--green); margin-top:2px;">{{ r.example }}</div>
   </div>
   {% endfor %}
+</div>
 
-  <div class="small" style="font-weight:700; margin:16px 0 8px; color:var(--red);">
-    🚫 結びつかない表現（線を引かないのが正解）
-  </div>
+<div class="card">
+  <h2 style="font-size:1rem;">🚫 結びつかない表現（線を引かないのが正解）</h2>
   {% for r in expr_results if not r.should %}
-  <div class="result-item {% if not r.ok %}ng{% endif %}" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-    <div>
-      <span style="font-weight:700;">{{ word.word }}〜{{ r.label }}</span>
-      <span class="small muted" style="margin-left:6px;">（{{ r.cond_text }}）</span>
+  <div class="result-item {% if not r.ok %}ng{% endif %}">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div>
+        <span style="font-weight:700;">×{{ word.word }}〜{{ r.label }}</span>
+        <span class="badge badge-gray" style="margin-left:6px;">{{ r.phase }}</span>
+      </div>
+      {% if r.ok %}
+      <span class="badge badge-green">○ 正しく結びませんでした</span>
+      {% else %}
+      <span class="badge badge-red">✗ 余分に結んでしまいました</span>
+      {% endif %}
     </div>
-    {% if r.ok %}
-    <span class="badge badge-green">○ 正しく結びませんでした</span>
-    {% else %}
-    <span class="badge badge-red">✗ 余分に結んでしまいました</span>
-    {% endif %}
-    <div class="small" style="color:var(--blue); flex-basis:100%;">{{ r.reason }}</div>
+    <div class="small" style="color:var(--red); margin-top:6px;">{{ r.headline }}</div>
+    <ul class="checklines">
+      {% for line in r.lines %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+    <div class="small muted" style="margin-top:2px;">{{ r.example }}</div>
   </div>
   {% endfor %}
+</div>
 
-  <div class="infobox" style="margin-top:12px;">
-    <div style="font-weight:700; color:var(--blue); margin-bottom:6px;">なぜこの組み合わせ？</div>
+<div class="card">
+  <div class="infobox">
+    <div style="font-weight:700; color:var(--blue); margin-bottom:6px;">まとめ：なぜこの組み合わせになるのか</div>
     {{ expr_explain }}
   </div>
 </div>

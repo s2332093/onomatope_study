@@ -3,92 +3,56 @@
 
 <div class="card">
   <span class="badge badge-blue">フェーズ1</span>
-  <h1 style="margin-top:8px;">素性の理解</h1>
+  <h1 style="margin-top:8px;">素性の学習</h1>
   <p class="muted small" style="margin-top:6px;">
-    オノマトペの語彙的意味を決める3つの素性（継続性・動作性・意志性）の見方を学びましょう。
+    オノマトペの語彙的意味を決める
+    <span class="fbadge fb-continuity">継続性</span>
+    <span class="fbadge fb-action">動作性</span>
+    <span class="fbadge fb-volition">意志性</span>
+    を、<strong>1段階ずつ</strong>身につけます。<br>
+    各段階は<strong>2ページ</strong>です。<br>
+    ① <strong>学習</strong>：説明 → 判断手順のチェックリスト → 似ている語の対比 → 一緒に考える例題<br>
+    ② <strong>練習</strong>：同じ手順で3問 → 素性にもとづく解説<br>
+    練習は学習ページを通ってから進むので、根拠を持たないまま問題に入ることはありません。
   </p>
 </div>
 
-<!-- 継続性 -->
-<div class="card">
-  <h2>⏱ 継続性とは</h2>
-  <p class="muted small" style="margin-bottom:16px;">
-    オノマトペが表す感情・状態・動きが、時間の中でどう続くかという性質です。図のイメージで覚えましょう。
-  </p>
-  <div style="display:flex; gap:14px; flex-wrap:wrap;">
-    {% for k in knowledge.continuity %}
-    <div style="flex:1; min-width:200px; border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
-      <img src="/static/{{ k.fig }}" alt="{{ k.label }}" style="width:100%; max-width:200px;">
-      <div style="font-weight:700; margin-top:6px;
-        color:{% if loop.index == 1 %}#c0392b{% elif loop.index == 2 %}#f39c12{% else %}#27ae60{% endif %};">
-        {{ k.label }}
+<h2 style="margin:26px 0 12px;">🗺 5つの段階</h2>
+
+{% for s in stages %}
+<a href="/phase1/stage/{{ s.n }}" style="text-decoration:none; color:inherit;">
+  <div class="card" style="display:flex; align-items:center; gap:18px; margin-bottom:12px; padding:18px 24px;"
+       onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">
+    <div style="font-size:1.8rem;">{{ s.icon }}</div>
+    <div style="flex:1;">
+      <div>
+        <span class="badge badge-blue">段階{{ s.n }}</span>
+        <span style="font-weight:700; margin-left:8px; font-size:1.05rem;">{{ s.title }}</span>
       </div>
-      <div class="muted small" style="margin-top:6px; text-align:left;">{{ k.body }}</div>
+      <p class="muted small" style="margin-top:6px;">{{ s.lead }}</p>
     </div>
-    {% endfor %}
+    <div style="flex-shrink:0; text-align:right;">
+      <span class="badge badge-blue">学習</span>
+      <span class="muted small">→</span>
+      <span class="badge badge-orange">練習3問</span>
+    </div>
   </div>
-</div>
-
-<!-- 動作性 -->
-<div class="card">
-  <h2>🏃 動作性とは</h2>
-  {% for k in knowledge.action %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <span style="font-weight:700;">{{ k.label }}</span>
-    <span class="muted small" style="margin-left:8px;">{{ k.body }}</span>
-  </div>
-  {% endfor %}
-  <div class="notebox" style="margin-top:14px;">
-    💡 <strong>{{ knowledge.rule[0].label }}：</strong>{{ knowledge.rule[0].body }}
-  </div>
-</div>
-
-<!-- 意志性 -->
-<div class="card">
-  <h2>✋ 意志性とは</h2>
-  {% for k in knowledge.volition %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <span style="font-weight:700;">{{ k.label }}</span>
-    <span class="muted small" style="margin-left:8px;">{{ k.body }}</span>
-  </div>
-  {% endfor %}
-</div>
-
-<!-- 音韻形態と素性の関係 -->
-<div class="card">
-  <h2>🔤 音の形からも素性がわかる（音韻形態と素性の関係）</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    オノマトペは音の形（音韻形態）が素性のヒントになります。初めて出会う語でも、形から素性を予測できます。
-  </p>
-  {% for k in knowledge.phon_feature %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <div style="font-weight:700; color:var(--blue);">{{ k.label }}</div>
-    <div class="muted small" style="margin-top:4px;">{{ k.body }}</div>
-  </div>
-  {% endfor %}
-</div>
-
-<!-- 8カテゴリー -->
-<div class="card">
-  <h2>🗂 素性の組み合わせ → 8つのカテゴリー</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    種類（感情・感覚／動作）と素性の組み合わせで、オノマトペは8つのカテゴリーに分かれます。
-  </p>
-  {% for c in categories %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <span class="badge {% if c.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ c.kind }}</span>
-    <span style="font-weight:700; margin-left:6px;">{{ c.name }}</span>
-    <div class="small" style="color:var(--blue); margin-top:4px;">{{ c.profile_text }}</div>
-  </div>
-  {% endfor %}
-</div>
+</a>
+{% endfor %}
 
 <div class="card" style="text-align:center; background:var(--blue-soft);">
-  <h2>✏️ 理解できたら、ドリルで練習！</h2>
+  <h2>🎯 仕上げ：総合ドリル</h2>
   <p class="muted small" style="margin-bottom:14px;">
-    いろいろなオノマトペがランダムに出題されます。素性だけを判断する練習をしましょう。
+    5つの段階を終えたら、全段階の問題が混ざった総合ドリルで確認しましょう。<br>
+    ここを通過すれば、フェーズ2（文法形式）に進む準備ができています。
   </p>
-  <a href="/phase1/drill" class="btn btn-primary">素性ドリルを始める →</a>
+  <a href="/phase1/drill" class="btn btn-primary">総合ドリルを始める →</a>
+</div>
+
+<div class="notebox">
+  📖 説明だけをまとめて見返したいときは
+  <a href="/phase1/summary" style="color:var(--orange); font-weight:700;">素性のまとめ（復習用）</a>
+  へ。
 </div>
 
 {% endblock %}

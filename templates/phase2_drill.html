@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="muted small" style="margin-bottom:8px;">フェーズ2：前接条件ドリル</div>
+<div class="card">
+  <h2>✏️ 前接条件ドリル（全{{ n }}問）</h2>
+  <p class="muted small">
+    表現形式の側から考える練習です。
+  </p>
+  <ul class="checklines" style="margin-top:8px;">
+    <li><strong>前接条件を答える</strong>：この形式はどんな素性のオノマトペを必要とするか</li>
+    <li><strong>結びつく語を選ぶ</strong>：この形式と結びつくオノマトペはどれか</li>
+  </ul>
+  <p class="muted small" style="margin-top:10px;">
+    迷ったら <strong style="color:var(--orange);">💡ヒント</strong> を開きましょう。
+  </p>
+</div>
+
+<form method="post" action="/phase2/drill/check">
+  {% for q in questions %}
+  <div class="card">
+    <input type="hidden" name="spec_{{ q.idx }}" value="{{ q.spec }}">
+
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px;">
+      <div style="font-size:1.8rem;">{% if q.type == "cond" %}📝{% else %}🔗{% endif %}</div>
+      <div style="flex:1;">
+        <span style="font-weight:700; font-size:1.05rem;">問{{ loop.index }}：{{ q.prompt }}</span>
+        <div class="muted small">{{ q.sub }}</div>
+      </div>
+      <button type="button" class="hint-toggle" data-target="hint-{{ q.idx }}">💡ヒント</button>
+    </div>
+
+    <div id="hint-{{ q.idx }}" class="hintbox" style="display:none;">{{ q.hint }}</div>
+
+    {% if q.options %}
+    {% for opt in q.options %}
+    <label style="display:block; margin-bottom:8px;">
+      <input type="radio" name="choice_{{ q.idx }}" value="{{ opt }}" required style="display:none;">
+      <div class="opt-card"><span class="small" style="font-weight:700;">{{ opt }}</span></div>
+    </label>
+    {% endfor %}
+    {% else %}
+    {% for w in q.word_options %}
+    <label style="display:block; margin-bottom:8px;">
+      <input type="radio" name="choice_{{ q.idx }}" value="{{ w.id }}" required style="display:none;">
+      <div class="opt-card" style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:1.3rem;">{{ w.emoji }}</span>
+        <span style="font-weight:700;">{{ w.word }}</span>
+        <span class="muted small">{{ w.scene }}</span>
+      </div>
+    </label>
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <button type="submit" class="btn btn-primary">判定する →</button>
+  <a href="/phase2" class="btn btn-secondary" style="margin-left:12px;">← フェーズ2に戻る</a>
+</form>
+
+<script>
+document.querySelectorAll(".hint-toggle").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const el = document.getElementById(btn.getAttribute("data-target"));
+    el.style.display = (el.style.display === "none" || !el.style.display) ? "block" : "none";
+  });
+});
+</script>
+
+{% endblock %}

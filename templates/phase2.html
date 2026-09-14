@@ -3,9 +3,10 @@
 
 <div class="card">
   <span class="badge badge-purple">フェーズ2</span>
-  <h1 style="margin-top:8px;">文法形式の判断</h1>
+  <h1 style="margin-top:8px;">文法形式の学習</h1>
   <p class="muted small" style="margin-top:6px;">
-    オノマトペの素性と、表現形式の「前接条件」を照らし合わせて、結びつくかどうかを判断できるようになりましょう。
+    オノマトペの素性と、表現形式の「前接条件」を照らし合わせて、
+    結びつくかどうかを自分で判断できるようになりましょう。
   </p>
 </div>
 
@@ -22,33 +23,86 @@
     <div style="font-weight:700; color:var(--blue); margin-bottom:6px;">例：「いらいら」×「しはじめる」「するところだ」</div>
     <div class="small">
       「いらいら」の素性は <strong>＋継続性・動作性（中）・ー意志性</strong>。<br>
-      ・「〜しはじめる」の条件は「＋継続性・動作性（中・高）」→ すべて満たす → <strong style="color:var(--green);">○ 結びつく</strong>（いらいらしはじめる）<br>
-      ・「〜するところだ」の条件は「動作性（高）・＋意志性」→ 満たさない → <strong style="color:var(--red);">× 結びつかない</strong>（×いらいらするところだ）
+      ・「〜しはじめる」の条件は〈＋継続性／動作性（中・高）〉→ すべて満たす →
+        <strong style="color:var(--green);">○ 結びつく</strong>（いらいらしはじめる）<br>
+      ・「〜するところだ」の条件は〈動作性（高）／＋意志性〉→ 動作性も意志性も満たさない →
+        <strong style="color:var(--red);">× 結びつかない</strong>（×いらいらするところだ）
     </div>
   </div>
 </div>
 
-<!-- 表現形式一覧 -->
+<!-- 接続表現の学び方 -->
 <div class="card">
-  <h2>📝 表現形式と前接条件</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    線結びで迷ったら、この条件に立ち返りましょう（各表現の💡ヒントでも確認できます）。
+  <h2>🔑 「前接条件」をどう捉えるか</h2>
+  <p class="muted small" style="margin-bottom:12px;">
+    条件は暗記するものではありません。その形式が表す<strong>時間的な局面</strong>と、
+    形式が加える<strong>意味</strong>から自然に出てきます。
   </p>
-  {% for e in expressions %}
-  <div style="border-bottom:1px dashed var(--border); padding:8px 4px;">
-    <div style="display:flex; justify-content:space-between; gap:12px;">
-      <span style="font-weight:700;">〜{{ e.label }}</span>
-      <span class="muted small">{{ e.cond_text }}</span>
-    </div>
-    <div class="muted small">例：{{ e.example }}</div>
+  {% for k in expr_note %}
+  <div style="border-left:4px solid var(--purple); background:#fbfcfe; border-radius:0 8px 8px 0; padding:10px 14px; margin-bottom:10px;">
+    <div style="font-weight:700; font-size:0.9rem;">{{ k.label }}</div>
+    <div class="muted small" style="margin-top:4px;">{{ k.body }}</div>
   </div>
   {% endfor %}
+</div>
+
+<!-- 表現形式の詳細カード -->
+<div class="card">
+  <h2>📝 表現形式と前接条件（全{{ expr_cards|length }}形式）</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    線結びで迷ったら、ここに立ち返りましょう（Step3の💡ヒントでも同じ条件を確認できます）。
+  </p>
+  {% for c in expr_cards %}
+  <div style="border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span style="font-weight:700; font-size:1rem;">〜{{ c.expr.label }}</span>
+      <span class="badge badge-gray">局面：{{ c.expr.phase }}</span>
+    </div>
+
+    <div style="margin-top:8px;">
+      <span class="muted small">必要な素性：</span>
+      {% if c.reqs %}
+      {% for r in c.reqs %}
+      <span class="fbadge fb-{{ r.key }}">{{ r.text }}</span>
+      {% endfor %}
+      {% else %}
+      <span class="badge badge-green">条件なし（素性を問わない）</span>
+      {% endif %}
+    </div>
+
+    {% if c.reqs %}
+    <ul class="checklines">
+      {% for r in c.reqs %}
+      {% if r.why %}<li><strong>{{ r.name }}が必要な理由：</strong>{{ r.why }}</li>{% endif %}
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="small muted" style="margin-top:6px;">
+      完遂・不本意の意味を添えるだけなので、素性による制限がありません。
+      ー継続性の語（いらっ・ずきっ など）が結びつける形は事実上これだけです。
+    </div>
+    {% endif %}
+
+    <div class="small" style="margin-top:8px; display:flex; gap:16px; flex-wrap:wrap;">
+      <span style="color:var(--green);">{{ c.expr.ok_example }}</span>
+      <span style="color:var(--red);">{{ c.expr.ng_example }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card" style="text-align:center; background:var(--purple-soft);">
+  <h2>✏️ 前接条件ドリルで確かめる</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    「この形式はどんな素性を必要とするか」「この形式と結びつく語はどれか」を練習します。
+  </p>
+  <a href="/phase2/drill" class="btn btn-primary" style="background:var(--purple);">前接条件ドリルを始める →</a>
 </div>
 
 <!-- 単語一覧 -->
 <h2 style="margin:30px 0 6px;">✏️ 単語を選んで練習を始める</h2>
 <p class="muted small" style="margin-bottom:16px;">
-  各語について、意味の確認 → 素性の判定 → 文法形式との線結び の順に進みます。
+  各語について、意味の確認（Step1） → 素性の判定（Step2） → 文法形式との線結び（Step3）の順に進みます。
 </p>
 
 {% for g in groups %}

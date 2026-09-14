@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- 進捗 -->
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/phase1" class="muted small" style="text-decoration:none;">← フェーズ1の段階一覧</a>
+  <div style="margin-left:auto; display:flex; gap:5px;">
+    {% for s in stages %}
+    <span class="badge {% if s.n == stage.n %}badge-blue{% elif s.n < stage.n %}badge-green{% else %}badge-gray{% endif %}">
+      {{ s.n }}
+    </span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <span class="badge badge-blue">段階{{ stage.n }} / {{ stages|length }}</span>
+  <span class="badge badge-gray" style="margin-left:6px;">1 / 2　学習</span>
+  <h1 style="margin-top:8px;">{{ stage.icon }} {{ stage.title }}</h1>
+  <p class="muted small" style="margin-top:6px;">{{ stage.lead }}</p>
+  <div class="infobox" style="margin-top:12px;">
+    このページでは<strong>考え方を学びます</strong>。読み終えたら、いちばん下の「練習に進む」から3問解きます。
+  </div>
+</div>
+
+<!-- ============ ① 説明 ============ -->
+{% if stage.key == "continuity" %}
+<div class="card">
+  <h2>📖 説明：継続性の3つのタイプ</h2>
+  <div style="display:flex; gap:14px; flex-wrap:wrap;">
+    {% for k in knowledge.continuity %}
+    <div style="flex:1; min-width:200px; border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
+      <img src="/static/{{ k.fig }}" alt="{{ k.label }}" style="width:100%; max-width:200px;">
+      <div style="font-weight:700; margin-top:6px;
+        color:{% if loop.index == 1 %}#c0392b{% elif loop.index == 2 %}#f39c12{% else %}#27ae60{% endif %};">
+        {{ k.label }}
+      </div>
+      <div class="muted small" style="margin-top:6px; text-align:left;">{{ k.body }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% elif stage.key == "action" %}
+<div class="card">
+  <h2>📖 説明：動作性の段階</h2>
+  {% for k in knowledge.action %}
+  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
+    <span style="font-weight:700;">{{ k.label }}</span>
+    <span class="muted small" style="margin-left:8px;">{{ k.body }}</span>
+  </div>
+  {% endfor %}
+  <div class="notebox" style="margin-top:14px;">
+    💡 <strong>{{ knowledge.rule[0].label }}：</strong>{{ knowledge.rule[0].body }}
+  </div>
+</div>
+
+{% elif stage.key == "volition" %}
+<div class="card">
+  <h2>📖 説明：意志性の3つの値</h2>
+  {% for k in knowledge.volition %}
+  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
+    <span style="font-weight:700;">{{ k.label }}</span>
+    <span class="muted small" style="margin-left:8px;">{{ k.body }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+{% elif stage.key == "phon" %}
+<div class="card">
+  <h2>📖 説明：音の形と素性の関係</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    オノマトペは音韻形態（音の形）が素性のヒントになります。ただし<strong>すべての素性が予測できるわけではなく、例外の語もあります</strong>。
+  </p>
+  {% for k in knowledge.phon_feature %}
+  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
+    <div style="font-weight:700; color:var(--blue);">{{ k.label }}</div>
+    <div class="muted small" style="margin-top:4px;">{{ k.body }}</div>
+  </div>
+  {% endfor %}
+
+  <h3 style="margin-top:20px;">📋 音韻形態 × 素性 対応表</h3>
+  <div class="tscroll">
+    <table class="dtable">
+      <tr>
+        <th style="min-width:130px;">音韻形態</th>
+        <th style="min-width:110px;">予測される継続性</th>
+        <th style="min-width:110px;">予測される動作性</th>
+        <th style="min-width:140px;">例語</th>
+        <th style="min-width:140px;">予測が外れる語</th>
+      </tr>
+      {% for r in phon_table %}
+      <tr>
+        <td>
+          <strong>{{ r.form.label }}</strong>
+          <div class="muted" style="font-size:0.72rem;">{{ r.form.term }}</div>
+        </td>
+        <td><span class="fbadge fb-continuity">{{ r.pred_cont_label }}</span></td>
+        <td><span class="fbadge fb-action">{{ r.pred_act_label }}</span></td>
+        <td class="muted">{{ r.form.example }}</td>
+        <td class="muted">{% if r.exceptions %}{{ r.exceptions|join("・") }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div class="notebox" style="margin-top:12px;">
+    💡 <strong>「—（語による）」に注意：</strong>
+    2モーラ反復形は継続性なら安定して＋と予測できますが、動作性は語の意味しだいです
+    （きょろきょろ＝高／いらいら＝中／ごろごろ＝低）。<strong>予測は出発点、最後は意味で決めます。</strong>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <h2>📖 説明：3つの素性がそろうとカテゴリーが決まる</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    種類（感情・感覚／動作）＋3つの素性の組み合わせで、オノマトペは8つのカテゴリーに分かれます。
+    各カテゴリーの下は「なぜその素性値になるのか」です。
+  </p>
+  {% for c in categories %}
+  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
+    <span class="badge {% if c.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ c.kind }}</span>
+    <span style="font-weight:700; margin-left:6px;">{{ c.name }}</span>
+    <div class="small" style="color:var(--blue); margin-top:4px;">{{ c.profile_text }}</div>
+    <ul class="checklines">
+      <li><span class="fbadge fb-continuity">継続性</span>{{ c.why_cont }}</li>
+      <li><span class="fbadge fb-action">動作性</span>{{ c.why_act }}</li>
+      <li><span class="fbadge fb-volition">意志性</span>{{ c.why_vol }}</li>
+    </ul>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ============ ② 判断手順チェックリスト ============ -->
+<div class="card">
+  <h2>✅ 判断のしかた（この順に考えます）</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    語を見ていきなり決めるのではなく、この手順をなぞれば答えにたどり着けます。
+  </p>
+  {% for g in guides %}
+  <div style="display:flex; gap:12px; align-items:flex-start; border-left:4px solid var(--blue);
+              background:#fbfcfe; border-radius:0 8px 8px 0; padding:10px 14px; margin-bottom:10px;">
+    <div>
+      <div style="font-weight:700; font-size:0.92rem;">{{ g.question }}</div>
+      <div class="muted small" style="margin-top:4px;">{{ g.detail }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ============ ③ 対比ペア ============ -->
+<div class="card">
+  <h2>⚖️ 似ているのに違う語で確かめる</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    どこで値が分かれるのかは、<strong>近い語どうしを並べる</strong>といちばんよく見えます。
+  </p>
+  {% for p in pairs %}
+  <div style="border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px;">
+    <div style="display:flex; gap:10px; align-items:stretch; flex-wrap:wrap;">
+      {% for side in [p.a, p.b] %}
+      <div style="flex:1; min-width:200px; background:{% if loop.index == 1 %}var(--blue-soft){% else %}var(--orange-soft){% endif %};
+                  border-radius:10px; padding:10px 14px;">
+        <div style="font-size:1.5rem;">{{ side.word.emoji }}</div>
+        <div style="font-weight:700; font-size:1rem;">{{ side.word.word }}</div>
+        <div class="muted" style="font-size:0.74rem; margin-top:2px;">{{ side.word.scene }}</div>
+        {% if not side.key %}
+        <div style="margin-top:8px;">
+          <span class="badge {% if side.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ side.kind }}</span>
+        </div>
+        {% endif %}
+        <div style="margin-top:6px;">
+          <span class="fbadge {% if side.key %}fb-{{ side.key }}{% else %}fb-continuity{% endif %}">{{ side.value }}</span>
+        </div>
+        {% if not side.key %}
+        <div class="muted" style="font-size:0.72rem; margin-top:4px;">→ {{ side.cat }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="small" style="margin-top:10px; color:var(--blue);">👉 {{ p.point }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ============ ④ 思考ガイド（段階的に開く例題） ============ -->
+{% if example %}
+<div class="card">
+  <h2>🔍 一緒に考えてみよう</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    採点はありません。<strong>まず自分で考えてから</strong>、1つずつ開いて手順をなぞってください。
+  </p>
+
+  <div style="display:flex; align-items:center; gap:16px; background:var(--blue-soft); border-radius:12px; padding:14px 18px;">
+    <div style="font-size:2.2rem;">{{ example.word.emoji }}</div>
+    <div>
+      <div style="font-weight:700; font-size:1.15rem;">「{{ example.word.word }}」</div>
+      <div class="muted small">場面：{{ example.word.scene }}</div>
+      <div class="muted small">音の形：{{ example.phon.label }}（{{ example.phon.term }}）</div>
+    </div>
+  </div>
+
+  <div class="notebox" style="margin-top:12px;">
+    ✋ 開く前に：この語の<strong>{{ stage.title }}</strong>はどうなると思いますか？　頭の中で答えを決めてから進みましょう。
+  </div>
+
+  <div id="guideSteps" style="margin-top:14px;">
+    {% for s in example.steps %}
+    <div class="guide-step" data-step="{{ loop.index }}" style="margin-bottom:10px;">
+      <div style="font-weight:700; font-size:0.92rem; margin-bottom:4px;">{{ s.question }}</div>
+      <div class="guide-answer" style="display:none; background:#fbfcfe; border-left:4px solid var(--green);
+                                       border-radius:0 8px 8px 0; padding:9px 14px; font-size:0.84rem;">
+        {{ s.answer }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div id="guideConclusion" style="display:none; margin-top:12px;">
+    <div class="infobox">
+      <div style="font-weight:700; color:var(--blue); margin-bottom:4px;">
+        答え：「{{ example.word.word }}」の{{ stage.title }}は <strong>{{ example.conclusion }}</strong>
+      </div>
+      <div>{{ example.note }}</div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button type="button" id="btnGuideNext" class="btn btn-secondary">次の手順を開く →</button>
+    <span class="badge badge-gray" id="guideState">0 / {{ example.steps|length }}</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- ============ 練習へ ============ -->
+<div class="card" style="text-align:center; background:var(--blue-soft);">
+  <h2>✏️ ここまでを使って練習しましょう</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    同じ手順で3問解きます。判断手順は練習ページでもいつでも開けます。
+  </p>
+  <a href="/phase1/stage/{{ stage.n }}/practice" class="btn btn-primary">練習に進む（3問）→</a>
+</div>
+
+<script>
+(function () {
+  const btn = document.getElementById("btnGuideNext");
+  if (!btn) return;
+  const steps = Array.from(document.querySelectorAll(".guide-step"));
+  const state = document.getElementById("guideState");
+  const conclusion = document.getElementById("guideConclusion");
+  let opened = 0;
+  btn.addEventListener("click", () => {
+    if (opened < steps.length) {
+      steps[opened].querySelector(".guide-answer").style.display = "block";
+      opened += 1;
+      state.textContent = opened + " / " + steps.length;
+      if (opened === steps.length) {
+        conclusion.style.display = "block";
+        btn.textContent = "すべて開きました";
+        btn.disabled = true;
+      }
+    }
+  });
+})();
+</script>
+
+{% endblock %}

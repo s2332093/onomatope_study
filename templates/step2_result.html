@@ -17,7 +17,7 @@
   <h2 style="font-size:1rem;">2-1：3つの素性</h2>
   {% for r in feature_results %}
   <div class="result-item {% if not r.ok %}ng{% endif %}">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
       <span style="font-weight:700;">{{ r.name }}</span>
       <span class="small muted">
         あなた：<strong style="color:var(--text);">{{ r.user }}</strong>
@@ -25,7 +25,24 @@
         {% if r.ok %}<span style="color:var(--green);"> ✓</span>{% else %}<span style="color:var(--red);"> ✗</span>{% endif %}
       </span>
     </div>
-    <div class="small" style="color:var(--blue); margin-top:4px;">{{ r.explain }}</div>
+
+    <!-- なぜその素性値になるのか -->
+    <ul class="checklines">
+      <li><strong>なぜ〈{{ r.correct_label }}〉なのか：</strong>{{ r.why }}</li>
+      {% if r.phon %}
+      <li>
+        <strong>音の形との関係：</strong>{{ r.phon.text }}
+        {% if r.phon.match %}
+        <span class="badge badge-green" style="margin-left:4px;">予測どおり</span>
+        {% else %}
+        <span class="badge badge-orange" style="margin-left:4px;">予測の例外</span>
+        {% endif %}
+      </li>
+      {% endif %}
+      {% if not r.ok %}
+      <li class="muted">{{ r.general }}</li>
+      {% endif %}
+    </ul>
   </div>
   {% endfor %}
 </div>
@@ -42,8 +59,10 @@
   </div>
   <div class="infobox" style="margin-top:8px;">
     カテゴリーは、Step1の種類（{{ category.kind }}）と3つの素性の組み合わせで自動的に決まります。<br>
-    「{{ word.word }}」は<strong>「{{ category.name }}」</strong>＝<strong>{{ category.profile_text }}</strong><br>
-    Step3 では、この素性を手がかりに結びつく文法形式を線結びで考えます。
+    「{{ word.word }}」は<strong>「{{ category.name }}」</strong>＝<strong>{{ profile }}</strong><br>
+    <div style="margin-top:6px;">
+      この素性が、次のStep3で「結びつく文法形式」を決めます：{{ category.expr_explain }}
+    </div>
   </div>
 </div>
 

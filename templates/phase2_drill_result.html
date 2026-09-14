@@ -4,20 +4,18 @@
 <div class="card">
   {% if n_correct == total %}
     <div style="font-size:2rem;">🎉</div>
-    <h2 style="color:var(--green);">全問正解！素性の感覚がつかめています。フェーズ2へ進めます</h2>
+    <h2 style="color:var(--green);">全問正解！前接条件の見方がつかめています</h2>
   {% else %}
     <div style="font-size:2rem;">📝</div>
     <h2 style="color:var(--orange);">{{ n_correct }}／{{ total }} 正解。解説を確認しましょう</h2>
   {% endif %}
-  <p class="muted small">総合ドリルの結果</p>
+  <p class="muted small">前接条件ドリルの結果</p>
 </div>
 
 {% for r in results %}
 <div class="card">
   <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-    <div style="font-size:1.6rem;">
-      {% if r.word %}{{ r.word.emoji }}{% elif r.type == "phon" %}🔤{% else %}🗂{% endif %}
-    </div>
+    <div style="font-size:1.6rem;">{% if r.type == "cond" %}📝{% else %}🔗{% endif %}</div>
     <span style="font-weight:700;">問{{ r.no }}：{{ r.title }}</span>
     {% if r.ok %}
     <span class="badge badge-green" style="margin-left:auto;">正解</span>
@@ -28,19 +26,23 @@
   <div class="result-item {% if not r.ok %}ng{% endif %}">
     あなた：<strong>{{ r.user }}</strong>
     ／ 正解：<strong style="color:var(--green);">{{ r.correct_value }}</strong>
+    {% if r.explain %}
     <div class="small" style="color:var(--blue); margin-top:6px;">{{ r.explain }}</div>
-    {% if r.extra %}
-    <div class="small muted" style="margin-top:4px;">{{ r.extra }}</div>
     {% endif %}
+    {% if r.lines %}
+    <ul class="checklines">
+      {% for line in r.lines %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <div class="small muted" style="margin-top:4px;">{{ r.examples }}</div>
   </div>
 </div>
 {% endfor %}
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/phase1/drill" class="btn btn-primary">もう一度ドリル（別の問題）→</a>
-  <a href="/phase2" class="btn btn-primary" style="background:var(--purple);">フェーズ2へ進む →</a>
-  <a href="/phase1" class="btn btn-secondary">段階一覧に戻る</a>
-  <a href="/phase1/summary" class="btn btn-secondary">素性のまとめ（復習用）</a>
+  <a href="/phase2/drill" class="btn btn-primary" style="background:var(--purple);">もう一度ドリル（別の問題）→</a>
+  <a href="/phase2" class="btn btn-secondary">フェーズ2に戻る</a>
+  <a href="/phase3" class="btn btn-secondary">フェーズ3（例文）へ</a>
 </div>
 
 {% endblock %}

@@ -1,11 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="muted small" style="margin-bottom:8px;">フェーズ1：素性ドリル</div>
+<div class="muted small" style="margin-bottom:8px;">フェーズ1：総合ドリル（仕上げ）</div>
 <div class="card">
-  <h2>✏️ 素性ドリル（全{{ n }}問）</h2>
+  <h2>🎯 総合ドリル（全{{ n }}問）</h2>
   <p class="muted small">
-    <strong>オノマトペの素性</strong>を判断する問題と、<strong>文法形式の前接条件</strong>を答える問題が混ざって出題されます。<br>
+    段階1〜5で学んだ内容が<strong>混ざって</strong>出題されます（文法形式は出ません）。次の4タイプです。
+  </p>
+  <ul class="checklines" style="margin-top:8px;">
+    <li><strong>素性値を答える</strong>：その語の継続性・動作性・意志性はどれか</li>
+    <li><strong>音の形から予測する</strong>：この音韻形態の語は素性がどうなりやすいか</li>
+    <li><strong>同じ素性の語を探す</strong>：ある語と同じ素性値を持つのはどれか</li>
+    <li><strong>素性からカテゴリーを逆引きする</strong>：この素性の組み合わせの語はどれか</li>
+  </ul>
+  <p class="muted small" style="margin-top:10px;">
     迷ったら各問題の <strong style="color:var(--orange);">💡ヒント</strong> を開くと、判断に必要な知識をその場で確認できます。
   </p>
 </div>
@@ -15,22 +23,28 @@
   <div class="card">
     <input type="hidden" name="spec_{{ q.idx }}" value="{{ q.spec }}">
 
-    {% if q.type == "word" %}
-    <!-- タイプA：オノマトペの素性 -->
     <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px;">
-      <div style="font-size:1.8rem;">{{ q.word.emoji }}</div>
-      <div style="flex:1;">
-        <span style="font-weight:700; font-size:1.05rem;">問{{ loop.index }}：「{{ q.word.word }}」の{{ q.feature.name }}は？</span>
-        <div class="muted small">場面：{{ q.word.scene }}</div>
+      <div style="font-size:1.8rem;">
+        {% if q.type == "feat" %}{{ q.word.emoji }}
+        {% elif q.type == "phon" %}🔤
+        {% elif q.type == "same" %}{{ q.word.emoji }}
+        {% else %}🗂{% endif %}
       </div>
-      <button type="button" class="hint-toggle" data-target="hint-{{ q.idx }}"
-              style="flex-shrink:0; background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:8px; color:var(--orange); font-size:0.75rem; padding:5px 10px; cursor:pointer; font-weight:700;">💡ヒント</button>
+      <div style="flex:1;">
+        <span style="font-weight:700; font-size:1.05rem;">問{{ loop.index }}：{{ q.prompt }}</span>
+        {% if q.type == "feat" %}
+        <div class="muted small">場面：{{ q.word.scene }}</div>
+        {% elif q.sub %}
+        <div class="muted small">{{ q.sub }}</div>
+        {% endif %}
+      </div>
+      <button type="button" class="hint-toggle" data-target="hint-{{ q.idx }}">💡ヒント</button>
     </div>
 
     <!-- 知識ヒント（初期非表示） -->
-    <div id="hint-{{ q.idx }}" style="display:none; background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:10px; padding:12px 16px; margin-bottom:12px;">
-      {% if q.feature.key == "continuity" %}
-      <div class="small" style="font-weight:700; margin-bottom:8px;">継続性の見方</div>
+    <div id="hint-{{ q.idx }}" class="hintbox" style="display:none;">
+      {% if q.hint_feature == "continuity" %}
+      <div style="font-weight:700; margin-bottom:8px;">継続性の見方</div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
         {% for k in knowledge.continuity %}
         <div style="flex:1; min-width:130px; background:#fff; border-radius:8px; padding:8px; text-align:center;">
@@ -39,51 +53,49 @@
         </div>
         {% endfor %}
       </div>
-      {% elif q.feature.key == "action" %}
-      <div class="small" style="font-weight:700; margin-bottom:6px;">動作性の見方</div>
+      {% elif q.hint_feature == "action" %}
+      <div style="font-weight:700; margin-bottom:6px;">動作性の見方</div>
       {% for k in knowledge.action %}
-      <div class="small" style="margin-bottom:4px;"><strong>{{ k.label }}</strong>：{{ k.body }}</div>
+      <div style="margin-bottom:4px;"><strong>{{ k.label }}</strong>：{{ k.body }}</div>
       {% endfor %}
-      <div class="small" style="margin-top:6px;">💡 {{ knowledge.rule[0].body }}</div>
-      {% elif q.feature.key == "volition" %}
-      <div class="small" style="font-weight:700; margin-bottom:6px;">意志性の見方</div>
+      <div style="margin-top:6px;">💡 {{ knowledge.rule[0].body }}</div>
+      {% elif q.hint_feature == "volition" %}
+      <div style="font-weight:700; margin-bottom:6px;">意志性の見方</div>
       {% for k in knowledge.volition %}
-      <div class="small" style="margin-bottom:4px;"><strong>{{ k.label }}</strong>：{{ k.body }}</div>
+      <div style="margin-bottom:4px;"><strong>{{ k.label }}</strong>：{{ k.body }}</div>
       {% endfor %}
+      {% else %}
+      <div style="font-weight:700; margin-bottom:6px;">3つの素性の見方</div>
+      {% for k in knowledge.continuity %}
+      <div style="margin-bottom:3px;"><strong>{{ k.label }}</strong>：{{ k.body }}</div>
+      {% endfor %}
+      <div style="margin-top:6px;">💡 {{ knowledge.rule[0].body }}</div>
       {% endif %}
-      <div class="small" style="margin-top:6px; border-top:1px dashed #f3d9ab; padding-top:6px;">{{ q.hint_phon }}</div>
+      {% if q.hint_extra %}
+      <div style="margin-top:6px; border-top:1px dashed #f3d9ab; padding-top:6px;">{{ q.hint_extra }}</div>
+      {% endif %}
     </div>
 
+    {% if q.options %}
+    <!-- 素性値を選ぶ（ピル） -->
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      {% for opt in q.feature.options %}
+      {% for opt in q.options %}
       <label>
         <input type="radio" name="choice_{{ q.idx }}" value="{{ opt }}" required style="display:none;">
         <span class="pill">{{ opt }}</span>
       </label>
       {% endfor %}
     </div>
-
     {% else %}
-    <!-- タイプB：文法形式の前接条件 -->
-    <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px;">
-      <div style="font-size:1.8rem;">📝</div>
-      <div style="flex:1;">
-        <span style="font-weight:700; font-size:1.05rem;">問{{ loop.index }}：「〜{{ q.expr.label }}」はどんな素性のオノマトペと結びつく？</span>
-        <div class="muted small">この表現形式の「前接条件」を選んでください。</div>
-      </div>
-      <button type="button" class="hint-toggle" data-target="hint-{{ q.idx }}"
-              style="flex-shrink:0; background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:8px; color:var(--orange); font-size:0.75rem; padding:5px 10px; cursor:pointer; font-weight:700;">💡ヒント</button>
-    </div>
-
-    <div id="hint-{{ q.idx }}" style="display:none; background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:10px; padding:12px 16px; margin-bottom:12px;">
-      <div class="small">{{ q.hint }}</div>
-      <div class="small" style="margin-top:6px;">この例文から、どんな時間的性質・意志性の語と相性がよいか考えてみましょう。</div>
-    </div>
-
-    {% for opt in q.options %}
+    <!-- 語を選ぶ（カード） -->
+    {% for w in q.word_options %}
     <label style="display:block; margin-bottom:8px;">
-      <input type="radio" name="choice_{{ q.idx }}" value="{{ opt }}" required style="display:none;">
-      <div class="opt-card"><span class="small" style="font-weight:700;">{{ opt }}</span></div>
+      <input type="radio" name="choice_{{ q.idx }}" value="{{ w.id }}" required style="display:none;">
+      <div class="opt-card" style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:1.3rem;">{{ w.emoji }}</span>
+        <span style="font-weight:700;">{{ w.word }}</span>
+        <span class="muted small">{{ w.scene }}</span>
+      </div>
     </label>
     {% endfor %}
     {% endif %}
@@ -92,7 +104,7 @@
   {% endfor %}
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="/phase1" class="btn btn-secondary" style="margin-left:12px;">← 知識ページに戻る</a>
+  <a href="/phase1" class="btn btn-secondary" style="margin-left:12px;">← 段階一覧に戻る</a>
 </form>
 
 <script>

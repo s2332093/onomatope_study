@@ -41,8 +41,16 @@ def load_all():
     # 表現形式
     data["expressions"] = [dict(r) for r in cur.execute(
         "SELECT * FROM expressions ORDER BY ord")]
+    data["expr_by_key"] = {e["key"]: e for e in data["expressions"]}
 
-    # カテゴリー → 結びつく表現キー集合
+    # 局面グループ → 表現形式
+    data["expr_groups"] = []
+    for e in data["expressions"]:
+        if not data["expr_groups"] or data["expr_groups"][-1]["name"] != e["grp"]:
+            data["expr_groups"].append({"name": e["grp"], "exprs": []})
+        data["expr_groups"][-1]["exprs"].append(e)
+
+    # カテゴリー → 結びつく表現キー集合（研究資料由来の正解表）
     data["cat_exprs"] = {}
     for r in cur.execute("SELECT * FROM category_expression"):
         data["cat_exprs"].setdefault(r["category_id"], set()).add(r["expression_key"])
@@ -52,16 +60,25 @@ def load_all():
         "SELECT w.* FROM words w JOIN categories c ON w.category_id = c.id ORDER BY c.ord, w.rowid")]
     data["word_by_id"] = {w["id"]: w for w in data["words"]}
 
-    # 例文練習（カテゴリーごとに複数問）
+    # 例文練習（語ごとに2問）
     data["practice"] = {}
-    by_pid = {}
-    for r in cur.execute("SELECT * FROM practice ORDER BY category_id, ord"):
-        q = {"frame": r["frame"], "explain": r["explain"], "options": []}
-        data["practice"].setdefault(r["category_id"], []).append(q)
-        by_pid[r["id"]] = q
-    for r in cur.execute("SELECT * FROM practice_options ORDER BY practice_id, ord"):
-        by_pid[r["practice_id"]]["options"].append({
-            "label": r["label"], "meaning": r["meaning"], "correct": bool(r["correct"])})
+    for r in cur.execute("SELECT * FROM practice ORDER BY word_id, ord"):
+        data["practice"].setdefault(r["word_id"], []).append(dict(r))
+
+    # フェーズ1の学習コンテンツ（段階ごと）
+    data["stage_guides"] = {}
+    for r in cur.execute("SELECT * FROM stage_guides ORDER BY stage, ord"):
+        data["stage_guides"].setdefault(r["stage"], []).append(dict(r))
+
+    data["contrast_pairs"] = {}
+    for r in cur.execute("SELECT * FROM contrast_pairs ORDER BY stage, ord"):
+        data["contrast_pairs"].setdefault(r["stage"], []).append(dict(r))
+
+    data["worked_examples"] = {r["stage"]: dict(r)
+                               for r in cur.execute("SELECT * FROM worked_examples")}
+    data["worked_steps"] = {}
+    for r in cur.execute("SELECT * FROM worked_steps ORDER BY stage, ord"):
+        data["worked_steps"].setdefault(r["stage"], []).append(dict(r))
 
     con.close()
     return data

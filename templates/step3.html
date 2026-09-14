@@ -13,19 +13,66 @@
 </div>
 
 <form method="post" action="/step3/{{ word.id }}/check" id="step3Form">
+  <input type="hidden" name="hint_level" id="hintLevel" value="0">
+
+  <!-- 判断の手順 -->
+  <div class="card">
+    <h2 style="font-size:1rem;">🧭 手順を思い出そう</h2>
+    <div class="small">
+      {% for k in guide %}
+      <div style="margin-bottom:4px;"><strong style="color:var(--blue);">{{ k.label }}</strong>　{{ k.body }}</div>
+      {% endfor %}
+    </div>
+    <div class="infobox" style="margin-top:10px;">
+      考え方：<strong>表現が必要とする素性 ⊆ オノマトペが持つ素性</strong> なら結びつく
+    </div>
+  </div>
+
+  <!-- 段階ヒント -->
+  <div class="card">
+    <h2 style="font-size:1rem;">💡 ヒントは3段階</h2>
+    <p class="muted small" style="margin-bottom:10px;">
+      まず自分で考えてみましょう。順番にしか開けません（使ったところまで結果画面に表示されます）。
+    </p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button type="button" class="hint-btn" id="h1">ヒント1：この語の素性</button>
+      <button type="button" class="hint-btn" id="h2" disabled>ヒント2：各表現の前接条件</button>
+      <button type="button" class="hint-btn" id="h3" disabled>ヒント3：照合表</button>
+      <span class="badge badge-gray" id="hintState" style="margin-left:auto;">ヒント未使用</span>
+    </div>
+
+    <!-- ヒント3：照合表（○×は出さない） -->
+    <div id="matchTable" class="hintbox" style="display:none; margin-top:12px;">
+      <div style="font-weight:700; margin-bottom:6px;">
+        「{{ word.word }}」の素性：<span style="color:var(--blue);">{{ word_hint }}</span>
+      </div>
+      <div class="tscroll">
+        <table class="dtable">
+          <tr><th style="min-width:130px;">表現形式</th><th>必要な素性</th></tr>
+          {% for r in match_rows %}
+          <tr><td>〜{{ r.label }}</td><td>{{ r.req }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div class="muted" style="margin-top:6px;">
+        左の素性が、右の条件をすべて含んでいるかを1行ずつ確かめましょう。
+      </div>
+    </div>
+  </div>
 
   <div class="card" style="position: relative;">
-    <h2 style="font-size:1rem;">結びつく表現は？（線結び）</h2>
-    <p class="muted small" style="margin-bottom:8px;">
-      Step2で判定した素性を思い出しながら、「{{ word.word }}」の左側の●から、
-      文法的に正しく結びつく表現の右側の●へ線を引いてください。<br>
-      迷ったら <strong style="color:var(--orange);">💡ヒント</strong> ボタンで、
-      オノマトペの素性や各表現の前接条件を確認できます。
-    </p>
-    <div class="infobox" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <span>考え方：表現が必要とする素性 ⊆ オノマトペが持つ素性 なら結びつく</span>
-      <button type="button" id="btnResetLines" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.75rem;">線を引き直す</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+      <h2 style="font-size:1rem; margin:0;">結びつく表現は？（線結び）</h2>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="badge badge-blue" id="lineCount">引いた線：0本</span>
+        <button type="button" id="btnResetLines" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.75rem;">線を引き直す</button>
+      </div>
     </div>
+    <p class="muted small" style="margin-bottom:16px;">
+      「{{ word.word }}」の左側の●から、文法的に正しく結びつく表現の右側の●へ線を引いてください。
+      表現は<strong>局面（時間のどの部分を表すか）ごと</strong>にまとめてあります。
+      もう一度押すと線を消せます。
+    </p>
 
     <!-- 各表現が「○」か「×」かを送信するための隠しフィールド群 -->
     {% for e in expressions %}
@@ -33,39 +80,40 @@
     {% endfor %}
 
     <!-- 線結びコンテナ -->
-    <div id="matchingContainer" style="position: relative; display: flex; justify-content: space-between; gap: 40px; margin: 20px 0; min-height: 300px; user-select: none;">
+    <div id="matchingContainer" style="position: relative; display: flex; justify-content: space-between; gap: 36px; margin: 10px 0; user-select: none;">
 
       <!-- 線描画用SVGレイヤー -->
       <svg id="matchingSvg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></svg>
 
-      <!-- 左側：オノマトペ（起点）＋素性ヒント -->
-      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; z-index: 2; max-width: 220px;">
+      <!-- 左側：オノマトペ（起点） -->
+      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; z-index: 2; max-width: 200px;">
         <div id="leftNode" style="position: relative; padding: 14px 20px; background: var(--blue-soft); border: 2px solid var(--blue); border-radius: 10px; font-weight: 700; text-align: center;">
           {{ word.word }}
-          <div class="hint-text" id="hint-word" style="display:none; font-size: 0.72rem; font-weight: 400; color: var(--muted); margin-top: 6px;">
+          <div id="hint-word" style="display:none; font-size: 0.72rem; font-weight: 400; color: var(--muted); margin-top: 6px;">
             素性：<span style="color:var(--blue); font-weight:700;">{{ word_hint }}</span>
           </div>
           <div class="dot left-dot" style="position: absolute; right: -11px; top: 50%; margin-top: -10px; width: 20px; height: 20px; background: var(--blue); border: 4px solid #fff; border-radius: 50%; cursor: pointer; transition: transform 0.1s; box-shadow: 0 0 0 1px var(--border);"></div>
         </div>
-        <button type="button" class="hint-btn" data-hint="hint-word"
-                style="background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:8px; color:var(--orange); font-size:0.72rem; padding:4px 10px; cursor:pointer; font-weight:700;">💡この語の素性ヒント</button>
       </div>
 
-      <!-- 右側：文法表現（終点リスト） -->
-      <div style="display: flex; flex-direction: column; justify-content: space-around; gap: 10px; z-index: 2; flex: 1; max-width: 400px;">
-        {% for e in expressions %}
+      <!-- 右側：文法表現（局面グループごと） -->
+      <div style="display: flex; flex-direction: column; gap: 6px; z-index: 2; flex: 1; max-width: 420px;">
+        {% for g in expr_groups %}
+        <div class="muted small" style="font-weight:700; margin-top:6px; padding-left:14px;">
+          ◆ {{ g.name }}
+        </div>
+        {% for e in g.exprs %}
         <div class="right-node" id="node-{{ e.key }}" data-key="{{ e.key }}" style="position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 22px; background: #fff; border: 2px solid var(--border); border-radius: 10px; transition: border-color 0.15s;">
-          <div class="dot right-dot" style="position: absolute; left: -11px; width: 20px; height: 20px; background: #b3c1d6; border: 4px solid #fff; border-radius: 50%; cursor: pointer; transition: transform 0.1s; box-shadow: 0 0 0 1px var(--border);"></div>
+          <div class="dot right-dot" style="position: absolute; left: -11px; top: 50%; margin-top: -10px; width: 20px; height: 20px; background: #b3c1d6; border: 4px solid #fff; border-radius: 50%; cursor: pointer; transition: transform 0.1s; box-shadow: 0 0 0 1px var(--border);"></div>
           <div style="flex: 1;">
             <div style="font-weight: 700; font-size: 0.88rem;">〜{{ e.label }}</div>
-            <div class="hint-text" id="hint-{{ e.key }}" style="display:none; font-size: 0.72rem; color: var(--muted); margin-top: 2px;">
-              ヒント：<span style="color:var(--blue);">{{ e.cond_text }}</span><br>
+            <div class="hint-cond" style="display:none; font-size: 0.72rem; color: var(--muted); margin-top: 2px;">
+              必要な素性：<span style="color:var(--blue);">{{ e.cond_text }}</span><br>
               例：{{ e.example }}
             </div>
           </div>
-          <button type="button" class="hint-btn" data-hint="hint-{{ e.key }}"
-                  style="flex-shrink:0; background:var(--orange-soft); border:1px solid #f3d9ab; border-radius:8px; color:var(--orange); font-size:0.7rem; padding:4px 8px; cursor:pointer; font-weight:700;">💡ヒント</button>
         </div>
+        {% endfor %}
         {% endfor %}
       </div>
 
@@ -80,7 +128,6 @@
   .dot:hover { transform: scale(1.3); background-color: var(--blue) !important; }
   .dot.connected { background-color: var(--green) !important; }
   .right-node.active-connection { border-color: var(--green) !important; background: var(--green-soft) !important; }
-  .hint-btn:hover { border-color: var(--orange) !important; }
   line.matching-line {
     stroke: #1d9e57; stroke-width: 3; stroke-linecap: round;
     animation: drawLine 0.2s ease-out;
@@ -100,10 +147,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const leftDot = leftNode.querySelector(".left-dot");
   const rightNodes = document.querySelectorAll(".right-node");
   const btnReset = document.getElementById("btnResetLines");
+  const lineCount = document.getElementById("lineCount");
 
   let isDragging = false;
   let activeLine = null;
   const connections = new Map();
+
+  function updateCount() {
+    lineCount.textContent = "引いた線：" + connections.size + "本";
+  }
 
   function getDotCoords(dotElement) {
     const rect = dotElement.getBoundingClientRect();
@@ -184,6 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
     node.classList.add("active-connection");
     dot.classList.add("connected");
     document.getElementById(`input-${key}`).value = "○";
+    updateCount();
     if (navigator.vibrate) navigator.vibrate(15);
   }
 
@@ -193,6 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
     node.classList.remove("active-connection");
     dot.classList.remove("connected");
     document.getElementById(`input-${key}`).value = "×";
+    updateCount();
   }
 
   btnReset.addEventListener("click", () => {
@@ -203,14 +257,45 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ヒント表示（トグル）＋ レイアウト変化に合わせて線を再描画
-  // （単語の素性ヒント・各表現の条件ヒントの両方に対応）
-  document.querySelectorAll(".hint-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const hintEl = document.getElementById(btn.getAttribute("data-hint"));
-      hintEl.style.display = (hintEl.style.display === "none" || !hintEl.style.display) ? "block" : "none";
-      redrawLines();
-    });
+  // ---- 段階ヒント（1→2→3の順にしか開けない） ----
+  const h1 = document.getElementById("h1");
+  const h2 = document.getElementById("h2");
+  const h3 = document.getElementById("h3");
+  const hintState = document.getElementById("hintState");
+  const hintLevel = document.getElementById("hintLevel");
+  const STATE = ["ヒント未使用", "ヒント1まで使用", "ヒント2まで使用", "ヒント3まで使用"];
+
+  function setLevel(n) {
+    hintLevel.value = String(n);
+    hintState.textContent = STATE[n];
+  }
+
+  h1.addEventListener("click", () => {
+    document.getElementById("hint-word").style.display = "block";
+    h1.disabled = true; h2.disabled = false;
+    setLevel(1);
+    redrawLines();
+  });
+  h2.addEventListener("click", () => {
+    document.querySelectorAll(".hint-cond").forEach(el => { el.style.display = "block"; });
+    h2.disabled = true; h3.disabled = false;
+    setLevel(2);
+    redrawLines();
+  });
+  h3.addEventListener("click", () => {
+    document.getElementById("matchTable").style.display = "block";
+    h3.disabled = true;
+    setLevel(3);
+    redrawLines();
+  });
+
+  // 0本で提出しようとしたときの確認
+  document.getElementById("step3Form").addEventListener("submit", (ev) => {
+    if (connections.size === 0) {
+      if (!confirm("線を1本も引いていません。「どの表現とも結びつかない」という判断で提出しますか？")) {
+        ev.preventDefault();
+      }
+    }
   });
 
   leftDot.addEventListener("mousedown", startDrag);
@@ -233,6 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   window.addEventListener("resize", redrawLines);
+  updateCount();
 });
 </script>
 
