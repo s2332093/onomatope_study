@@ -14,13 +14,20 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
+import init_db
 from database import load_all
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ---- 起動時に DB から全データを読み込む ----
+# ---- 起動時：DB が無い／古ければ作り直してから読み込む ----
+#   init_db.py の学習データを直して onomatopoeia.db を更新し忘れても、
+#   ここで指紋が食い違うので自動的に作り直される。
+#   そのとき研究資料との整合性チェック（80セル照合など）も必ず走り、
+#   一致しなければ起動が止まる＝デプロイが失敗する。
+init_db.ensure_current()
+
 DB = load_all()
 
 WORDS        = DB["words"]

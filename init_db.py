@@ -7,6 +7,8 @@
 #   ・カテゴリー／音韻形態に「なぜその素性になるのか」の根拠文を追加
 #   ・Step4 の例文を語ごとの自然文に置き換え（誤答は実行時に自動生成）
 #   ・構造化条件から計算した○×が、研究資料由来の正解表と一致することを検証
+import hashlib
+import json
 import sqlite3
 import os
 import sys
@@ -650,6 +652,45 @@ def _combines(cat, expr):
     return True
 
 
+def data_fingerprint():
+    """このファイルが持つ学習データ全体の指紋（内容が1文字でも変われば変わる）。
+
+    DB に保存しておき、起動時に照合する。指紋が違えば DB が古いということなので
+    作り直す（→ verify() の整合性チェックもそのとき必ず走る）。
+    """
+    payload = json.dumps(
+        [KNOWLEDGE, PHON_FORMS, CATEGORIES, EXPRESSIONS, CATEGORY_EXPRESSIONS,
+         WORDS, PRACTICE, STAGE_GUIDES, CONTRAST_PAIRS, WORKED_EXAMPLES, WORKED_STEPS],
+        ensure_ascii=False, sort_keys=True, default=list)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def db_fingerprint(db_path=DB_PATH):
+    """既存 DB に記録されている指紋（読めなければ None）"""
+    if not os.path.exists(db_path):
+        return None
+    try:
+        con = sqlite3.connect(db_path)
+        row = con.execute("SELECT value FROM meta WHERE key = 'fingerprint'").fetchone()
+        con.close()
+        return row[0] if row else None
+    except sqlite3.Error:
+        return None
+
+
+def ensure_current(db_path=DB_PATH):
+    """DB が無い／古いときだけ作り直す。作り直すときは verify() が走る。
+
+    main.py が起動時に呼ぶ。これにより、Render のビルドコマンドを変更しなくても
+    「データを直したのに .db を更新し忘れる」事故が起きない。
+    """
+    if db_fingerprint(db_path) == data_fingerprint():
+        return False
+    print("学習データが更新されています。onomatopoeia.db を作り直します…")
+    main()
+    return True
+
+
 def verify():
     cats = [{"id": c[0], "name": c[2], "kind": c[3],
              "continuity": c[4], "action": c[5], "volition": c[6]} for c in CATEGORIES]
@@ -852,7 +893,12 @@ def main():
         question TEXT NOT NULL,
         answer   TEXT NOT NULL
     );
+    CREATE TABLE meta (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
     """)
+    cur.execute("INSERT INTO meta VALUES ('fingerprint', ?)", (data_fingerprint(),))
 
     cur.executemany("INSERT INTO knowledge VALUES (?,?,?,?,?)", KNOWLEDGE)
     cur.executemany("INSERT INTO phon_forms VALUES (?,?,?,?,?,?,?,?,?)", PHON_FORMS)
