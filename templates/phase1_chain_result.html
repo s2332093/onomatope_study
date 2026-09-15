@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/phase1" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <div style="margin-left:auto; display:flex; gap:4px; align-items:center;">
+    {% for c in chain %}
+    <span class="badge {% if c.k == k %}badge-blue{% elif c.k < k %}badge-green{% else %}badge-gray{% endif %}">
+      {{ c.icon }} {{ c.title }}
+    </span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div style="font-size:2rem;">{% if fb.ok %}✅{% else %}📝{% endif %}</div>
+    <div style="flex:1;">
+      <h2 style="margin:0; color:{% if fb.ok %}var(--green){% else %}var(--orange){% endif %};">
+        {% if fb.ok %}正解です{% else %}惜しい！考え方を確認しましょう{% endif %}
+      </h2>
+      <div class="muted small">「{{ word.word }}」の{{ step.title }}（{{ k }} / {{ chain|length }}）</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="result-item {% if not fb.ok %}ng{% endif %}">
+    あなたの答え：<strong>{{ fb.user }}</strong>
+    {% if not fb.ok %}
+    <div class="small" style="color:var(--green); margin-top:6px;">正解：<strong>{{ fb.correct }}</strong></div>
+    {% endif %}
+  </div>
+
+  {% if fb.fig %}
+  <div style="text-align:center; margin:14px 0;">
+    <img src="/static/{{ fb.fig }}" alt="{{ fb.correct }}" style="width:100%; max-width:240px;">
+    <div class="small" style="font-weight:700; margin-top:4px;">{{ fb.correct }}</div>
+  </div>
+  {% endif %}
+
+  <div class="infobox">
+    <div style="font-weight:700; color:var(--blue); margin-bottom:4px;">なぜそうなるのか</div>
+    {{ fb.why }}
+  </div>
+
+  {% if fb.extra %}
+  <div class="notebox" style="margin-top:10px;">
+    {% if fb.phon_match is defined and fb.phon_match is not none %}
+      {% if fb.phon_match %}
+      <span class="badge badge-green" style="margin-right:6px;">予測どおり</span>
+      {% else %}
+      <span class="badge badge-orange" style="margin-right:6px;">予測の例外</span>
+      {% endif %}
+    {% endif %}
+    {{ fb.extra }}
+  </div>
+  {% endif %}
+</div>
+
+<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  {% if next_k %}
+  <a href="/phase1/word/{{ word.id }}/{{ next_k }}" class="btn btn-primary">
+    次へ：{{ chain[next_k - 1].icon }} {{ chain[next_k - 1].title }} →
+  </a>
+  {% else %}
+  <a href="/phase1/word/{{ word.id }}/done" class="btn btn-primary">まとめを見る →</a>
+  {% endif %}
+  <a href="/phase1/word/{{ word.id }}/{{ k }}" class="btn btn-secondary">この問いをもう一度</a>
+</div>
+
+{% endblock %}

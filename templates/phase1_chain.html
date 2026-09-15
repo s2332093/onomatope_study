@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- 進捗 -->
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/phase1" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <div style="margin-left:auto; display:flex; gap:4px; align-items:center;">
+    {% for c in chain %}
+    <span class="badge {% if c.k == k %}badge-blue{% elif c.k < k %}badge-green{% else %}badge-gray{% endif %}">
+      {{ c.icon }} {{ c.title }}
+    </span>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- 学習中の語 -->
+<div class="card">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div style="font-size:2.4rem;">{{ word.emoji }}</div>
+    <div style="flex:1;">
+      <h2 style="margin:0;">「{{ word.word }}」</h2>
+      <div class="muted small">場面：{{ word.scene }}</div>
+    </div>
+    <span class="badge badge-gray">{{ k }} / {{ chain|length }}</span>
+  </div>
+</div>
+
+<!-- 前の答えを踏まえた導入 -->
+<div class="card" style="background:var(--blue-soft);">
+  <div style="font-size:0.9rem; line-height:1.7;">{{ q.lead|safe }}</div>
+</div>
+
+<form method="post" action="/phase1/word/{{ word.id }}/{{ k }}/check">
+  <div class="card">
+    <h2 style="font-size:1.05rem;">{{ q.step.icon }} {{ q.prompt }}</h2>
+
+    {% if q.kind == "meaning" %}
+    {% for opt in q.meaning_opts %}
+    <label style="display:block; margin-bottom:10px;">
+      <input type="radio" name="choice" value="{{ opt.src }}" required style="display:none;">
+      <div class="opt-card">{{ opt.text }}</div>
+    </label>
+    {% endfor %}
+
+    {% elif q.kind == "phon" %}
+    {% for opt in q.phon_opts %}
+    <label style="display:block; margin-bottom:10px;">
+      <input type="radio" name="choice" value="{{ opt.value }}" required style="display:none;">
+      <div class="opt-card">
+        <div style="font-weight:700;">{{ opt.label }}</div>
+        <div class="muted small">{{ opt.term }}{% if opt.example %} ／ 例：{{ opt.example }}{% endif %}</div>
+      </div>
+    </label>
+    {% endfor %}
+
+    {% else %}
+    <!-- 素性の選択肢：図つき -->
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+      {% for opt in q.options %}
+      <label style="flex:1; min-width:200px;">
+        <input type="radio" name="choice" value="{{ opt.value }}" required style="display:none;">
+        <div class="opt-card" style="height:100%; text-align:center;">
+          <img src="/static/{{ opt.fig }}" alt="{{ opt.label }}" style="width:100%; max-width:190px;">
+          <div style="font-weight:700; margin-top:4px;">{{ opt.label }}</div>
+          <div class="muted small" style="margin-top:4px; text-align:left;">{{ opt.note }}</div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <button type="submit" class="btn btn-primary">答え合わせ →</button>
+  {% if k > 1 %}
+  <a href="/phase1/word/{{ word.id }}/{{ k - 1 }}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
+  {% else %}
+  <a href="/phase1" class="btn btn-secondary" style="margin-left:12px;">語の一覧に戻る</a>
+  {% endif %}
+</form>
+
+{% endblock %}

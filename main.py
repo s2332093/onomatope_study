@@ -1,9 +1,11 @@
 # main.py
 # オノマトペ学習支援システム
-#   フェーズ1：素性の学習（/phase1）＋ 素性ドリル（/phase1/drill）
+#   フェーズ1：語ごとの連鎖学習（/phase1/word/{id}/1〜5）
+#             意味 → 音の形 → 継続性 → 動作性 → 意志性 を1語でたどる
+#             ＋ 総合ドリル（/phase1/drill）＋ まとめ（/phase1/summary）
 #   フェーズ2：文法形式の学習（/phase2）＋ 前接条件ドリル（/phase2/drill）
-#             ＋ 語ごとの Step1〜Step3
-#   フェーズ3：例文への適用（/phase3）＋ Step4
+#             ＋ 線結び（/step3/{id}）
+#   フェーズ3：例文への適用（/phase3）＋ 例文練習（/step4/{id}）
 #
 # 2026-09 改修の中心：
 #   表現形式の前接条件を素性の集合として持ち、○×の判定と誤答フィードバックを
@@ -46,9 +48,6 @@ STAGE_GUIDES    = DB["stage_guides"]
 CONTRAST_PAIRS  = DB["contrast_pairs"]
 WORKED_EXAMPLES = DB["worked_examples"]
 WORKED_STEPS    = DB["worked_steps"]
-
-KIND_OPTIONS = ["感情・感覚", "動作"]
-
 
 # =====================================================================
 #  素性のラベル表示
@@ -225,8 +224,6 @@ def get_category(word):
     return CAT_BY_ID[word["category_id"]]
 
 
-def feature_hint(cat):
-    return profile_str(cat)
 
 
 def meaning_options(word, n=4):
@@ -253,26 +250,8 @@ def meaning_options(word, n=4):
     return opts
 
 
-def phon_defs_for(word):
-    """1-2（音韻形態）用の選択肢。例示から学習中の語を除外する。"""
-    defs = []
-    for p in PHON_DEFS:
-        d = dict(p)
-        examples = [e for e in p["example"].split("・") if e != word["word"]]
-        d["example"] = "・".join(examples[:3])
-        defs.append(d)
-    return defs
 
 
-def kind_examples_for(word, n=3):
-    """1-3（種類の判断）用の例。学習中の語を除外する。"""
-    result = {}
-    for kind in KIND_OPTIONS:
-        pool = [w["word"] for w in WORDS
-                if w["id"] != word["id"]
-                and CAT_BY_ID[w["category_id"]]["kind"] == kind]
-        result[kind] = "・".join(random.sample(pool, min(n, len(pool))))
-    return result
 
 
 # =====================================================================
@@ -321,69 +300,163 @@ for _w in WORDS:
 
 
 # =====================================================================
-#  フェーズ1：段階制の学習（説明 → その場で演習 → 解説）
+#  フェーズ1：語ごとの連鎖学習
+#    意味 → 音の形 → 継続性 → 動作性 → 意志性 を1語で最後までたどる。
+#    前の問いの答えが次の問いの前提になる（「ABAB型なので、継続性は？」）。
 # =====================================================================
-STAGES = [
-    {"n": 1, "key": "continuity", "icon": "⏱", "title": "継続性",
-     "lead": "オノマトペが表す感情・状態・動きが、時間の中でどう続くか。まず図のイメージをつかみ、"
-             "そのまま3語で判断してみましょう。"},
-    {"n": 2, "key": "action", "icon": "🏃", "title": "動作性",
-     "lead": "動き・行為としての強さ。段階1で学んだ継続性と連動します"
-             "（継続性が低いほど動作性は高い）。"},
-    {"n": 3, "key": "volition", "icon": "✋", "title": "意志性",
-     "lead": "自分の意志で起こせるかどうか。ここまでの3つがそろうと、語の素性が決まります。"},
-    {"n": 4, "key": "phon", "icon": "🔤", "title": "音の形からの予測",
-     "lead": "初めて出会う語でも、音韻形態から素性をある程度予測できます。"
-             "予測が効く素性と、効かない素性・例外の語を見分けましょう。"},
-    {"n": 5, "key": "category", "icon": "🗂", "title": "素性の組み合わせ → カテゴリー",
-     "lead": "3つの素性がそろうと、語は8つのカテゴリーのどれかに決まります。"
-             "この組み合わせが、フェーズ2で学ぶ「結びつく文法形式」を決めます。"},
+CHAIN = [
+    {"k": 1, "key": "meaning",    "icon": "\U0001f4ad", "title": "意味"},
+    {"k": 2, "key": "phon",       "icon": "\U0001f524", "title": "音の形"},
+    {"k": 3, "key": "continuity", "icon": "\u23f1",     "title": "継続性"},
+    {"k": 4, "key": "action",     "icon": "\U0001f3c3", "title": "動作性"},
+    {"k": 5, "key": "volition",   "icon": "\u270b",     "title": "意志性"},
 ]
-STAGE_BY_N = {s["n"]: s for s in STAGES}
+CHAIN_BY_K = {c["k"]: c for c in CHAIN}
+
+# 素性値 → 図（選択肢にそのまま出す）
+FEATURE_FIGS = {
+    "continuity": {"＋": "cont_plus.svg", "変化結果の＋": "result_plus.svg", "ー": "cont_minus.svg"},
+    "action":     {"高": "act_high.svg", "中": "act_mid.svg", "低": "act_low.svg"},
+    "volition":   {"＋": "vol_plus.svg", "ー": "vol_minus.svg", "関与しない": "vol_na.svg"},
+}
+
+# 選択肢に添える短い説明
+FEATURE_OPTION_NOTES = {
+    "continuity": {
+        "＋": "その状態・動きが時間幅をもって続く",
+        "変化結果の＋": "変化は一度きり。そのあと結果の状態が残る",
+        "ー": "一瞬で成立し、あとに残らない",
+    },
+    "action": {
+        "高": "外から見える具体的で激しい動きがある",
+        "中": "動きより気持ち・感覚が中心だが、時間の幅がある",
+        "低": "積極的な動きがなく、ゆるやか／力が抜けている",
+    },
+    "volition": {
+        "＋": "「今から〜しよう」と言える",
+        "ー": "意志では起こせない感情・感覚",
+        "関与しない": "動きはあるが、状況に反応して起こる",
+    },
+}
 
 
-def _sample_words_varied(fkey, n=3, tries=40):
-    """素性値が2種類以上になるように n 語を選ぶ（同じ答えばかりにならないように）"""
-    for _ in range(tries):
-        ws = random.sample(WORDS, n)
-        if len({CAT_BY_ID[w["category_id"]][fkey] for w in ws}) >= 2:
-            return ws
-    return random.sample(WORDS, n)
+def feature_options(fkey):
+    """素性の選択肢（図つき）"""
+    fdef = next(f for f in FEATURE_DEFS if f["key"] == fkey)
+    return [{"value": v,
+             "label": val_label(fkey, v),
+             "fig": FEATURE_FIGS[fkey][v],
+             "note": FEATURE_OPTION_NOTES[fkey][v]} for v in fdef["options"]]
 
 
-def build_stage_questions(stage):
-    key = stage["key"]
-    qs = []
-    if key in ("continuity", "action", "volition"):
-        for w in _sample_words_varied(key):
-            qs.append(_q_feat(fkey=key, word=w))
-    elif key == "phon":
-        # 予測が成り立つ形から2問＋「予測が外れる語」を1問
-        forms = [p for p in PHON_DEFS if p["pred_cont"] or p["pred_act"]]
-        for p in random.sample(forms, min(2, len(forms))):
-            cands = [f for f in ("continuity", "action") if p[PRED_COL[f]]]
-            qs.append(_q_phon(phon=p, fkey=random.choice(cands)))
-        if EXCEPTION_WORDS:
-            w, fkey = random.choice(EXCEPTION_WORDS)
-            q = _q_feat(fkey=fkey, word=w)
-            q["sub"] = "音の形からの予測がそのまま当てはまるとは限りません。語の意味から考えましょう。"
-            qs.append(q)
+def phon_options(word, n_distractors=2):
+    """音韻形態の選択肢（正解＋紛らわしい形）。例から学習中の語は外す。"""
+    correct = PHON_BY_KEY[word["phon"]]
+    others = [p for p in PHON_DEFS if p["key"] != correct["key"]]
+    opts = [correct] + random.sample(others, min(n_distractors, len(others)))
+    random.shuffle(opts)
+    out = []
+    for p in opts:
+        ex = [e for e in p["example"].split("・") if e != word["word"]][:3]
+        out.append({"value": p["key"], "label": p["label"], "term": p["term"],
+                    "example": "・".join(ex)})
+    return out
+
+
+def chain_question(w, k):
+    """k番目の問い。前の段の「正解」を踏まえた導入文をつける。"""
+    cat = get_category(w)
+    phon = PHON_BY_KEY[w["phon"]]
+    step = CHAIN_BY_K[k]
+
+    if k == 1:
+        return {"step": step, "kind": "meaning",
+                "lead": "まず、この語がどんな意味かを確かめます。場面を読んでから選んでください。",
+                "prompt": f'この場面の「{w["word"]}」に最も近い意味はどれ？',
+                "meaning_opts": meaning_options(w)}
+
+    if k == 2:
+        return {"step": step, "kind": "phon",
+                "lead": (f'「{w["word"]}」は〈{w["meaning"]}〉という意味でした。'
+                         f'次は<strong>音の形</strong>を見ます。音の形は素性のヒントになります。'),
+                "prompt": f'「{w["word"]}」はどの音韻形態？',
+                "phon_opts": phon_options(w)}
+
+    if k == 3:
+        pred = phon["pred_cont"]
+        lead = (f'「{w["word"]}」は<strong>{phon["label"]}</strong>（{phon["term"]}）でした。'
+                f'この形は「{phon["hint"]}」という特徴があり、'
+                f'<strong>〈{val_label("continuity", pred)}〉になりやすい形</strong>です。')
+        return {"step": step, "kind": "feature", "fkey": "continuity",
+                "lead": lead + "　では、実際はどうでしょうか。",
+                "prompt": f'「{w["word"]}」の継続性は？',
+                "options": feature_options("continuity")}
+
+    if k == 4:
+        pred = phon["pred_act"]
+        lead = (f'継続性は<strong>〈{val_label("continuity", cat["continuity"])}〉</strong>でした。'
+                f'{KNOWLEDGE["rule"][0]["body"]}')
+        if pred:
+            lead += (f'　音の形（{phon["label"]}）からは'
+                     f'〈{val_label("action", pred)}〉が予測されます。')
         else:
-            qs.append(_q_feat())
-    else:  # category
-        qs.append(_q_same())
-        qs.append(_q_cat())
-        qs.append(_q_cat())
-    random.shuffle(qs)
-    for i, q in enumerate(qs):
-        q["idx"] = i
-    return qs
+            lead += (f'　なお{phon["label"]}からは動作性を予測できません'
+                     f'（語の意味しだいで変わります）。')
+        return {"step": step, "kind": "feature", "fkey": "action",
+                "lead": lead,
+                "prompt": f'「{w["word"]}」の動作性は？',
+                "options": feature_options("action")}
+
+    lead = (f'ここまでで<strong>〈{val_label("continuity", cat["continuity"])}・'
+            f'{val_label("action", cat["action"])}〉</strong>と決まりました。最後は意志性です。'
+            f'<strong>「今から{w["word"]}しよう」と言えるか</strong>を試してみてください。')
+    return {"step": step, "kind": "feature", "fkey": "volition",
+            "lead": lead,
+            "prompt": f'「{w["word"]}」の意志性は？',
+            "options": feature_options("volition")}
+
+
+def chain_feedback(w, k, choice):
+    """k番目の答え合わせ。正誤と、素性にもとづく理由を返す。"""
+    cat = get_category(w)
+    phon = PHON_BY_KEY[w["phon"]]
+
+    if k == 1:
+        chosen = get_word(choice)
+        return {"ok": choice == w["id"],
+                "user": chosen["meaning"] if chosen else "(未選択)",
+                "correct": w["meaning"],
+                "why": f'場面：{w["scene"]}',
+                "extra": "意味がはっきりすると、このあとの素性の判断がぶれなくなります。"}
+
+    if k == 2:
+        chosen = PHON_BY_KEY.get(choice)
+        pred_act = (val_label("action", phon["pred_act"]) if phon["pred_act"]
+                    else "予測できない（語による）")
+        return {"ok": choice == phon["key"],
+                "user": chosen["label"] if chosen else "(未選択)",
+                "correct": f'{phon["label"]}（{phon["term"]}）',
+                "why": f'この形は「{phon["hint"]}」という特徴があります。',
+                "extra": (f'予測される継続性：〈{val_label("continuity", phon["pred_cont"])}〉／'
+                          f'予測される動作性：〈{pred_act}〉')}
+
+    fkey = {3: "continuity", 4: "action", 5: "volition"}[k]
+    fb = feature_feedback(w, fkey)
+    return {"ok": choice == fb["correct_value"],
+            "user": val_label(fkey, choice) if choice else "(未選択)",
+            "correct": fb["correct_label"],
+            "why": fb["why"],
+            "extra": fb["phon"]["text"] if fb["phon"] else fb["general"],
+            "phon_match": fb["phon"]["match"] if fb["phon"] else None,
+            "fig": FEATURE_FIGS[fkey].get(fb["correct_value"])}
 
 
 @app.get("/phase1", response_class=HTMLResponse)
 async def phase1(request: Request):
+    groups = [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
+              for c in CATEGORIES]
     return templates.TemplateResponse(request, "phase1.html", {
-        "stages": STAGES,
+        "chain": CHAIN, "groups": groups, "total": len(WORDS),
     })
 
 
@@ -393,98 +466,26 @@ async def phase1_summary(request: Request):
         "knowledge": KNOWLEDGE,
         "categories": CATEGORIES,
         "phon_table": build_phon_table(),
+        "figs": FEATURE_FIGS,
     })
 
 
-def build_contrast_pairs(stage_key):
-    """対比ペア（似ているが素性が違う語）を表示用に組み立てる"""
-    out = []
-    for p in CONTRAST_PAIRS.get(stage_key, []):
-        wa, wb = WORD_BY_ID[p["word_a"]], WORD_BY_ID[p["word_b"]]
-        ca, cb = CAT_BY_ID[wa["category_id"]], CAT_BY_ID[wb["category_id"]]
-        if p["feature"]:
-            fkey = p["feature"]
-            side_a = {"label": FEATURE_NAME[fkey], "value": val_label(fkey, ca[fkey]), "key": fkey}
-            side_b = {"label": FEATURE_NAME[fkey], "value": val_label(fkey, cb[fkey]), "key": fkey}
-        else:
-            side_a = {"label": "素性", "value": profile_str(ca), "key": None}
-            side_b = {"label": "素性", "value": profile_str(cb), "key": None}
-        out.append({
-            "a": {"word": wa, "kind": ca["kind"], "cat": ca["name"], **side_a},
-            "b": {"word": wb, "kind": cb["kind"], "cat": cb["name"], **side_b},
-            "point": p["point"],
-        })
-    return out
-
-
-def build_worked_example(stage_key):
-    """段階的に開く思考ガイド（採点はしない。考え方をなぞるための例題）"""
-    ex = WORKED_EXAMPLES.get(stage_key)
-    if not ex:
-        return None
-    w = WORD_BY_ID[ex["word_id"]]
-    return {
-        "word": w,
+@app.get("/phase1/word/{word_id}/done", response_class=HTMLResponse)
+async def phase1_chain_done(request: Request, word_id: str):
+    w = get_word(word_id)
+    if not w:
+        return RedirectResponse("/phase1")
+    cat = get_category(w)
+    idx = [x["id"] for x in WORDS].index(w["id"])
+    nxt = WORDS[idx + 1] if idx + 1 < len(WORDS) else None
+    return templates.TemplateResponse(request, "phase1_chain_done.html", {
+        "word": w, "category": cat, "chain": CHAIN,
+        "profile": profile_str(cat),
         "phon": PHON_BY_KEY[w["phon"]],
-        "steps": WORKED_STEPS.get(stage_key, []),
-        "conclusion": ex["conclusion"],
-        "note": ex["note"],
-    }
-
-
-@app.get("/phase1/stage/{n}", response_class=HTMLResponse)
-async def phase1_stage(request: Request, n: int):
-    """段階の【学習ページ】：説明 → 判断手順 → 対比ペア → 思考ガイド（練習はまだ出さない）"""
-    stage = STAGE_BY_N.get(n)
-    if not stage:
-        return RedirectResponse("/phase1")
-    return templates.TemplateResponse(request, "phase1_stage.html", {
-        "stage": stage, "stages": STAGES,
-        "knowledge": KNOWLEDGE,
-        "categories": CATEGORIES,
-        "phon_table": build_phon_table() if stage["key"] == "phon" else None,
-        "guides": STAGE_GUIDES.get(stage["key"], []),
-        "pairs": build_contrast_pairs(stage["key"]),
-        "example": build_worked_example(stage["key"]),
+        "figs": FEATURE_FIGS,
+        "next_word": nxt,
     })
 
-
-@app.get("/phase1/stage/{n}/practice", response_class=HTMLResponse)
-async def phase1_stage_practice(request: Request, n: int):
-    """段階の【練習ページ】：学習ページを通ってから解く3問"""
-    stage = STAGE_BY_N.get(n)
-    if not stage:
-        return RedirectResponse("/phase1")
-    return templates.TemplateResponse(request, "phase1_stage_practice.html", {
-        "stage": stage, "stages": STAGES,
-        "questions": build_stage_questions(stage),
-        "guides": STAGE_GUIDES.get(stage["key"], []),
-        "knowledge": KNOWLEDGE,
-    })
-
-
-@app.post("/phase1/stage/{n}/practice/check", response_class=HTMLResponse)
-async def phase1_stage_check(request: Request, n: int):
-    stage = STAGE_BY_N.get(n)
-    if not stage:
-        return RedirectResponse("/phase1")
-    form = await request.form()
-    results, n_correct = grade_feature_questions(form)
-    return templates.TemplateResponse(request, "phase1_stage_result.html", {
-        "stage": stage, "stages": STAGES,
-        "next_stage": STAGE_BY_N.get(n + 1),
-        "results": results, "n_correct": n_correct, "total": len(results),
-    })
-
-
-# ---------------------------------------------------------------------
-#  素性ドリル（素性のみを判断する演習）— 項目2
-#    A feat … その語の素性値を答える
-#    B phon … 音韻形態から素性を予測する
-#    C same … 同じ素性値を持つ語を選ぶ
-#    D cat  … 素性の組み合わせからカテゴリーの語を選ぶ
-# ---------------------------------------------------------------------
-DRILL_PLAN = [("feat", 3), ("phon", 1), ("same", 1), ("cat", 1)]
 
 
 def _q_feat(fkey=None, word=None):
@@ -560,6 +561,37 @@ def _q_cat():
                 "hint_extra": f'このカテゴリーは「{cat["name"]}」です。',
             }
     return _q_feat()
+
+
+# 総合ドリルの出題構成（タイプ, 問数）
+DRILL_PLAN = [("feat", 3), ("phon", 1), ("same", 1), ("cat", 1)]
+
+
+
+@app.get("/phase1/word/{word_id}/{k}", response_class=HTMLResponse)
+async def phase1_chain(request: Request, word_id: str, k: int):
+    w = get_word(word_id)
+    if not w or k not in CHAIN_BY_K:
+        return RedirectResponse("/phase1")
+    return templates.TemplateResponse(request, "phase1_chain.html", {
+        "word": w, "chain": CHAIN, "k": k,
+        "q": chain_question(w, k),
+    })
+
+
+@app.post("/phase1/word/{word_id}/{k}/check", response_class=HTMLResponse)
+async def phase1_chain_check(request: Request, word_id: str, k: int):
+    w = get_word(word_id)
+    if not w or k not in CHAIN_BY_K:
+        return RedirectResponse("/phase1")
+    form = await request.form()
+    choice = form.get("choice", "")
+    return templates.TemplateResponse(request, "phase1_chain_result.html", {
+        "word": w, "chain": CHAIN, "k": k,
+        "step": CHAIN_BY_K[k],
+        "fb": chain_feedback(w, k, choice),
+        "next_k": k + 1 if k < len(CHAIN) else None,
+    })
 
 
 @app.get("/phase1/drill", response_class=HTMLResponse)
@@ -812,117 +844,6 @@ async def phase3(request: Request):
               for c in CATEGORIES]
     return templates.TemplateResponse(request, "phase3.html", {
         "groups": groups,
-    })
-
-
-# =====================================================================
-#  Step1：意味・音韻形態・種類の判断
-# =====================================================================
-@app.get("/step1/{word_id}", response_class=HTMLResponse)
-async def step1(request: Request, word_id: str):
-    w = get_word(word_id)
-    if not w:
-        return RedirectResponse("/")
-    return templates.TemplateResponse(request, "step1.html", {
-        "word": w,
-        "meaning_opts": meaning_options(w),
-        "phon_defs": phon_defs_for(w),
-        "kind_options": KIND_OPTIONS,
-        "kind_examples": kind_examples_for(w),
-    })
-
-
-@app.post("/step1/{word_id}/check", response_class=HTMLResponse)
-async def step1_check(
-    request: Request, word_id: str,
-    meaning: str = Form(...), phon: str = Form(...), kind: str = Form(...),
-):
-    w = get_word(word_id)
-    if not w:
-        return RedirectResponse("/")
-    cat = get_category(w)
-
-    meaning_correct = (meaning == word_id)
-    cmw = get_word(meaning)
-    chosen_meaning_text = cmw["meaning"] if cmw else "(不明)"
-
-    phon_correct = (phon == w["phon"])
-    kind_correct = (kind == cat["kind"])
-    all_correct = meaning_correct and phon_correct and kind_correct
-
-    correct_phon = PHON_BY_KEY[w["phon"]]
-    return templates.TemplateResponse(request, "step1_result.html", {
-        "word": w, "category": cat,
-        "meaning_correct": meaning_correct, "chosen_meaning_text": chosen_meaning_text,
-        "phon_correct": phon_correct,
-        "chosen_phon": PHON_BY_KEY.get(phon), "correct_phon": correct_phon,
-        "phon_pred": f'この形は〈{val_label("continuity", correct_phon["pred_cont"])}〉'
-                     f'・〈{val_label("action", correct_phon["pred_act"])}〉になりやすい形です。',
-        "kind_correct": kind_correct, "chosen_kind": kind,
-        "all_correct": all_correct,
-    })
-
-
-# =====================================================================
-#  Step2：3つの素性 + カテゴリーの判断
-# =====================================================================
-@app.get("/step2/{word_id}", response_class=HTMLResponse)
-async def step2(request: Request, word_id: str):
-    w = get_word(word_id)
-    if not w:
-        return RedirectResponse("/")
-    return templates.TemplateResponse(request, "step2.html", {
-        "word": w,
-        "features": FEATURE_DEFS,
-        "continuity_knowledge": KNOWLEDGE["continuity"],
-        "rule": KNOWLEDGE["rule"][0],
-        "phon": PHON_BY_KEY[w["phon"]],
-    })
-
-
-@app.post("/step2/{word_id}/check", response_class=HTMLResponse)
-async def step2_check(
-    request: Request, word_id: str,
-    continuity: str = Form(...), action: str = Form(...), volition: str = Form(...),
-):
-    w = get_word(word_id)
-    if not w:
-        return RedirectResponse("/")
-    cat = get_category(w)
-    submitted = {"continuity": continuity, "action": action, "volition": volition}
-
-    feature_results = []
-    n_feature_correct = 0
-    for f in FEATURE_DEFS:
-        fb = feature_feedback(w, f["key"])
-        ok = (submitted[f["key"]] == fb["correct_value"])
-        n_feature_correct += 1 if ok else 0
-        feature_results.append({
-            "name": f["name"], "user": submitted[f["key"]],
-            "user_label": val_label(f["key"], submitted[f["key"]]),
-            "correct_value": fb["correct_value"],
-            "correct_label": fb["correct_label"],
-            "ok": ok,
-            "why": fb["why"], "general": fb["general"], "phon": fb["phon"],
-        })
-
-    # カテゴリーは Step1 の種類 ＋ 3素性の組み合わせから自動判定する
-    derived = next((c for c in CATEGORIES
-                    if c["kind"] == cat["kind"]
-                    and c["continuity"] == continuity
-                    and c["action"] == action
-                    and c["volition"] == volition), None)
-    category_correct = (derived is not None and derived["id"] == cat["id"])
-    all_correct = (n_feature_correct == len(FEATURE_DEFS))
-
-    return templates.TemplateResponse(request, "step2_result.html", {
-        "word": w, "category": cat,
-        "profile": profile_str(cat),
-        "feature_results": feature_results,
-        "n_feature_correct": n_feature_correct, "total_features": len(FEATURE_DEFS),
-        "category_correct": category_correct,
-        "derived_cat_name": derived["name"] if derived else "該当なし（素性の組み合わせを見直しましょう）",
-        "all_correct": all_correct,
     })
 
 

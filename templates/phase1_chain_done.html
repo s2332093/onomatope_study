@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/phase1" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <div style="margin-left:auto; display:flex; gap:4px;">
+    {% for c in chain %}
+    <span class="badge badge-green">{{ c.icon }} {{ c.title }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-size:2rem;">🎉</div>
+  <h2 style="color:var(--green);">「{{ word.word }}」の素性が決まりました</h2>
+  <p class="muted small">5つの問いをたどって出した結論です。</p>
+</div>
+
+<!-- たどった道すじ -->
+<div class="card">
+  <h2 style="font-size:1rem;">🧭 たどった道すじ</h2>
+  <ul class="checklines">
+    <li><strong>意味</strong>：{{ word.meaning }}</li>
+    <li><strong>音の形</strong>：{{ phon.label }}（{{ phon.term }}）— {{ phon.hint }}</li>
+    <li><strong>継続性</strong>：{{ category.continuity }} — {{ category.why_cont }}</li>
+    <li><strong>動作性</strong>：{{ category.action }} — {{ category.why_act }}</li>
+    <li><strong>意志性</strong>：{{ category.volition }} — {{ category.why_vol }}</li>
+  </ul>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+    {% for key, val in [("continuity", category.continuity), ("action", category.action), ("volition", category.volition)] %}
+    <div style="flex:1; min-width:170px; border:1px solid var(--border); border-radius:12px; padding:10px; text-align:center;">
+      <img src="/static/{{ figs[key][val] }}" alt="" style="width:100%; max-width:170px;">
+      <div class="small" style="font-weight:700; margin-top:4px;">
+        {% if key == "continuity" %}継続性{% elif key == "action" %}動作性{% else %}意志性{% endif %}：{{ val }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- 決まったカテゴリー -->
+<div class="card">
+  <h2 style="font-size:1rem;">🗂 決まったカテゴリー</h2>
+  <div class="infobox">
+    「{{ word.word }}」は
+    <span class="badge {% if category.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ category.kind }}</span>
+    <strong style="color:var(--blue);">「{{ category.name }}」</strong><br>
+    <strong>{{ profile }}</strong>
+    <div class="muted" style="margin-top:6px;">{{ category.profile_text }}</div>
+  </div>
+  <div class="notebox" style="margin-top:10px;">
+    ここで出した素性が、フェーズ2で<strong>「どの文法形式と結びつくか」</strong>を決めます。<br>
+    {{ category.expr_explain }}
+  </div>
+</div>
+
+<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  {% if next_word %}
+  <a href="/phase1/word/{{ next_word.id }}/1" class="btn btn-primary">
+    次の語へ：{{ next_word.emoji }} {{ next_word.word }} →
+  </a>
+  {% endif %}
+  <a href="/step3/{{ word.id }}" class="btn btn-primary" style="background:var(--purple);">
+    この語で文法形式を判断する →
+  </a>
+  <a href="/phase1" class="btn btn-secondary">語の一覧に戻る</a>
+  <a href="/phase1/word/{{ word.id }}/1" class="btn btn-secondary">この語をもう一度</a>
+</div>
+
+{% endblock %}

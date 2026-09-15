@@ -30,97 +30,59 @@ for p in ["/", "/phase1", "/phase1/summary", "/phase2", "/phase3",
           "/phase1/drill", "/phase2/drill"]:
     get(p)
 
-# ---- フェーズ1：5段階の演習（各段階を複数回出題して採点） ----
-import re as _re
+# ---- フェーズ1：語ごとの連鎖学習（全39語 × 5問） ----
+CHAIN_FIGS = {
+    "continuity": {"＋": "cont_plus.svg", "変化結果の＋": "result_plus.svg", "ー": "cont_minus.svg"},
+    "action": {"高": "act_high.svg", "中": "act_mid.svg", "低": "act_low.svg"},
+    "volition": {"＋": "vol_plus.svg", "ー": "vol_minus.svg", "関与しない": "vol_na.svg"},
+}
+FKEY_BY_K = {3: "continuity", 4: "action", 5: "volition"}
 
-for stage in main.STAGES:
-    n = stage["n"]
-    for attempt in range(15):
-        get(f"/phase1/stage/{n}")
-        r = get(f"/phase1/stage/{n}/practice")
-        specs = _re.findall(r'name="spec_(\d+)" value="([^"]+)"', r.text)
-        if len(specs) != 3:
-            fails.append(f'段階{n}の問題数が {len(specs)} 問です（3問必要）')
-            break
-        data = {}
-        for idx, spec in specs:
-            data[f"spec_{idx}"] = spec
-            kind = spec[0]
-            # 段階の内容と出題タイプが合っているか
-            if stage["key"] in ("continuity", "action", "volition"):
-                if kind != "f" or not spec.endswith(stage["key"]):
-                    fails.append(f'段階{n}（{stage["title"]}）に別の素性の問題が出ました：{spec}')
-            elif stage["key"] == "phon" and kind not in ("p", "f"):
-                fails.append(f'段階{n}に想定外の問題が出ました：{spec}')
-            elif stage["key"] == "category" and kind not in ("S", "C"):
-                fails.append(f'段階{n}に想定外の問題が出ました：{spec}')
-            # 正解を投入する
-            if kind == "f":
-                _, wid, fkey = spec.split(":", 2)
-                data[f"choice_{idx}"] = main.CAT_BY_ID[main.WORD_BY_ID[wid]["category_id"]][fkey]
-            elif kind == "p":
-                _, pkey, fkey = spec.split(":", 2)
-                pred = main.PHON_BY_KEY[pkey][main.PRED_COL[fkey]]
-                if not pred:
-                    fails.append(f'予測できない素性が出題されました：{spec}')
-                data[f"choice_{idx}"] = pred
-            elif kind == "S":
-                _, wid, fkey = spec.split(":", 2)
-                tv = main.CAT_BY_ID[main.WORD_BY_ID[wid]["category_id"]][fkey]
-                data[f"choice_{idx}"] = next(
-                    w["id"] for w in WORDS
-                    if w["id"] != wid and main.CAT_BY_ID[w["category_id"]][fkey] == tv)
-            else:  # C
-                cid = spec[2:]
-                data[f"choice_{idx}"] = next(w["id"] for w in WORDS if w["category_id"] == cid)
-        res = post(f"/phase1/stage/{n}/practice/check", data)
-        if "全問正解" not in res.text:
-            fails.append(f'段階{n}：正解を入力したのに全問正解になりません')
-            break
+for w in WORDS:
+    cat = CAT_BY_ID[w["category_id"]]
+    phon = main.PHON_BY_KEY[w["phon"]]
+    for k in range(1, 6):
+        r = get(f'/phase1/word/{w["id"]}/{k}')
+        # 正解を入力すると「正解です」になること
+        correct = {1: w["id"], 2: w["phon"]}.get(k) or cat[FKEY_BY_K[k]]
+        res = post(f'/phase1/word/{w["id"]}/{k}/check', {"choice": correct})
+        if "正解です" not in res.text:
+            fails.append(f'フェーズ1：{w["word"]} の第{k}問で、正解を入れても正解になりません')
+        # 誤答でも落ちないこと
+        wrong = {1: "iraira" if w["id"] != "iraira" else "hotto",
+                 2: "qri" if w["phon"] != "qri" else "repeat"}.get(k)
+        if wrong is None:
+            wrong = [v for v in CHAIN_FIGS[FKEY_BY_K[k]] if v != cat[FKEY_BY_K[k]]][0]
+        post(f'/phase1/word/{w["id"]}/{k}/check', {"choice": wrong})
 
-# ---- 段階1〜3で、同じ答えばかりにならないか（素性値が2種類以上出るか） ----
-for stage in main.STAGES[:3]:
-    fkey = stage["key"]
-    varied = 0
-    for _ in range(20):
-        qs = main.build_stage_questions(stage)
-        vals = {main.CAT_BY_ID[q["word"]["category_id"]][fkey] for q in qs}
-        if len(vals) >= 2:
-            varied += 1
-    if varied < 20:
-        fails.append(f'段階{stage["n"]}：答えが1種類に偏る出題が {20 - varied} 回ありました')
+        # 素性の問いは選択肢に図が出ていること（3枚とも）
+        if k in FKEY_BY_K:
+            for val, fig in CHAIN_FIGS[FKEY_BY_K[k]].items():
+                if f'/static/{fig}' not in r.text:
+                    fails.append(f'{w["word"]} 第{k}問：選択肢に図 {fig} がありません')
+        # 第3問は音の形を踏まえた導入になっていること
+        if k == 3 and phon["label"] not in r.text:
+            fails.append(f'{w["word"]} 第3問：導入に音の形（{phon["label"]}）が出ていません')
+        # 第4問は継続性の結果を踏まえた導入になっていること
+        if k == 4 and main.val_label("continuity", cat["continuity"]) not in r.text:
+            fails.append(f'{w["word"]} 第4問：導入に継続性の結果が出ていません')
 
-# ---- 学習ページに必要な要素がそろっているか ----
-for stage in main.STAGES:
-    r = get(f'/phase1/stage/{stage["n"]}')
-    for needle, what in [("判断のしかた", "判断手順チェックリスト"),
-                         ("似ているのに違う語", "対比ペア"),
-                         ("一緒に考えてみよう", "思考ガイド"),
-                         ("練習に進む", "練習への導線")]:
-        if needle not in r.text:
-            fails.append(f'段階{stage["n"]}の学習ページに{what}がありません')
-    # 学習ページには問題（回答フォーム）を置かない
-    if 'name="choice_0"' in r.text:
-        fails.append(f'段階{stage["n"]}の学習ページに練習問題が混ざっています')
-    # 対比ペアが実際に値の違う組になっているか
-    pairs = main.build_contrast_pairs(stage["key"])
-    if len(pairs) < 2:
-        fails.append(f'段階{stage["n"]}の対比ペアが少なすぎます')
-    for pr in pairs:
-        # 対比になっているか：表示される値、または種類（感情・感覚／動作）のどちらかが違うこと
-        # （段階5の「いらいら／にこにこ」は素性が同じで種類だけが違う、という対比）
-        same_value = pr["a"]["value"] == pr["b"]["value"]
-        same_kind = pr["a"]["kind"] == pr["b"]["kind"]
-        if same_value and same_kind:
-            fails.append(f'段階{stage["n"]}の対比ペアが素性も種類も同じです：'
-                         f'{pr["a"]["word"]["word"]}／{pr["b"]["word"]["word"]}')
-        if same_value and pr["a"]["key"]:
-            fails.append(f'段階{stage["n"]}：単一素性の対比なのに値が同じです：'
-                         f'{pr["a"]["word"]["word"]}／{pr["b"]["word"]["word"]}')
-    # 思考ガイドの手順と結論
-    ex = main.build_worked_example(stage["key"])
-    if not ex or len(ex["steps"]) < 3 or not ex["conclusion"]:
-        fails.append(f'段階{stage["n"]}の思考ガイドが不足しています')
+    # まとめページ
+    r = get(f'/phase1/word/{w["id"]}/done')
+    if cat["name"] not in r.text:
+        fails.append(f'{w["word"]} のまとめにカテゴリー名が出ていません')
+
+# ---- 図のファイルが実在すること ----
+import os
+for fkey, m in CHAIN_FIGS.items():
+    for val, fig in m.items():
+        if not os.path.exists(os.path.join("static", fig)):
+            fails.append(f"図が存在しません：static/{fig}")
+
+# ---- 廃止したルートが残っていないこと ----
+for path in ["/step1/iraira", "/step2/iraira", "/phase1/stage/1"]:
+    if client.get(path).status_code == 200:
+        fails.append(f"廃止したはずのページが残っています：{path}")
 
 # ---- 「予測できない素性」が phon 問題に出ないこと ----
 for _ in range(80):
@@ -177,22 +139,9 @@ for attempt in range(60):
 if seen2 < {"x", "y"}:
     fails.append(f"前接条件ドリルの全タイプが出題されませんでした：{seen2}")
 
-# ---- 全語 × Step1〜Step4 ----
+# ---- 全語 × Step3・Step4 ----
 for w in WORDS:
     cat = CAT_BY_ID[w["category_id"]]
-    get(f'/step1/{w["id"]}')
-    post(f'/step1/{w["id"]}/check',
-         {"meaning": w["id"], "phon": w["phon"], "kind": cat["kind"]})
-
-    get(f'/step2/{w["id"]}')
-    # 正解の素性
-    r = post(f'/step2/{w["id"]}/check',
-             {"continuity": cat["continuity"], "action": cat["action"], "volition": cat["volition"]})
-    if "3/3 正解" not in r.text and "3/3" not in r.text:
-        fails.append(f'Step2 正解入力が全問正解になりません：{w["word"]}')
-    # 誤答も通ることを確認
-    post(f'/step2/{w["id"]}/check',
-         {"continuity": "ー", "action": "低", "volition": "関与しない"})
 
     get(f'/step3/{w["id"]}')
     # 正解の線結び
@@ -257,5 +206,5 @@ if fails:
     for f in fails[:25]:
         print("  - " + f)
     sys.exit(1)
-print(f"OK：全ルート・全{len(WORDS)}語の Step1〜Step4・両ドリルが正常に動作しました。")
+print(f"OK：全ルート・全{len(WORDS)}語の連鎖学習（5問）・Step3・Step4・両ドリルが正常に動作しました。")
 print(f"    素性フィードバックは {len(WORDS) * len(EXPRESSIONS)} 通りすべて研究資料の正解表と一致。")
