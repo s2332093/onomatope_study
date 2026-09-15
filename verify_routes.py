@@ -72,6 +72,39 @@ for w in WORDS:
     if cat["name"] not in r.text:
         fails.append(f'{w["word"]} のまとめにカテゴリー名が出ていません')
 
+# ---- 学習コンテンツ（判断手順・対比ペア・思考ガイド）が画面に出ていること ----
+#      DBに入れたのに表示されていない「宙に浮いたデータ」を防ぐ
+used_stage_keys = set()
+for k, key in main.STAGE_KEY_BY_K.items():
+    used_stage_keys.add(key)
+    r = get(f'/phase1/word/iraira/{k}')
+    if "判断のしかた" not in r.text:
+        fails.append(f'第{k}問に判断手順が出ていません')
+    if "似ているのに違う語" not in r.text:
+        fails.append(f'第{k}問に対比ペアが出ていません')
+r = get('/phase1/word/iraira/done')
+used_stage_keys.add("category")
+for needle, what in [("判断のしかた", "判断手順"), ("似ているのに違う語", "対比ペア"),
+                     ("別の語で考え方をたどる", "思考ガイド")]:
+    if needle not in r.text:
+        fails.append(f'まとめページに{what}が出ていません')
+
+# DBに入っている段階キーがすべてどこかで使われていること
+for key in set(main.STAGE_GUIDES) | set(main.CONTRAST_PAIRS) | set(main.WORKED_EXAMPLES):
+    if key not in used_stage_keys:
+        fails.append(f'学習コンテンツ「{key}」がどの画面でも使われていません')
+
+# 思考ガイドは、学習中の語と同じなら出さない（がっかり＝継続性の例題）
+r = get('/phase1/word/gakkari/3')
+if "別の語で考え方をたどる" in r.text:
+    fails.append("学習中の語と同じ例題が「別の語」として出ています（がっかり）")
+
+# ---- 対応表の例外欄が語ごとにまとまっていること ----
+for row in main.build_phon_table():
+    seen_words = [e.split("（")[0] for e in row["exceptions"]]
+    if len(seen_words) != len(set(seen_words)):
+        fails.append(f'対応表の例外欄に同じ語が重複しています：{row["form"]["label"]} / {row["exceptions"]}')
+
 # ---- 図のファイルが実在すること ----
 import os
 for fkey, m in CHAIN_FIGS.items():

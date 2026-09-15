@@ -271,7 +271,8 @@ def build_phon_table():
     """音韻形態 × 素性の対応表（予測できない素性は「—」、予測と違う語は例外として列挙）"""
     table = []
     for p in PHON_DEFS:
-        exceptions = []
+        # 語ごとにまとめる（「ゆっくり（継続性）・ゆっくり（動作性）」と重複させない）
+        by_word = {}
         for w in WORDS:
             if w["phon"] != p["key"]:
                 continue
@@ -279,7 +280,8 @@ def build_phon_table():
             for fkey in ("continuity", "action"):
                 pred = p[PRED_COL[fkey]]
                 if pred and cat[fkey] != pred:
-                    exceptions.append(f'{w["word"]}（{FEATURE_NAME[fkey]}）')
+                    by_word.setdefault(w["word"], []).append(FEATURE_NAME[fkey])
+        exceptions = [f'{word}（{"・".join(feats)}）' for word, feats in by_word.items()]
         table.append({
             "form": p,
             "pred_cont_label": val_label("continuity", p["pred_cont"]) if p["pred_cont"] else "—（語による）",
@@ -361,6 +363,58 @@ def phon_options(word, n_distractors=2):
         out.append({"value": p["key"], "label": p["label"], "term": p["term"],
                     "example": "・".join(ex)})
     return out
+
+
+def build_contrast_pairs(stage_key):
+    """対比ペア（似ているが素性が違う語）を表示用に組み立てる"""
+    out = []
+    for p in CONTRAST_PAIRS.get(stage_key, []):
+        wa, wb = WORD_BY_ID[p["word_a"]], WORD_BY_ID[p["word_b"]]
+        ca, cb = CAT_BY_ID[wa["category_id"]], CAT_BY_ID[wb["category_id"]]
+        if p["feature"]:
+            fkey = p["feature"]
+            side_a = {"value": val_label(fkey, ca[fkey]), "key": fkey}
+            side_b = {"value": val_label(fkey, cb[fkey]), "key": fkey}
+        else:
+            side_a = {"value": profile_str(ca), "key": None}
+            side_b = {"value": profile_str(cb), "key": None}
+        out.append({
+            "a": {"word": wa, "kind": ca["kind"], "cat": ca["name"], **side_a},
+            "b": {"word": wb, "kind": cb["kind"], "cat": cb["name"], **side_b},
+            "point": p["point"],
+        })
+    return out
+
+
+def build_worked_example(stage_key, exclude_word_id=None):
+    """段階的に開く思考ガイド（採点しない例題）。学習中の語と同じなら出さない。"""
+    ex = WORKED_EXAMPLES.get(stage_key)
+    if not ex or ex["word_id"] == exclude_word_id:
+        return None
+    w = WORD_BY_ID[ex["word_id"]]
+    return {
+        "word": w,
+        "phon": PHON_BY_KEY[w["phon"]],
+        "steps": WORKED_STEPS.get(stage_key, []),
+        "conclusion": ex["conclusion"],
+        "note": ex["note"],
+    }
+
+
+# 連鎖の各問 → 学習コンテンツの段階キー
+STAGE_KEY_BY_K = {2: "phon", 3: "continuity", 4: "action", 5: "volition"}
+
+
+def chain_support(w, k):
+    """問いを解くときに開ける補助（判断手順・対比ペア・思考ガイド）"""
+    key = STAGE_KEY_BY_K.get(k)
+    if not key:
+        return None
+    return {
+        "guides": STAGE_GUIDES.get(key, []),
+        "pairs": build_contrast_pairs(key),
+        "example": build_worked_example(key, exclude_word_id=w["id"]),
+    }
 
 
 def chain_question(w, k):
@@ -484,6 +538,9 @@ async def phase1_chain_done(request: Request, word_id: str):
         "phon": PHON_BY_KEY[w["phon"]],
         "figs": FEATURE_FIGS,
         "next_word": nxt,
+        "guides": STAGE_GUIDES.get("category", []),
+        "pairs": build_contrast_pairs("category"),
+        "example": build_worked_example("category", exclude_word_id=w["id"]),
     })
 
 
@@ -576,6 +633,7 @@ async def phase1_chain(request: Request, word_id: str, k: int):
     return templates.TemplateResponse(request, "phase1_chain.html", {
         "word": w, "chain": CHAIN, "k": k,
         "q": chain_question(w, k),
+        "support": chain_support(w, k),
     })
 
 

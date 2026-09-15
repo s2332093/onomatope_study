@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_support.html" as sup %}
 {% block content %}
 
 <!-- 進捗 -->
@@ -70,6 +71,13 @@
     {% endif %}
   </div>
 
+  {% if support %}
+  <div class="muted small" style="margin:18px 0 8px;">
+    迷ったら、以下を開いて考えてから答えて構いません。
+  </div>
+  {{ sup.support_blocks(support.guides, support.pairs, support.example, "q" ~ k) }}
+  {% endif %}
+
   <button type="submit" class="btn btn-primary">答え合わせ →</button>
   {% if k > 1 %}
   <a href="/phase1/word/{{ word.id }}/{{ k - 1 }}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
@@ -77,5 +85,7 @@
   <a href="/phase1" class="btn btn-secondary" style="margin-left:12px;">語の一覧に戻る</a>
   {% endif %}
 </form>
+
+{{ sup.support_script() }}
 
 {% endblock %}

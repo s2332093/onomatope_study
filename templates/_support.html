@@ -1,0 +1,153 @@
+{#
+  学習の補助パーツ（連鎖学習の各問と、まとめ画面で共用）
+    guides  … 判断手順チェックリスト
+    pairs   … 対比ペア（似ているが素性が違う語）
+    example … 思考ガイド（採点しない例題。段階的に開く）
+  prefix は同じページで複数回使うときの id 衝突よけ。
+#}
+{% macro support_blocks(guides, pairs, example, prefix="s") %}
+
+{% if guides %}
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+    <h2 style="font-size:1rem; margin:0;">✅ 判断のしかた</h2>
+    <button type="button" class="hint-btn toggle-btn" data-target="{{ prefix }}-guides">開く</button>
+  </div>
+  <div id="{{ prefix }}-guides" style="display:none; margin-top:12px;">
+    <p class="muted small" style="margin-bottom:12px;">
+      語を見ていきなり決めるのではなく、この順に問いを立てれば答えにたどり着けます。
+    </p>
+    {% for g in guides %}
+    <div style="border-left:4px solid var(--blue); background:#fbfcfe; border-radius:0 8px 8px 0;
+                padding:10px 14px; margin-bottom:10px;">
+      <div style="font-weight:700; font-size:0.9rem;">{{ g.question }}</div>
+      <div class="muted small" style="margin-top:4px;">{{ g.detail }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if pairs %}
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+    <h2 style="font-size:1rem; margin:0;">⚖️ 似ているのに違う語で確かめる</h2>
+    <button type="button" class="hint-btn toggle-btn" data-target="{{ prefix }}-pairs">開く</button>
+  </div>
+  <div id="{{ prefix }}-pairs" style="display:none; margin-top:12px;">
+    <p class="muted small" style="margin-bottom:12px;">
+      どこで値が分かれるのかは、<strong>近い語どうしを並べる</strong>といちばんよく見えます。
+    </p>
+    {% for p in pairs %}
+    <div style="border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px;">
+      <div style="display:flex; gap:10px; align-items:stretch; flex-wrap:wrap;">
+        {% for side in [p.a, p.b] %}
+        <div style="flex:1; min-width:190px; background:{% if loop.index == 1 %}var(--blue-soft){% else %}var(--orange-soft){% endif %};
+                    border-radius:10px; padding:10px 14px;">
+          <div style="font-size:1.4rem;">{{ side.word.emoji }}</div>
+          <div style="font-weight:700;">{{ side.word.word }}</div>
+          <div class="muted" style="font-size:0.72rem; margin-top:2px;">{{ side.word.scene }}</div>
+          {% if not side.key %}
+          <div style="margin-top:8px;">
+            <span class="badge {% if side.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ side.kind }}</span>
+          </div>
+          {% endif %}
+          <div style="margin-top:6px;">
+            <span class="fbadge {% if side.key %}fb-{{ side.key }}{% else %}fb-continuity{% endif %}">{{ side.value }}</span>
+          </div>
+          {% if not side.key %}
+          <div class="muted" style="font-size:0.72rem; margin-top:4px;">→ {{ side.cat }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="small" style="margin-top:10px; color:var(--blue);">👉 {{ p.point }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if example %}
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+    <h2 style="font-size:1rem; margin:0;">🔍 別の語で考え方をたどる</h2>
+    <button type="button" class="hint-btn toggle-btn" data-target="{{ prefix }}-example">開く</button>
+  </div>
+  <div id="{{ prefix }}-example" style="display:none; margin-top:12px;">
+    <p class="muted small" style="margin-bottom:12px;">
+      採点はありません。「{{ example.word.word }}」を例に、手順を1つずつ開いて確かめられます。
+    </p>
+
+    <div style="display:flex; align-items:center; gap:14px; background:var(--blue-soft); border-radius:12px; padding:12px 16px;">
+      <div style="font-size:2rem;">{{ example.word.emoji }}</div>
+      <div>
+        <div style="font-weight:700;">「{{ example.word.word }}」</div>
+        <div class="muted small">場面：{{ example.word.scene }}</div>
+        <div class="muted small">音の形：{{ example.phon.label }}（{{ example.phon.term }}）</div>
+      </div>
+    </div>
+
+    <div id="{{ prefix }}-steps" style="margin-top:12px;">
+      {% for s in example.steps %}
+      <div class="guide-step" style="margin-bottom:10px;">
+        <div style="font-weight:700; font-size:0.9rem; margin-bottom:4px;">{{ s.question }}</div>
+        <div class="guide-answer" style="display:none; background:#fbfcfe; border-left:4px solid var(--green);
+                                         border-radius:0 8px 8px 0; padding:9px 14px; font-size:0.84rem;">
+          {{ s.answer }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div id="{{ prefix }}-conclusion" style="display:none; margin-top:10px;">
+      <div class="infobox">
+        <div style="font-weight:700; color:var(--blue); margin-bottom:4px;">
+          答え：<strong>{{ example.conclusion }}</strong>
+        </div>
+        <div>{{ example.note }}</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <button type="button" class="btn btn-secondary guide-next"
+              data-steps="{{ prefix }}-steps" data-conclusion="{{ prefix }}-conclusion"
+              data-state="{{ prefix }}-state">次の手順を開く →</button>
+      <span class="badge badge-gray" id="{{ prefix }}-state">0 / {{ example.steps|length }}</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endmacro %}
+
+{# 補助パーツの開閉スクリプト（support_blocks を使うページで1回だけ呼ぶ） #}
+{% macro support_script() %}
+<script>
+document.querySelectorAll(".toggle-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const el = document.getElementById(btn.getAttribute("data-target"));
+    const open = (el.style.display === "none" || !el.style.display);
+    el.style.display = open ? "block" : "none";
+    btn.textContent = open ? "閉じる" : "開く";
+  });
+});
+document.querySelectorAll(".guide-next").forEach(btn => {
+  const steps = Array.from(document.getElementById(btn.dataset.steps).querySelectorAll(".guide-step"));
+  const conclusion = document.getElementById(btn.dataset.conclusion);
+  const state = document.getElementById(btn.dataset.state);
+  let opened = 0;
+  btn.addEventListener("click", () => {
+    if (opened >= steps.length) return;
+    steps[opened].querySelector(".guide-answer").style.display = "block";
+    opened += 1;
+    state.textContent = opened + " / " + steps.length;
+    if (opened === steps.length) {
+      conclusion.style.display = "block";
+      btn.textContent = "すべて開きました";
+      btn.disabled = true;
+    }
+  });
+});
+</script>
+{% endmacro %}

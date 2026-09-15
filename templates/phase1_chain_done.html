@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_support.html" as sup %}
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
@@ -55,6 +56,11 @@
   </div>
 </div>
 
+<div class="muted small" style="margin:18px 0 8px;">
+  カテゴリーの決め方をもう少し確かめたいときは、以下を開いてください。
+</div>
+{{ sup.support_blocks(guides, pairs, example, "done") }}
+
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
   {% if next_word %}
   <a href="/phase1/word/{{ next_word.id }}/1" class="btn btn-primary">
@@ -67,5 +73,7 @@
   <a href="/phase1" class="btn btn-secondary">語の一覧に戻る</a>
   <a href="/phase1/word/{{ word.id }}/1" class="btn btn-secondary">この語をもう一度</a>
 </div>
+
+{{ sup.support_script() }}
 
 {% endblock %}
