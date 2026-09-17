@@ -56,10 +56,19 @@
 </div>
 {% endfor %}
 
+<div class="card" style="text-align:center; background:var(--green-soft);">
+  <h2>これで「{{ word.word }}」の3フェーズが終わりました</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    素性 → 文法形式 → 例文 のつながりを、まとめで確認しましょう。
+  </p>
+  <a href="/word/{{ word.id }}/complete" class="btn btn-primary" style="background:var(--green);">
+    まとめを見る →
+  </a>
+</div>
+
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/phase3" class="btn btn-primary">フェーズ3の一覧へ戻る →</a>
-  <a href="/step4/{{ word.id }}" class="btn btn-secondary">もう一度（別の選択肢）</a>
-  <a href="/phase1/word/{{ word.id }}/1" class="btn btn-secondary">この語を素性から学び直す</a>
+  <a href="/word/{{ word.id }}/f3" class="btn btn-secondary">もう一度（別の選択肢）</a>
+  <a href="/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
 </div>
 
 {% endblock %}

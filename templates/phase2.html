@@ -1,13 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
+  <div style="margin-left:auto; display:flex; gap:4px;">
+    <span class="badge badge-green">フェーズ1</span>
+    <span class="badge badge-purple">フェーズ2</span>
+    <span class="badge badge-gray">フェーズ3</span>
+  </div>
+</div>
+
 <div class="card">
   <span class="badge badge-purple">フェーズ2</span>
-  <h1 style="margin-top:8px;">文法形式の学習</h1>
-  <p class="muted small" style="margin-top:6px;">
-    オノマトペの素性と、表現形式の「前接条件」を照らし合わせて、
-    結びつくかどうかを自分で判断できるようになりましょう。
-  </p>
+  <h1 style="margin-top:8px;">文法形式を判断する</h1>
+  <div style="display:flex; align-items:center; gap:16px; margin-top:12px;">
+    <div style="font-size:2.2rem;">{{ word.emoji }}</div>
+    <div>
+      <div style="font-weight:700; font-size:1.1rem;">「{{ word.word }}」</div>
+      <div class="small" style="color:var(--blue);">フェーズ1で出した素性：{{ profile }}</div>
+      <div class="muted small">カテゴリー：{{ category.name }}</div>
+    </div>
+  </div>
+  <div class="infobox" style="margin-top:14px;">
+    まず表現形式10件の<strong>前接条件</strong>を確認します。読み終えたら、
+    この素性と照らし合わせて線結びに進みます。
+  </div>
 </div>
 
 <!-- 考え方 -->
@@ -50,7 +67,7 @@
 <div class="card">
   <h2>📝 表現形式と前接条件（全{{ expr_cards|length }}形式）</h2>
   <p class="muted small" style="margin-bottom:14px;">
-    線結びで迷ったら、ここに立ち返りましょう（Step3の💡ヒントでも同じ条件を確認できます）。
+    線結びで迷ったら、ここに立ち返りましょう（線結びの💡ヒントでも同じ条件を確認できます）。
   </p>
   {% for c in expr_cards %}
   <div style="border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px;">
@@ -92,41 +109,18 @@
 </div>
 
 <div class="card" style="text-align:center; background:var(--purple-soft);">
-  <h2>✏️ 前接条件ドリルで確かめる</h2>
+  <h2>読み終えたら、線結びに進みます</h2>
   <p class="muted small" style="margin-bottom:14px;">
-    「この形式はどんな素性を必要とするか」「この形式と結びつく語はどれか」を練習します。
+    「{{ word.word }}」の素性〈{{ profile }}〉と、上の前接条件を1件ずつ照らし合わせます。
   </p>
-  <a href="/phase2/drill" class="btn btn-primary" style="background:var(--purple);">前接条件ドリルを始める →</a>
+  <a href="/word/{{ word.id }}/f2" class="btn btn-primary" style="background:var(--purple);">
+    線結びに進む →
+  </a>
 </div>
 
-<!-- 単語一覧 -->
-<h2 style="margin:30px 0 6px;">✏️ 単語を選んで練習を始める</h2>
-<p class="muted small" style="margin-bottom:16px;">
-  語を選ぶと、その語の素性と各表現形式の前接条件を照らし合わせる<strong>線結び</strong>に進みます。<br>
-  素性がまだあやしい語は、先に
-  <a href="/phase1" style="color:var(--blue); font-weight:700;">フェーズ1</a>
-  でその語の5問をたどってから来ると迷いません。
-</p>
-
-{% for g in groups %}
-<h2 style="margin:24px 0 12px; font-size:1rem;">
-  <span class="badge {% if g.category.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ g.category.kind }}</span>
-  {{ g.category.name }}
-  <span class="muted small">（{{ g.words|length }}語）</span>
-</h2>
-{% for w in g.words %}
-<a href="/step3/{{ w.id }}" style="text-decoration:none; color:inherit;">
-  <div class="card" style="display:flex; align-items:center; gap:20px; margin-bottom:10px; padding:16px 24px;"
-       onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">
-    <div style="font-size:1.9rem;">{{ w.emoji }}</div>
-    <div style="flex:1;">
-      <div style="font-size:1.05rem; font-weight:700;">{{ w.word }}</div>
-      <div class="muted small">{{ w.scene }}</div>
-    </div>
-    <span class="badge badge-blue">線結びに進む →</span>
-  </div>
-</a>
-{% endfor %}
-{% endfor %}
+<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  <a href="/word/{{ word.id }}/f1/done" class="btn btn-secondary">← フェーズ1のまとめに戻る</a>
+  <a href="/drill/expressions" class="btn btn-secondary">前接条件ドリルで練習する</a>
+</div>
 
 {% endblock %}

@@ -78,10 +78,19 @@
   </div>
 </div>
 
+<div class="card" style="text-align:center; background:var(--orange-soft);">
+  <h2>次はフェーズ3：例文で使う</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    ここで確かめた「結びつく形」を、文脈のある例文の中で選びます。
+  </p>
+  <a href="/word/{{ word.id }}/f3" class="btn btn-primary" style="background:var(--orange);">
+    フェーズ3へ進む →
+  </a>
+</div>
+
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/step4/{{ word.id }}" class="btn btn-primary">フェーズ3へ：この語の例文練習 →</a>
-  <a href="/step3/{{ word.id }}" class="btn btn-secondary">もう一度</a>
-  <a href="/phase2" class="btn btn-secondary">フェーズ2の一覧に戻る</a>
+  <a href="/word/{{ word.id }}/f2" class="btn btn-secondary">線結びをもう一度</a>
+  <a href="/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
 </div>
 
 {% endblock %}

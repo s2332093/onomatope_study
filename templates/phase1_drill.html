@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="muted small" style="margin-bottom:8px;">フェーズ1：総合ドリル（仕上げ）</div>
+<div class="muted small" style="margin-bottom:8px;">復習ドリル（素性）</div>
 <div class="card">
   <h2>🎯 総合ドリル（全{{ n }}問）</h2>
   <p class="muted small">
-    段階1〜5で学んだ内容が<strong>混ざって</strong>出題されます（文法形式は出ません）。次の4タイプです。
+    学習した語が<strong>混ざって</strong>出題されます（文法形式は出ません）。次の4タイプです。
   </p>
   <ul class="checklines" style="margin-top:8px;">
     <li><strong>素性値を答える</strong>：その語の継続性・動作性・意志性はどれか</li>
@@ -18,7 +18,7 @@
   </p>
 </div>
 
-<form method="post" action="/phase1/drill/check">
+<form method="post" action="/drill/features/check">
   {% for q in questions %}
   <div class="card">
     <input type="hidden" name="spec_{{ q.idx }}" value="{{ q.spec }}">
@@ -104,7 +104,7 @@
   {% endfor %}
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="/phase1" class="btn btn-secondary" style="margin-left:12px;">← 段階一覧に戻る</a>
+  <a href="/" class="btn btn-secondary" style="margin-left:12px;">← 語の一覧に戻る</a>
 </form>
 
 <script>

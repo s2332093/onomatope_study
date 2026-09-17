@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="muted small" style="margin-bottom:8px;">フェーズ2：前接条件ドリル</div>
+<div class="muted small" style="margin-bottom:8px;">復習ドリル（前接条件）</div>
 <div class="card">
   <h2>✏️ 前接条件ドリル（全{{ n }}問）</h2>
   <p class="muted small">
@@ -16,7 +16,7 @@
   </p>
 </div>
 
-<form method="post" action="/phase2/drill/check">
+<form method="post" action="/drill/expressions/check">
   {% for q in questions %}
   <div class="card">
     <input type="hidden" name="spec_{{ q.idx }}" value="{{ q.spec }}">
@@ -55,7 +55,7 @@
   {% endfor %}
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="/phase2" class="btn btn-secondary" style="margin-left:12px;">← フェーズ2に戻る</a>
+  <a href="/" class="btn btn-secondary" style="margin-left:12px;">← 語の一覧に戻る</a>
 </form>
 
 <script>

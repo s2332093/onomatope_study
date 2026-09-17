@@ -2,7 +2,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/phase1" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <a href="/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
   <div style="margin-left:auto; display:flex; gap:4px; align-items:center;">
     {% for c in chain %}
     <span class="badge {% if c.k == k %}badge-blue{% elif c.k < k %}badge-green{% else %}badge-gray{% endif %}">
@@ -60,13 +60,13 @@
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
   {% if next_k %}
-  <a href="/phase1/word/{{ word.id }}/{{ next_k }}" class="btn btn-primary">
+  <a href="/word/{{ word.id }}/f1/{{ next_k }}" class="btn btn-primary">
     次へ：{{ chain[next_k - 1].icon }} {{ chain[next_k - 1].title }} →
   </a>
   {% else %}
-  <a href="/phase1/word/{{ word.id }}/done" class="btn btn-primary">まとめを見る →</a>
+  <a href="/word/{{ word.id }}/f1/done" class="btn btn-primary">フェーズ1のまとめへ →</a>
   {% endif %}
-  <a href="/phase1/word/{{ word.id }}/{{ k }}" class="btn btn-secondary">この問いをもう一度</a>
+  <a href="/word/{{ word.id }}/f1/{{ k }}" class="btn btn-secondary">この問いをもう一度</a>
 </div>
 
 {% endblock %}

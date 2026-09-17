@@ -4,7 +4,7 @@
 
 <!-- 進捗 -->
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/phase1" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <a href="/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
   <div style="margin-left:auto; display:flex; gap:4px; align-items:center;">
     {% for c in chain %}
     <span class="badge {% if c.k == k %}badge-blue{% elif c.k < k %}badge-green{% else %}badge-gray{% endif %}">
@@ -31,7 +31,7 @@
   <div style="font-size:0.9rem; line-height:1.7;">{{ q.lead|safe }}</div>
 </div>
 
-<form method="post" action="/phase1/word/{{ word.id }}/{{ k }}/check">
+<form method="post" action="/word/{{ word.id }}/f1/{{ k }}/check">
   <div class="card">
     <h2 style="font-size:1.05rem;">{{ q.step.icon }} {{ q.prompt }}</h2>
 
@@ -80,9 +80,9 @@
 
   <button type="submit" class="btn btn-primary">答え合わせ →</button>
   {% if k > 1 %}
-  <a href="/phase1/word/{{ word.id }}/{{ k - 1 }}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
+  <a href="/word/{{ word.id }}/f1/{{ k - 1 }}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
   {% else %}
-  <a href="/phase1" class="btn btn-secondary" style="margin-left:12px;">語の一覧に戻る</a>
+  <a href="/word/{{ word.id }}" class="btn btn-secondary" style="margin-left:12px;">学習マップに戻る</a>
   {% endif %}
 </form>
 

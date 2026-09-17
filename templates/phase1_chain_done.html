@@ -3,7 +3,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/phase1" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <a href="/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
   <div style="margin-left:auto; display:flex; gap:4px;">
     {% for c in chain %}
     <span class="badge badge-green">{{ c.icon }} {{ c.title }}</span>
@@ -61,17 +61,19 @@
 </div>
 {{ sup.support_blocks(guides, pairs, example, "done") }}
 
+<div class="card" style="text-align:center; background:var(--purple-soft);">
+  <h2>次はフェーズ2：文法形式の判断</h2>
+  <p class="muted small" style="margin-bottom:14px;">
+    ここで出した素性〈{{ profile }}〉を持ったまま、表現形式の前接条件と照らし合わせます。
+  </p>
+  <a href="/word/{{ word.id }}/f2/learn" class="btn btn-primary" style="background:var(--purple);">
+    フェーズ2へ進む →
+  </a>
+</div>
+
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  {% if next_word %}
-  <a href="/phase1/word/{{ next_word.id }}/1" class="btn btn-primary">
-    次の語へ：{{ next_word.emoji }} {{ next_word.word }} →
-  </a>
-  {% endif %}
-  <a href="/step3/{{ word.id }}" class="btn btn-primary" style="background:var(--purple);">
-    この語で文法形式を判断する →
-  </a>
-  <a href="/phase1" class="btn btn-secondary">語の一覧に戻る</a>
-  <a href="/phase1/word/{{ word.id }}/1" class="btn btn-secondary">この語をもう一度</a>
+  <a href="/word/{{ word.id }}/f1/1" class="btn btn-secondary">フェーズ1をもう一度</a>
+  <a href="/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
 </div>
 
 {{ sup.support_script() }}

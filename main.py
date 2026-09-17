@@ -1,11 +1,15 @@
 # main.py
 # オノマトペ学習支援システム
-#   フェーズ1：語ごとの連鎖学習（/phase1/word/{id}/1〜5）
-#             意味 → 音の形 → 継続性 → 動作性 → 意志性 を1語でたどる
-#             ＋ 総合ドリル（/phase1/drill）＋ まとめ（/phase1/summary）
-#   フェーズ2：文法形式の学習（/phase2）＋ 前接条件ドリル（/phase2/drill）
-#             ＋ 線結び（/step3/{id}）
-#   フェーズ3：例文への適用（/phase3）＋ 例文練習（/step4/{id}）
+#   語を1つ選んだら、その語でフェーズ1〜3を通して学ぶ。
+#     /                       出題対象16語の一覧（語を選ぶのはここだけ）
+#     /word/{id}              その語の学習マップ（3フェーズの現在地）
+#     /word/{id}/f1/1〜5      フェーズ1：意味 → 音の形 → 継続性 → 動作性 → 意志性
+#     /word/{id}/f1/done      フェーズ1のまとめ（カテゴリー確定）
+#     /word/{id}/f2/learn     フェーズ2：表現形式と前接条件を学ぶ
+#     /word/{id}/f2           フェーズ2：線結び
+#     /word/{id}/f3           フェーズ3：例文の練習
+#     /word/{id}/complete     この語の学習完了
+#   語に紐づかない補助：/drill/features・/drill/expressions・/reference
 #
 # 2026-09 改修の中心：
 #   表現形式の前接条件を素性の集合として持ち、○×の判定と誤答フィードバックを
@@ -257,10 +261,15 @@ def meaning_options(word, n=4):
 # =====================================================================
 #  トップページ
 # =====================================================================
+def word_groups():
+    return [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
+            for c in CATEGORIES]
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {
-        "total": len(WORDS),
+        "total": len(WORDS), "groups": word_groups(), "chain": CHAIN,
     })
 
 
@@ -505,17 +514,22 @@ def chain_feedback(w, k, choice):
             "fig": FEATURE_FIGS[fkey].get(fb["correct_value"])}
 
 
-@app.get("/phase1", response_class=HTMLResponse)
-async def phase1(request: Request):
-    groups = [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
-              for c in CATEGORIES]
-    return templates.TemplateResponse(request, "phase1.html", {
-        "chain": CHAIN, "groups": groups, "total": len(WORDS),
+@app.get("/word/{word_id}", response_class=HTMLResponse)
+async def word_map(request: Request, word_id: str):
+    """その語の学習マップ。フェーズ1〜3のどこにいるかを示す。"""
+    w = get_word(word_id)
+    if not w:
+        return RedirectResponse("/")
+    idx = [x["id"] for x in WORDS].index(w["id"])
+    return templates.TemplateResponse(request, "word_map.html", {
+        "word": w, "chain": CHAIN,
+        "n": idx + 1, "total": len(WORDS),
+        "next_word": WORDS[idx + 1] if idx + 1 < len(WORDS) else None,
     })
 
 
-@app.get("/phase1/summary", response_class=HTMLResponse)
-async def phase1_summary(request: Request):
+@app.get("/reference", response_class=HTMLResponse)
+async def reference(request: Request):
     return templates.TemplateResponse(request, "phase1_summary.html", {
         "knowledge": KNOWLEDGE,
         "categories": CATEGORIES,
@@ -524,7 +538,7 @@ async def phase1_summary(request: Request):
     })
 
 
-@app.get("/phase1/word/{word_id}/done", response_class=HTMLResponse)
+@app.get("/word/{word_id}/f1/done", response_class=HTMLResponse)
 async def phase1_chain_done(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
@@ -625,7 +639,7 @@ DRILL_PLAN = [("feat", 3), ("phon", 1), ("same", 1), ("cat", 1)]
 
 
 
-@app.get("/phase1/word/{word_id}/{k}", response_class=HTMLResponse)
+@app.get("/word/{word_id}/f1/{k}", response_class=HTMLResponse)
 async def phase1_chain(request: Request, word_id: str, k: int):
     w = get_word(word_id)
     if not w or k not in CHAIN_BY_K:
@@ -637,7 +651,7 @@ async def phase1_chain(request: Request, word_id: str, k: int):
     })
 
 
-@app.post("/phase1/word/{word_id}/{k}/check", response_class=HTMLResponse)
+@app.post("/word/{word_id}/f1/{k}/check", response_class=HTMLResponse)
 async def phase1_chain_check(request: Request, word_id: str, k: int):
     w = get_word(word_id)
     if not w or k not in CHAIN_BY_K:
@@ -652,7 +666,7 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
     })
 
 
-@app.get("/phase1/drill", response_class=HTMLResponse)
+@app.get("/drill/features", response_class=HTMLResponse)
 async def phase1_drill(request: Request):
     builders = {"feat": _q_feat, "phon": _q_phon, "same": _q_same, "cat": _q_cat}
     questions = []
@@ -752,7 +766,7 @@ def grade_feature_questions(form):
     return results, n_correct
 
 
-@app.post("/phase1/drill/check", response_class=HTMLResponse)
+@app.post("/drill/features/check", response_class=HTMLResponse)
 async def phase1_drill_check(request: Request):
     form = await request.form()
     results, n_correct = grade_feature_questions(form)
@@ -764,9 +778,14 @@ async def phase1_drill_check(request: Request):
 # =====================================================================
 #  フェーズ2：文法形式の学習
 # =====================================================================
-@app.get("/phase2", response_class=HTMLResponse)
-async def phase2(request: Request):
-    # 表現形式の詳細カード（項目3）
+@app.get("/word/{word_id}/f2/learn", response_class=HTMLResponse)
+async def f2_learn(request: Request, word_id: str):
+    """フェーズ2の入口：この語の素性を持ったまま、表現形式と前接条件を学ぶ。"""
+    w = get_word(word_id)
+    if not w:
+        return RedirectResponse("/")
+    cat = get_category(w)
+
     expr_cards = []
     for e in EXPRESSIONS:
         reqs = []
@@ -778,13 +797,11 @@ async def phase2(request: Request):
                              "why": e[WHY_COL[fkey]]})
         expr_cards.append({"expr": e, "reqs": reqs})
 
-    groups = [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
-              for c in CATEGORIES]
     return templates.TemplateResponse(request, "phase2.html", {
+        "word": w, "category": cat, "profile": profile_str(cat), "chain": CHAIN,
         "expr_cards": expr_cards,
         "expr_guide": KNOWLEDGE["expr_guide"],
         "expr_note": KNOWLEDGE["expr_note"],
-        "groups": groups,
     })
 
 
@@ -829,7 +846,7 @@ def _q_pair():
     return _q_cond()
 
 
-@app.get("/phase2/drill", response_class=HTMLResponse)
+@app.get("/drill/expressions", response_class=HTMLResponse)
 async def phase2_drill(request: Request):
     builders = {"cond": _q_cond, "pair": _q_pair}
     questions = []
@@ -844,7 +861,7 @@ async def phase2_drill(request: Request):
     })
 
 
-@app.post("/phase2/drill/check", response_class=HTMLResponse)
+@app.post("/drill/expressions/check", response_class=HTMLResponse)
 async def phase2_drill_check(request: Request):
     form = await request.form()
     results = []
@@ -896,20 +913,11 @@ async def phase2_drill_check(request: Request):
 # =====================================================================
 #  フェーズ3：例文への適用
 # =====================================================================
-@app.get("/phase3", response_class=HTMLResponse)
-async def phase3(request: Request):
-    groups = [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
-              for c in CATEGORIES]
-    return templates.TemplateResponse(request, "phase3.html", {
-        "groups": groups,
-    })
-
-
 # =====================================================================
 #  Step3：文法形式との線結び（局面別グループ＋段階ヒント）
 # =====================================================================
-@app.get("/step3/{word_id}", response_class=HTMLResponse)
-async def step3(request: Request, word_id: str):
+@app.get("/word/{word_id}/f2", response_class=HTMLResponse)
+async def f2_match(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
@@ -943,8 +951,8 @@ async def step3(request: Request, word_id: str):
     })
 
 
-@app.post("/step3/{word_id}/check", response_class=HTMLResponse)
-async def step3_check(request: Request, word_id: str):
+@app.post("/word/{word_id}/f2/check", response_class=HTMLResponse)
+async def f2_check(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
@@ -1008,8 +1016,8 @@ def step4_build(w, n_distractors=2):
     return questions
 
 
-@app.get("/step4/{word_id}", response_class=HTMLResponse)
-async def step4(request: Request, word_id: str):
+@app.get("/word/{word_id}/f3", response_class=HTMLResponse)
+async def f3(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
@@ -1020,8 +1028,8 @@ async def step4(request: Request, word_id: str):
     })
 
 
-@app.post("/step4/{word_id}/check", response_class=HTMLResponse)
-async def step4_check(request: Request, word_id: str):
+@app.post("/word/{word_id}/f3/check", response_class=HTMLResponse)
+async def f3_check(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
@@ -1071,3 +1079,65 @@ async def step4_check(request: Request, word_id: str):
         "n_correct": n_correct, "total": len(results),
         "results": results,
     })
+
+
+# =====================================================================
+#  この語の学習完了
+# =====================================================================
+@app.get("/word/{word_id}/complete", response_class=HTMLResponse)
+async def word_complete(request: Request, word_id: str):
+    w = get_word(word_id)
+    if not w:
+        return RedirectResponse("/")
+    cat = get_category(w)
+    ok_keys = CAT_EXPRS.get(cat["id"], set())
+    idx = [x["id"] for x in WORDS].index(w["id"])
+    return templates.TemplateResponse(request, "complete.html", {
+        "word": w, "category": cat, "profile": profile_str(cat), "chain": CHAIN,
+        "phon": PHON_BY_KEY[w["phon"]],
+        "figs": FEATURE_FIGS,
+        "ok_exprs": [e for e in EXPRESSIONS if e["key"] in ok_keys],
+        "ng_exprs": [e for e in EXPRESSIONS if e["key"] not in ok_keys],
+        "n": idx + 1, "total": len(WORDS),
+        "next_word": WORDS[idx + 1] if idx + 1 < len(WORDS) else None,
+    })
+
+
+# =====================================================================
+#  旧URLからのリダイレクト（ブックマークを壊さない）
+# =====================================================================
+@app.get("/phase1")
+@app.get("/phase2")
+@app.get("/phase3")
+async def redirect_phases():
+    return RedirectResponse("/")
+
+
+@app.get("/phase1/summary")
+async def redirect_summary():
+    return RedirectResponse("/reference")
+
+
+@app.get("/phase1/drill")
+async def redirect_drill1():
+    return RedirectResponse("/drill/features")
+
+
+@app.get("/phase2/drill")
+async def redirect_drill2():
+    return RedirectResponse("/drill/expressions")
+
+
+@app.get("/phase1/word/{word_id}/{k}")
+async def redirect_chain(word_id: str, k: str):
+    return RedirectResponse(f"/word/{word_id}/f1/{k}")
+
+
+@app.get("/step3/{word_id}")
+async def redirect_step3(word_id: str):
+    return RedirectResponse(f"/word/{word_id}/f2")
+
+
+@app.get("/step4/{word_id}")
+async def redirect_step4(word_id: str):
+    return RedirectResponse(f"/word/{word_id}/f3")

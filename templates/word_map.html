@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <span class="badge badge-gray" style="margin-left:auto;">{{ n }} / {{ total }} 語目</span>
+</div>
+
+<div class="card">
+  <div style="display:flex; align-items:center; gap:18px;">
+    <div style="font-size:2.8rem;">{{ word.emoji }}</div>
+    <div>
+      <h1 style="margin:0;">「{{ word.word }}」を学ぶ</h1>
+      <div class="muted small" style="margin-top:4px;">場面：{{ word.scene }}</div>
+    </div>
+  </div>
+  <div class="infobox" style="margin-top:14px;">
+    この語について、<strong>フェーズ1 → フェーズ2 → フェーズ3</strong> を通して学びます。
+    途中で別の語に切り替える必要はありません。
+  </div>
+</div>
+
+<!-- フェーズ1 -->
+<div class="card">
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <span class="badge badge-blue">フェーズ1</span>
+    <h2 style="margin:0; font-size:1.1rem;">素性を決める</h2>
+    <span class="badge badge-gray" style="margin-left:auto;">5問</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:14px 0;">
+    {% for c in chain %}
+    <div style="flex:1; min-width:92px; background:var(--blue-soft); border-radius:10px; padding:9px 6px; text-align:center;">
+      <div style="font-size:1.2rem;">{{ c.icon }}</div>
+      <div class="small" style="font-weight:700;">{{ c.title }}</div>
+    </div>
+    {% if not loop.last %}<div class="muted small" style="font-weight:700;">→</div>{% endif %}
+    {% endfor %}
+  </div>
+  <p class="muted small" style="margin-bottom:14px;">
+    前の答えが次の問いの前提になります。終わると「{{ word.word }}」のカテゴリーが決まります。
+  </p>
+  <a href="/word/{{ word.id }}/f1/1" class="btn btn-primary">フェーズ1を始める →</a>
+</div>
+
+<!-- フェーズ2 -->
+<div class="card" style="opacity:0.92;">
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <span class="badge badge-purple">フェーズ2</span>
+    <h2 style="margin:0; font-size:1.1rem;">文法形式を判断する</h2>
+  </div>
+  <p class="muted small" style="margin-top:10px;">
+    表現形式10件の前接条件を学んでから、フェーズ1で出した素性と照らし合わせて線結びをします。
+  </p>
+  <a href="/word/{{ word.id }}/f2/learn" class="btn btn-secondary">先にフェーズ2を見る</a>
+</div>
+
+<!-- フェーズ3 -->
+<div class="card" style="opacity:0.92;">
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <span class="badge badge-orange">フェーズ3</span>
+    <h2 style="margin:0; font-size:1.1rem;">例文で使う</h2>
+  </div>
+  <p class="muted small" style="margin-top:10px;">
+    「{{ word.word }}」を使った2つの例文で、文脈に合う形を選びます。
+  </p>
+  <a href="/word/{{ word.id }}/f3" class="btn btn-secondary">先にフェーズ3を見る</a>
+</div>
+
+{% if next_word %}
+<div class="notebox">
+  この語を終えたら、次は {{ next_word.emoji }} <strong>{{ next_word.word }}</strong> に進みます。
+</div>
+{% endif %}
+
+{% endblock %}

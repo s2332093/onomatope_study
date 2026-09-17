@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="muted small" style="margin-bottom:8px;">Step4：例文の練習</div>
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
+  <div style="margin-left:auto; display:flex; gap:4px;">
+    <span class="badge badge-green">フェーズ1</span>
+    <span class="badge badge-green">フェーズ2</span>
+    <span class="badge badge-orange">フェーズ3</span>
+  </div>
+</div>
 <div class="card">
   <div style="display:flex; align-items:center; gap:16px;">
     <div style="font-size:2.4rem;">{{ word.emoji }}</div>
@@ -12,7 +19,7 @@
   </div>
 </div>
 
-<form method="post" action="/step4/{{ word.id }}/check">
+<form method="post" action="/word/{{ word.id }}/f3/check">
   {% for q in questions %}
   <div class="card">
     <input type="hidden" name="opt_keys_{{ q.idx }}" value="{{ q.opt_keys }}">
@@ -39,7 +46,7 @@
   {% endfor %}
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="/step3/{{ word.id }}" class="btn btn-secondary" style="margin-left:12px;">← Step3に戻る</a>
+  <a href="/word/{{ word.id }}/f2" class="btn btn-secondary" style="margin-left:12px;">← 線結びに戻る</a>
 </form>
 
 <script>

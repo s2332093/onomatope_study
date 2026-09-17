@@ -9,7 +9,7 @@
     <div style="font-size:2rem;">📝</div>
     <h2 style="color:var(--orange);">{{ n_correct }}／{{ total }} 正解。解説を確認しましょう</h2>
   {% endif %}
-  <p class="muted small">総合ドリルの結果</p>
+  <p class="muted small">素性ドリルの結果</p>
 </div>
 
 {% for r in results %}
@@ -37,10 +37,10 @@
 {% endfor %}
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/phase1/drill" class="btn btn-primary">もう一度ドリル（別の問題）→</a>
-  <a href="/phase2" class="btn btn-primary" style="background:var(--purple);">フェーズ2へ進む →</a>
-  <a href="/phase1" class="btn btn-secondary">段階一覧に戻る</a>
-  <a href="/phase1/summary" class="btn btn-secondary">素性のまとめ（復習用）</a>
+  <a href="/drill/features" class="btn btn-primary">もう一度ドリル（別の問題）→</a>
+  <a href="/drill/expressions" class="btn btn-primary" style="background:var(--purple);">前接条件ドリルへ →</a>
+  <a href="/" class="btn btn-secondary">語の一覧に戻る</a>
+  <a href="/reference" class="btn btn-secondary">素性のまとめ</a>
 </div>
 
 {% endblock %}

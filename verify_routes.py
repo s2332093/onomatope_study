@@ -26,9 +26,29 @@ def post(path, data):
 
 
 # ---- 静的ページ ----
-for p in ["/", "/phase1", "/phase1/summary", "/phase2", "/phase3",
-          "/phase1/drill", "/phase2/drill"]:
+for p in ["/", "/reference", "/drill/features", "/drill/expressions"]:
     get(p)
+
+# ---- 出題語が16語・各カテゴリー2語であること ----
+if len(WORDS) != 16:
+    fails.append(f"出題語が {len(WORDS)} 語です（16語）")
+_by_cat = {}
+for w in WORDS:
+    _by_cat.setdefault(w["category_id"], []).append(w["word"])
+for c in main.CATEGORIES:
+    if len(_by_cat.get(c["id"], [])) != 2:
+        fails.append(f'{c["name"]} の出題語が {len(_by_cat.get(c["id"], []))} 語です')
+
+# ---- 語を選ぶ場所はトップだけ（各フェーズに語の一覧を置かない） ----
+home = client.get("/").text
+n_links_home = home.count('href="/word/')
+if n_links_home < 16:
+    fails.append(f"トップに語のリンクが {n_links_home} 件しかありません")
+for path in ["/word/iraira/f2/learn", "/word/iraira/f3"]:
+    body = client.get(path).text
+    others = [w["id"] for w in WORDS if w["id"] != "iraira" and f'/word/{w["id"]}/' in body]
+    if others:
+        fails.append(f"{path} に他の語への導線があります：{others[:3]}")
 
 # ---- フェーズ1：語ごとの連鎖学習（全39語 × 5問） ----
 CHAIN_FIGS = {
@@ -42,10 +62,10 @@ for w in WORDS:
     cat = CAT_BY_ID[w["category_id"]]
     phon = main.PHON_BY_KEY[w["phon"]]
     for k in range(1, 6):
-        r = get(f'/phase1/word/{w["id"]}/{k}')
+        r = get(f'/word/{w["id"]}/f1/{k}')
         # 正解を入力すると「正解です」になること
         correct = {1: w["id"], 2: w["phon"]}.get(k) or cat[FKEY_BY_K[k]]
-        res = post(f'/phase1/word/{w["id"]}/{k}/check', {"choice": correct})
+        res = post(f'/word/{w["id"]}/f1/{k}/check', {"choice": correct})
         if "正解です" not in res.text:
             fails.append(f'フェーズ1：{w["word"]} の第{k}問で、正解を入れても正解になりません')
         # 誤答でも落ちないこと
@@ -53,7 +73,7 @@ for w in WORDS:
                  2: "qri" if w["phon"] != "qri" else "repeat"}.get(k)
         if wrong is None:
             wrong = [v for v in CHAIN_FIGS[FKEY_BY_K[k]] if v != cat[FKEY_BY_K[k]]][0]
-        post(f'/phase1/word/{w["id"]}/{k}/check', {"choice": wrong})
+        post(f'/word/{w["id"]}/f1/{k}/check', {"choice": wrong})
 
         # 素性の問いは選択肢に図が出ていること（3枚とも）
         if k in FKEY_BY_K:
@@ -68,7 +88,7 @@ for w in WORDS:
             fails.append(f'{w["word"]} 第4問：導入に継続性の結果が出ていません')
 
     # まとめページ
-    r = get(f'/phase1/word/{w["id"]}/done')
+    r = get(f'/word/{w["id"]}/f1/done')
     if cat["name"] not in r.text:
         fails.append(f'{w["word"]} のまとめにカテゴリー名が出ていません')
 
@@ -77,12 +97,12 @@ for w in WORDS:
 used_stage_keys = set()
 for k, key in main.STAGE_KEY_BY_K.items():
     used_stage_keys.add(key)
-    r = get(f'/phase1/word/iraira/{k}')
+    r = get(f'/word/iraira/f1/{k}')
     if "判断のしかた" not in r.text:
         fails.append(f'第{k}問に判断手順が出ていません')
     if "似ているのに違う語" not in r.text:
         fails.append(f'第{k}問に対比ペアが出ていません')
-r = get('/phase1/word/iraira/done')
+r = get('/word/iraira/f1/done')
 used_stage_keys.add("category")
 for needle, what in [("判断のしかた", "判断手順"), ("似ているのに違う語", "対比ペア"),
                      ("別の語で考え方をたどる", "思考ガイド")]:
@@ -95,9 +115,9 @@ for key in set(main.STAGE_GUIDES) | set(main.CONTRAST_PAIRS) | set(main.WORKED_E
         fails.append(f'学習コンテンツ「{key}」がどの画面でも使われていません')
 
 # 思考ガイドは、学習中の語と同じなら出さない（がっかり＝継続性の例題）
-r = get('/phase1/word/gakkari/3')
+r = get('/word/bikkuri/f1/3')
 if "別の語で考え方をたどる" in r.text:
-    fails.append("学習中の語と同じ例題が「別の語」として出ています（がっかり）")
+    fails.append("学習中の語と同じ例題が「別の語」として出ています（びっくり）")
 
 # ---- 対応表の例外欄が語ごとにまとまっていること ----
 for row in main.build_phon_table():
@@ -113,9 +133,14 @@ for fkey, m in CHAIN_FIGS.items():
             fails.append(f"図が存在しません：static/{fig}")
 
 # ---- 廃止したルートが残っていないこと ----
-for path in ["/step1/iraira", "/step2/iraira", "/phase1/stage/1"]:
-    if client.get(path).status_code == 200:
-        fails.append(f"廃止したはずのページが残っています：{path}")
+# ---- 旧URLがリダイレクトで生きていること ----
+for old, new in [("/phase1", "/"), ("/phase1/summary", "/reference"),
+                 ("/phase1/drill", "/drill/features"), ("/phase2/drill", "/drill/expressions"),
+                 ("/step3/iraira", "/word/iraira/f2"), ("/step4/iraira", "/word/iraira/f3"),
+                 ("/phase1/word/iraira/2", "/word/iraira/f1/2")]:
+    r = client.get(old, follow_redirects=False)
+    if r.status_code not in (301, 302, 307, 308) or r.headers.get("location") != new:
+        fails.append(f"旧URL {old} が {new} に転送されません（{r.status_code} / {r.headers.get('location')}）")
 
 # ---- 「予測できない素性」が phon 問題に出ないこと ----
 for _ in range(80):
@@ -134,7 +159,7 @@ def extract(html, name_prefix):
 
 
 for attempt in range(60):
-    r = client.get("/phase1/drill")
+    r = client.get("/drill/features")
     specs = extract(r.text, "spec_")
     data = {}
     for idx, spec in specs:
@@ -147,7 +172,7 @@ for attempt in range(60):
             data[f"choice_{idx}"] = opts
         else:
             data[f"choice_{idx}"] = random.choice(WORDS)["id"]
-    post("/phase1/drill/check", data)
+    post("/drill/features/check", data)
     if seen >= {"f", "p", "S", "C"}:
         break
 if seen < {"f", "p", "S", "C"}:
@@ -156,7 +181,7 @@ if seen < {"f", "p", "S", "C"}:
 # ---- 前接条件ドリル ----
 seen2 = set()
 for attempt in range(60):
-    r = client.get("/phase2/drill")
+    r = client.get("/drill/expressions")
     specs = extract(r.text, "spec_")
     data = {}
     for idx, spec in specs:
@@ -166,33 +191,35 @@ for attempt in range(60):
             data[f"choice_{idx}"] = EXPRESSIONS[0]["cond_text"]
         else:
             data[f"choice_{idx}"] = random.choice(WORDS)["id"]
-    post("/phase2/drill/check", data)
+    post("/drill/expressions/check", data)
     if seen2 >= {"x", "y"}:
         break
 if seen2 < {"x", "y"}:
     fails.append(f"前接条件ドリルの全タイプが出題されませんでした：{seen2}")
 
-# ---- 全語 × Step3・Step4 ----
+# ---- 全語 × 学習マップ・フェーズ2・フェーズ3・完了 ----
 for w in WORDS:
     cat = CAT_BY_ID[w["category_id"]]
+    get(f'/word/{w["id"]}')
 
-    get(f'/step3/{w["id"]}')
+    get(f'/word/{w["id"]}/f2/learn')
+    get(f'/word/{w["id"]}/f2')
     # 正解の線結び
     data = {k: "○" for k in CAT_EXPRS[cat["id"]]}
     data["hint_level"] = "2"
-    r = post(f'/step3/{w["id"]}/check', data)
+    r = post(f'/word/{w["id"]}/f2/check', data)
     if f'{len(EXPRESSIONS)}/{len(EXPRESSIONS)} 正解' not in r.text:
         fails.append(f'Step3 正解入力が全問正解になりません：{w["word"]}')
     # 全部×でも動くか
-    post(f'/step3/{w["id"]}/check', {"hint_level": "0"})
+    post(f'/word/{w["id"]}/f2/check', {"hint_level": "0"})
 
-    get(f'/step4/{w["id"]}')
+    get(f'/word/{w["id"]}/f3')
     qs = main.step4_build(w)
     data = {}
     for q in qs:
         data[f'opt_keys_{q["idx"]}'] = q["opt_keys"]
         data[f'choice_{q["idx"]}'] = q["correct_key"]
-    r = post(f'/step4/{w["id"]}/check', data)
+    r = post(f'/word/{w["id"]}/f3/check', data)
     if "全問正解" not in r.text:
         fails.append(f'Step4 正解入力が全問正解になりません：{w["word"]}')
     # 誤答を選んだ場合
@@ -201,7 +228,11 @@ for w in WORDS:
         wrong = next((o["key"] for o in q["options"] if o["key"] != q["correct_key"]), q["correct_key"])
         data2[f'opt_keys_{q["idx"]}'] = q["opt_keys"]
         data2[f'choice_{q["idx"]}'] = wrong
-    post(f'/step4/{w["id"]}/check', data2)
+    post(f'/word/{w["id"]}/f3/check', data2)
+
+    r = get(f'/word/{w["id"]}/complete')
+    if cat["name"] not in r.text:
+        fails.append(f'{w["word"]} の完了画面にカテゴリー名が出ていません')
 
 # ---- Step4：誤答選択肢が必ず「結びつかない形式」であること ----
 for w in WORDS:
@@ -239,5 +270,5 @@ if fails:
     for f in fails[:25]:
         print("  - " + f)
     sys.exit(1)
-print(f"OK：全ルート・全{len(WORDS)}語の連鎖学習（5問）・Step3・Step4・両ドリルが正常に動作しました。")
+print(f"OK：全{len(WORDS)}語について、フェーズ1（5問）→フェーズ2（線結び）→フェーズ3（例文）→完了 の通し学習と、両ドリルが正常に動作しました。")
 print(f"    素性フィードバックは {len(WORDS) * len(EXPRESSIONS)} 通りすべて研究資料の正解表と一致。")

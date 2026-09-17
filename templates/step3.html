@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="muted small" style="margin-bottom:8px;">Step3：文法形式との線結び</div>
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+  <a href="/word/{{ word.id }}/f2/learn" class="muted small" style="text-decoration:none;">← 前接条件を読み直す</a>
+  <div style="margin-left:auto; display:flex; gap:4px;">
+    <span class="badge badge-green">フェーズ1</span>
+    <span class="badge badge-purple">フェーズ2</span>
+    <span class="badge badge-gray">フェーズ3</span>
+  </div>
+</div>
 <div class="card">
   <div style="display:flex; align-items:center; gap:16px;">
     <div style="font-size:2.4rem;">{{ word.emoji }}</div>
@@ -12,7 +19,7 @@
   </div>
 </div>
 
-<form method="post" action="/step3/{{ word.id }}/check" id="step3Form">
+<form method="post" action="/word/{{ word.id }}/f2/check" id="step3Form">
   <input type="hidden" name="hint_level" id="hintLevel" value="0">
 
   <!-- 判断の手順 -->
@@ -121,7 +128,7 @@
   </div>
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="/phase1/word/{{ word.id }}/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
+  <a href="/word/{{ word.id }}/f1/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
 </form>
 
 <style>
