@@ -48,6 +48,33 @@
     nav a:hover { color: var(--blue); }
 
     .container { max-width: 760px; margin: 36px auto; padding: 0 24px; }
+    /* 線結びなど、横に広さが必要な画面用 */
+    .container.wide { max-width: 1080px; }
+
+    /* ---- 連鎖の可視化（確定した事実 →（関係）→ 次に問う素性） ---- */
+    .flow { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+    .fnode {
+      flex: 1 1 150px; min-width: 136px; border-radius: 12px; padding: 14px;
+      text-align: center; border: 2px solid var(--border); background: #fff;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .fnode.done { border-color: #bcd0f4; background: var(--blue-soft); }
+    .fnode.ask  { border-color: var(--orange); background: var(--orange-soft); }
+    .fcap { font-size: 0.7rem; font-weight: 700; color: var(--muted); }
+    .fval { font-size: 0.98rem; font-weight: 700; margin-top: 2px; line-height: 1.4; }
+    .fsub { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .fnode img { width: 100%; max-width: 152px; display: block; margin: 8px auto 0; }
+    .fask { font-size: 1.7rem; font-weight: 700; color: var(--orange); line-height: 1.2; }
+    .farrow {
+      flex: 0 1 178px; min-width: 110px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px;
+    }
+    .fwhy { font-size: 0.72rem; font-weight: 700; color: var(--blue); text-align: center; line-height: 1.4; }
+    .fline { font-size: 1.2rem; color: var(--blue); line-height: 1; }
+    .fpred { margin-top: 8px; padding-top: 7px; border-top: 1px dashed #e6c795; }
+    .fpred .fpl { font-size: 0.66rem; font-weight: 700; color: var(--orange); }
+    .fpred .fpv { font-size: 0.82rem; font-weight: 700; margin-top: 2px; }
+    .fpred img { max-width: 112px; }
 
     .card {
       background: var(--card);
@@ -163,7 +190,7 @@
   <a href="/drill/features">素性ドリル</a>
   <a href="/drill/expressions">前接条件ドリル</a>
 </nav>
-<div class="container">
+<div class="container {% block container_class %}{% endblock %}">
   {% block content %}{% endblock %}
 </div>
 </body>

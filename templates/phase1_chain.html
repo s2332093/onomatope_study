@@ -15,20 +15,47 @@
 </div>
 
 <!-- 学習中の語 -->
-<div class="card">
-  <div style="display:flex; align-items:center; gap:16px;">
-    <div style="font-size:2.4rem;">{{ word.emoji }}</div>
+<div class="card" style="padding:16px 20px;">
+  <div style="display:flex; align-items:center; gap:14px;">
+    <div style="font-size:2.2rem;">{{ word.emoji }}</div>
     <div style="flex:1;">
       <h2 style="margin:0;">「{{ word.word }}」</h2>
-      <div class="muted small">場面：{{ word.scene }}</div>
+      <div class="muted small">{{ word.scene }}</div>
     </div>
     <span class="badge badge-gray">{{ k }} / {{ chain|length }}</span>
   </div>
 </div>
 
-<!-- 前の答えを踏まえた導入 -->
-<div class="card" style="background:var(--blue-soft);">
-  <div style="font-size:0.9rem; line-height:1.7;">{{ q.lead|safe }}</div>
+<!-- ここまでで分かったこと → これから問うこと（図で示す） -->
+<div class="card" style="padding:18px 20px;">
+  <div class="flow">
+    {% for n in q.flow.known %}
+    <div class="fnode done">
+      <div class="fcap">{{ n.cap }}</div>
+      <div class="fval">{{ n.val }}</div>
+      {% if n.sub %}<div class="fsub">{{ n.sub }}</div>{% endif %}
+      {% if n.fig %}<img src="/static/{{ n.fig }}" alt="{{ n.val }}">{% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="farrow">
+      {% if q.flow.why %}<div class="fwhy">{{ q.flow.why }}</div>{% endif %}
+      <div class="fline">▶</div>
+    </div>
+
+    <div class="fnode ask">
+      <div class="fcap">{{ q.flow.ask.cap }}</div>
+      <div class="fask">？</div>
+      {% if q.flow.predict %}
+      <div class="fpred">
+        <div class="fpl">音の形からの予測</div>
+        {% if q.flow.predict.fig %}<img src="/static/{{ q.flow.predict.fig }}" alt="">{% endif %}
+        <div class="fpv">{{ q.flow.predict.val }}</div>
+        {% if q.flow.predict.note %}<div class="fsub">{{ q.flow.predict.note }}</div>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
 <form method="post" action="/word/{{ word.id }}/f1/{{ k }}/check">
@@ -47,9 +74,12 @@
     {% for opt in q.phon_opts %}
     <label style="display:block; margin-bottom:10px;">
       <input type="radio" name="choice" value="{{ opt.value }}" required style="display:none;">
-      <div class="opt-card">
-        <div style="font-weight:700;">{{ opt.label }}</div>
-        <div class="muted small">{{ opt.term }}{% if opt.example %} ／ 例：{{ opt.example }}{% endif %}</div>
+      <div class="opt-card" style="display:flex; align-items:center; gap:14px;">
+        {% if opt.fig %}<img src="/static/{{ opt.fig }}" alt="" style="width:150px; flex-shrink:0;">{% endif %}
+        <div>
+          <div style="font-weight:700;">{{ opt.label }}</div>
+          <div class="muted small">{{ opt.term }}{% if opt.example %} ／ 例：{{ opt.example }}{% endif %}</div>
+        </div>
       </div>
     </label>
     {% endfor %}
@@ -72,9 +102,6 @@
   </div>
 
   {% if support %}
-  <div class="muted small" style="margin:18px 0 8px;">
-    迷ったら、以下を開いて考えてから答えて構いません。
-  </div>
   {{ sup.support_blocks(support.guides, support.pairs, support.example, "q" ~ k) }}
   {% endif %}
 

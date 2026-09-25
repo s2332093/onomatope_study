@@ -10,17 +10,9 @@
     <h2 style="color:var(--orange);">惜しい！解説を確認しましょう</h2>
   {% endif %}
   <p class="muted small">
-    「{{ word.word }}」と文法形式の線結び（{{ n_expr_correct }}/{{ total_expr }} 正解）
-    {% if hint_level != "0" %}／ ヒント{{ hint_level }}まで使用{% endif %}
+    「{{ word.word }}」＝<strong style="color:var(--blue);">{{ profile }}</strong>
+    （{{ n_expr_correct }}/{{ total_expr }} 正解）
   </p>
-</div>
-
-<div class="card">
-  <div class="small muted">
-    「{{ word.word }}」は<strong style="color:var(--blue);">「{{ category.name }}」</strong>＝
-    <strong>{{ profile }}</strong><br>
-    この素性と、各表現形式の前接条件を照合した結果が下です。
-  </div>
 </div>
 
 <div class="card">
@@ -79,10 +71,7 @@
 </div>
 
 <div class="card" style="text-align:center; background:var(--orange-soft);">
-  <h2>次はフェーズ3：例文で使う</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    ここで確かめた「結びつく形」を、文脈のある例文の中で選びます。
-  </p>
+  <h2 style="margin-bottom:14px;">次はフェーズ3：例文で使う</h2>
   <a href="/word/{{ word.id }}/f3" class="btn btn-primary" style="background:var(--orange);">
     フェーズ3へ進む →
   </a>

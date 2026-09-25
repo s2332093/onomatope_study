@@ -98,14 +98,14 @@ used_stage_keys = set()
 for k, key in main.STAGE_KEY_BY_K.items():
     used_stage_keys.add(key)
     r = get(f'/word/iraira/f1/{k}')
-    if "判断のしかた" not in r.text:
+    if "判断の手順" not in r.text:
         fails.append(f'第{k}問に判断手順が出ていません')
-    if "似ているのに違う語" not in r.text:
+    if "似た語との違い" not in r.text:
         fails.append(f'第{k}問に対比ペアが出ていません')
 r = get('/word/iraira/f1/done')
 used_stage_keys.add("category")
-for needle, what in [("判断のしかた", "判断手順"), ("似ているのに違う語", "対比ペア"),
-                     ("別の語で考え方をたどる", "思考ガイド")]:
+for needle, what in [("判断の手順", "判断手順"), ("似た語との違い", "対比ペア"),
+                     ("別の語で練習", "思考ガイド")]:
     if needle not in r.text:
         fails.append(f'まとめページに{what}が出ていません')
 
@@ -116,8 +116,44 @@ for key in set(main.STAGE_GUIDES) | set(main.CONTRAST_PAIRS) | set(main.WORKED_E
 
 # 思考ガイドは、学習中の語と同じなら出さない（がっかり＝継続性の例題）
 r = get('/word/bikkuri/f1/3')
-if "別の語で考え方をたどる" in r.text:
+if "別の語で練習" in r.text:
     fails.append("学習中の語と同じ例題が「別の語」として出ています（びっくり）")
+
+# ---- 連鎖の導入が「文章」ではなく「図」になっていること ----
+for k in (3, 4, 5):
+    r = get(f'/word/iraira/f1/{k}')
+    if 'class="flow"' not in r.text:
+        fails.append(f'第{k}問：導入の可視化（.flow）が出ていません')
+    if "になりやすい形です" in r.text or "では、実際はどうでしょうか" in r.text:
+        fails.append(f'第{k}問：導入に古い説明文が残っています')
+# 予測できない素性（反復形の動作性）は図なしで「予測できない」と示す
+r = get('/word/iraira/f1/4')
+if "予測できない" not in r.text:
+    fails.append("第4問：反復形の動作性が「予測できない」と示されていません")
+
+# ---- 音韻形態の図（音のかたち）が実在し、画面に出ていること ----
+import os as _os
+for key, fig in main.PHON_FIGS.items():
+    if not _os.path.exists(_os.path.join("static", fig)):
+        fails.append(f"音韻形態の図がありません：static/{fig}")
+r = get('/word/nikoniko/f1/2')
+if r.text.count("/static/phon_") < 3:
+    fails.append("第2問：音韻形態の選択肢に図が出ていません")
+r = get('/word/nikoniko/f1/3')
+if f'/static/{main.PHON_FIGS["repeat"]}' not in r.text:
+    fails.append("第3問：確定した音の形の図が出ていません")
+
+# ---- 線結び：3段階ヒントを廃止し、1本ずつ消せること ----
+r = get('/word/iraira/f2')
+for needle in ("ヒント1", "ヒント2", "ヒント3", "hint_level"):
+    if needle in r.text:
+        fails.append(f'線結びに廃止したはずの「{needle}」が残っています')
+for needle, what in [("hit-line", "線のクリック削除"), ("del-x", "行ごとの✕ボタン"),
+                     ("removeConnection", "1本削除の処理"), ('container_class', "")]:
+    if what and needle not in r.text:
+        fails.append(f'線結びに{what}がありません')
+if "wide" not in r.text:
+    fails.append("線結び画面が広いレイアウト（container wide）になっていません")
 
 # ---- 対応表の例外欄が語ごとにまとまっていること ----
 for row in main.build_phon_table():

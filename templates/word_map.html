@@ -14,10 +14,6 @@
       <div class="muted small" style="margin-top:4px;">場面：{{ word.scene }}</div>
     </div>
   </div>
-  <div class="infobox" style="margin-top:14px;">
-    この語について、<strong>フェーズ1 → フェーズ2 → フェーズ3</strong> を通して学びます。
-    途中で別の語に切り替える必要はありません。
-  </div>
 </div>
 
 <!-- フェーズ1 -->
@@ -36,9 +32,6 @@
     {% if not loop.last %}<div class="muted small" style="font-weight:700;">→</div>{% endif %}
     {% endfor %}
   </div>
-  <p class="muted small" style="margin-bottom:14px;">
-    前の答えが次の問いの前提になります。終わると「{{ word.word }}」のカテゴリーが決まります。
-  </p>
   <a href="/word/{{ word.id }}/f1/1" class="btn btn-primary">フェーズ1を始める →</a>
 </div>
 
@@ -48,9 +41,7 @@
     <span class="badge badge-purple">フェーズ2</span>
     <h2 style="margin:0; font-size:1.1rem;">文法形式を判断する</h2>
   </div>
-  <p class="muted small" style="margin-top:10px;">
-    表現形式10件の前接条件を学んでから、フェーズ1で出した素性と照らし合わせて線結びをします。
-  </p>
+  <p class="muted small" style="margin-top:8px;">前接条件を学んでから線結びをします。</p>
   <a href="/word/{{ word.id }}/f2/learn" class="btn btn-secondary">先にフェーズ2を見る</a>
 </div>
 
@@ -60,9 +51,7 @@
     <span class="badge badge-orange">フェーズ3</span>
     <h2 style="margin:0; font-size:1.1rem;">例文で使う</h2>
   </div>
-  <p class="muted small" style="margin-top:10px;">
-    「{{ word.word }}」を使った2つの例文で、文脈に合う形を選びます。
-  </p>
+  <p class="muted small" style="margin-top:8px;">例文2問で、文脈に合う形を選びます。</p>
   <a href="/word/{{ word.id }}/f3" class="btn btn-secondary">先にフェーズ3を見る</a>
 </div>
 

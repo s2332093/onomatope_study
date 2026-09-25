@@ -4,49 +4,30 @@
 <div class="card">
   <h1>📚 オノマトペ学習支援システム</h1>
   <p class="muted" style="margin-top:8px;">
-    オノマトペを「意味を知っている」から「正しく使える」へ。<br>
-    <strong>語を1つ選ぶと、その語で3つのフェーズを通して学びます。</strong>
+    語を1つ選ぶと、その語で3つのフェーズを通して学びます。
   </p>
 </div>
 
 <!-- 学習の流れ -->
-<div class="card">
-  <h2>🗺 1語の学習は3フェーズ</h2>
-  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:stretch; margin-bottom:14px;">
-    <div style="flex:1; min-width:210px; background:var(--blue-soft); border-radius:12px; padding:14px 16px;">
+<div class="card" style="padding:18px 20px;">
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:stretch;">
+    <div style="flex:1; min-width:180px; background:var(--blue-soft); border-radius:12px; padding:12px 14px;">
       <span class="badge badge-blue">フェーズ1</span>
       <div style="font-weight:700; margin-top:6px;">素性を決める</div>
-      <div class="muted small" style="margin-top:6px;">
-        意味 → 音の形 → 継続性 → 動作性 → 意志性 の5問。<br>
-        終わるとこの語のカテゴリーが決まります。
-      </div>
     </div>
-    <div style="flex:1; min-width:210px; background:var(--purple-soft); border-radius:12px; padding:14px 16px;">
+    <div style="flex:1; min-width:180px; background:var(--purple-soft); border-radius:12px; padding:12px 14px;">
       <span class="badge badge-purple">フェーズ2</span>
       <div style="font-weight:700; margin-top:6px;">文法形式を判断する</div>
-      <div class="muted small" style="margin-top:6px;">
-        表現形式の前接条件を学び、フェーズ1で出した素性と照らし合わせて線結びをします。
-      </div>
     </div>
-    <div style="flex:1; min-width:210px; background:var(--orange-soft); border-radius:12px; padding:14px 16px;">
+    <div style="flex:1; min-width:180px; background:var(--orange-soft); border-radius:12px; padding:12px 14px;">
       <span class="badge badge-orange">フェーズ3</span>
       <div style="font-weight:700; margin-top:6px;">例文で使う</div>
-      <div class="muted small" style="margin-top:6px;">
-        文脈のある例文で、その語に合う形を選びます。誤答には素性にもとづく理由がつきます。
-      </div>
     </div>
-  </div>
-  <div class="infobox">
-    フェーズごとに語を選び直すことはありません。<strong>1語を最後まで通してから、次の語に進みます。</strong>
   </div>
 </div>
 
 <!-- 語の一覧 -->
-<h2 style="margin:28px 0 6px;">✏️ 学習する語を選ぶ（全{{ total }}語）</h2>
-<p class="muted small" style="margin-bottom:16px;">
-  8つのカテゴリーから2語ずつ選んだ{{ total }}語です。上から順に進めると、
-  似ているのに素性が違う語を続けて学べます。
-</p>
+<h2 style="margin:28px 0 14px;">✏️ 学習する語を選ぶ（8カテゴリー × 2語 ＝ 全{{ total }}語）</h2>
 
 {% for g in groups %}
 <h2 style="margin:24px 0 10px; font-size:1rem;">
@@ -72,17 +53,9 @@
 {% endfor %}
 
 <div class="card" style="text-align:center; background:var(--blue-soft); margin-top:28px;">
-  <h2>🎯 いくつか終えたら、ドリルで確認</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    語をまたいで出題される復習用の演習です。学習の本線とは別に、いつでも使えます。
-  </p>
+  <h2 style="margin-bottom:14px;">🎯 復習用ドリル（任意）</h2>
   <a href="/drill/features" class="btn btn-primary">素性ドリル →</a>
   <a href="/drill/expressions" class="btn btn-primary" style="background:var(--purple); margin-left:12px;">前接条件ドリル →</a>
-</div>
-
-<div class="notebox">
-  📖 素性の説明をまとめて見返したいときは
-  <a href="/reference" style="color:var(--orange); font-weight:700;">素性のまとめ</a> へ。
 </div>
 
 {% endblock %}

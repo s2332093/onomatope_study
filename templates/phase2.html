@@ -21,10 +21,6 @@
       <div class="muted small">カテゴリー：{{ category.name }}</div>
     </div>
   </div>
-  <div class="infobox" style="margin-top:14px;">
-    まず表現形式10件の<strong>前接条件</strong>を確認します。読み終えたら、
-    この素性と照らし合わせて線結びに進みます。
-  </div>
 </div>
 
 <!-- 考え方 -->
@@ -51,10 +47,6 @@
 <!-- 接続表現の学び方 -->
 <div class="card">
   <h2>🔑 「前接条件」をどう捉えるか</h2>
-  <p class="muted small" style="margin-bottom:12px;">
-    条件は暗記するものではありません。その形式が表す<strong>時間的な局面</strong>と、
-    形式が加える<strong>意味</strong>から自然に出てきます。
-  </p>
   {% for k in expr_note %}
   <div style="border-left:4px solid var(--purple); background:#fbfcfe; border-radius:0 8px 8px 0; padding:10px 14px; margin-bottom:10px;">
     <div style="font-weight:700; font-size:0.9rem;">{{ k.label }}</div>
@@ -66,9 +58,6 @@
 <!-- 表現形式の詳細カード -->
 <div class="card">
   <h2>📝 表現形式と前接条件（全{{ expr_cards|length }}形式）</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    線結びで迷ったら、ここに立ち返りましょう（線結びの💡ヒントでも同じ条件を確認できます）。
-  </p>
   {% for c in expr_cards %}
   <div style="border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -93,11 +82,6 @@
       {% if r.why %}<li><strong>{{ r.name }}が必要な理由：</strong>{{ r.why }}</li>{% endif %}
       {% endfor %}
     </ul>
-    {% else %}
-    <div class="small muted" style="margin-top:6px;">
-      完遂・不本意の意味を添えるだけなので、素性による制限がありません。
-      ー継続性の語（いらっ・ずきっ など）が結びつける形は事実上これだけです。
-    </div>
     {% endif %}
 
     <div class="small" style="margin-top:8px; display:flex; gap:16px; flex-wrap:wrap;">
@@ -109,10 +93,7 @@
 </div>
 
 <div class="card" style="text-align:center; background:var(--purple-soft);">
-  <h2>読み終えたら、線結びに進みます</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    「{{ word.word }}」の素性〈{{ profile }}〉と、上の前接条件を1件ずつ照らし合わせます。
-  </p>
+  <h2 style="margin-bottom:14px;">読み終えたら、線結びに進みます</h2>
   <a href="/word/{{ word.id }}/f2" class="btn btn-primary" style="background:var(--purple);">
     線結びに進む →
   </a>

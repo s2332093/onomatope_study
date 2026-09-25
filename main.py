@@ -331,6 +331,15 @@ FEATURE_FIGS = {
     "volition":   {"＋": "vol_plus.svg", "ー": "vol_minus.svg", "関与しない": "vol_na.svg"},
 }
 
+# 音韻形態 → その「音のかたち」を示す図
+PHON_FIGS = {
+    "repeat": "phon_repeat.svg",
+    "repeat_var": "phon_repeat_var.svg",
+    "qri": "phon_qri.svg",
+    "nri": "phon_nri.svg",
+    "q": "phon_q.svg",
+}
+
 # 選択肢に添える短い説明
 FEATURE_OPTION_NOTES = {
     "continuity": {
@@ -370,7 +379,7 @@ def phon_options(word, n_distractors=2):
     for p in opts:
         ex = [e for e in p["example"].split("・") if e != word["word"]][:3]
         out.append({"value": p["key"], "label": p["label"], "term": p["term"],
-                    "example": "・".join(ex)})
+                    "fig": PHON_FIGS.get(p["key"]), "example": "・".join(ex)})
     return out
 
 
@@ -426,55 +435,75 @@ def chain_support(w, k):
     }
 
 
+def _chip(cap, val, sub=None, fig=None):
+    """連鎖の可視化で使う小カード（確定した事実／問う素性）"""
+    return {"cap": cap, "val": val, "sub": sub, "fig": fig}
+
+
 def chain_question(w, k):
-    """k番目の問い。前の段の「正解」を踏まえた導入文をつける。"""
+    """k番目の問い。前の段で確定したことを図で示し、次に問う素性へつなげる。
+
+    文章での説明はやめ、「確定した事実 →（関係）→ 次に問う素性」を
+    小カードと矢印で見せる（テンプレート側の .flow）。
+    """
     cat = get_category(w)
     phon = PHON_BY_KEY[w["phon"]]
     step = CHAIN_BY_K[k]
 
+    cont_chip = _chip("継続性", val_label("continuity", cat["continuity"]),
+                      fig=FEATURE_FIGS["continuity"][cat["continuity"]])
+    act_chip = _chip("動作性", val_label("action", cat["action"]),
+                     fig=FEATURE_FIGS["action"][cat["action"]])
+
     if k == 1:
         return {"step": step, "kind": "meaning",
-                "lead": "まず、この語がどんな意味かを確かめます。場面を読んでから選んでください。",
+                "flow": {"known": [_chip("学習する語", f'「{w["word"]}」')],
+                         "why": "場面から読みとる",
+                         "ask": {"cap": "意味"}},
                 "prompt": f'この場面の「{w["word"]}」に最も近い意味はどれ？',
                 "meaning_opts": meaning_options(w)}
 
     if k == 2:
         return {"step": step, "kind": "phon",
-                "lead": (f'「{w["word"]}」は〈{w["meaning"]}〉という意味でした。'
-                         f'次は<strong>音の形</strong>を見ます。音の形は素性のヒントになります。'),
+                "flow": {"known": [_chip("意味", w["meaning"])],
+                         "why": "音の形にも手がかりがある",
+                         "ask": {"cap": "音の形"}},
                 "prompt": f'「{w["word"]}」はどの音韻形態？',
                 "phon_opts": phon_options(w)}
 
     if k == 3:
         pred = phon["pred_cont"]
-        lead = (f'「{w["word"]}」は<strong>{phon["label"]}</strong>（{phon["term"]}）でした。'
-                f'この形は「{phon["hint"]}」という特徴があり、'
-                f'<strong>〈{val_label("continuity", pred)}〉になりやすい形</strong>です。')
         return {"step": step, "kind": "feature", "fkey": "continuity",
-                "lead": lead + "　では、実際はどうでしょうか。",
+                "flow": {"known": [_chip("音の形", phon["label"], phon["term"],
+                                         fig=PHON_FIGS.get(phon["key"]))],
+                         "why": phon["hint"],
+                         "ask": {"cap": "継続性"},
+                         "predict": {"val": val_label("continuity", pred),
+                                     "fig": FEATURE_FIGS["continuity"].get(pred),
+                                     "note": None}},
                 "prompt": f'「{w["word"]}」の継続性は？',
                 "options": feature_options("continuity")}
 
     if k == 4:
         pred = phon["pred_act"]
-        lead = (f'継続性は<strong>〈{val_label("continuity", cat["continuity"])}〉</strong>でした。'
-                f'{KNOWLEDGE["rule"][0]["body"]}')
         if pred:
-            lead += (f'　音の形（{phon["label"]}）からは'
-                     f'〈{val_label("action", pred)}〉が予測されます。')
+            predict = {"val": val_label("action", pred),
+                       "fig": FEATURE_FIGS["action"].get(pred), "note": None}
         else:
-            lead += (f'　なお{phon["label"]}からは動作性を予測できません'
-                     f'（語の意味しだいで変わります）。')
+            predict = {"val": "予測できない", "fig": None,
+                       "note": f'{phon["label"]}では決まらない（語の意味で決まる）'}
         return {"step": step, "kind": "feature", "fkey": "action",
-                "lead": lead,
+                "flow": {"known": [cont_chip],
+                         "why": "継続性が低いほど動作性は高い",
+                         "ask": {"cap": "動作性"},
+                         "predict": predict},
                 "prompt": f'「{w["word"]}」の動作性は？',
                 "options": feature_options("action")}
 
-    lead = (f'ここまでで<strong>〈{val_label("continuity", cat["continuity"])}・'
-            f'{val_label("action", cat["action"])}〉</strong>と決まりました。最後は意志性です。'
-            f'<strong>「今から{w["word"]}しよう」と言えるか</strong>を試してみてください。')
     return {"step": step, "kind": "feature", "fkey": "volition",
-            "lead": lead,
+            "flow": {"known": [cont_chip, act_chip],
+                     "why": "「今から〜しよう」と言える？",
+                     "ask": {"cap": "意志性"}},
             "prompt": f'「{w["word"]}」の意志性は？',
             "options": feature_options("volition")}
 
@@ -930,24 +959,11 @@ async def f2_match(request: Request, word_id: str):
         random.shuffle(exprs)
         groups.append({"name": g["name"], "exprs": exprs})
 
-    # ヒント3（照合表）用：語の素性と各表現の条件を並べる。○×は出さない。
-    match_rows = []
-    for e in EXPRESSIONS:
-        reqs = []
-        for fkey in ("continuity", "action", "volition"):
-            allowed = [v for v in e[REQ_COL[fkey]].split("|") if v]
-            if allowed:
-                reqs.append(req_label(fkey, allowed))
-        match_rows.append({"label": e["label"],
-                           "req": " ＋ ".join(reqs) if reqs else "条件なし（不問）"})
-
     return templates.TemplateResponse(request, "step3.html", {
         "word": w,
         "word_hint": profile_str(cat),
         "expr_groups": groups,
         "expressions": EXPRESSIONS,
-        "match_rows": match_rows,
-        "guide": KNOWLEDGE["expr_guide"],
     })
 
 
@@ -958,7 +974,6 @@ async def f2_check(request: Request, word_id: str):
         return RedirectResponse("/")
     cat = get_category(w)
     form = await request.form()
-    hint_level = form.get("hint_level", "0")
 
     expr_results = []
     n_expr_correct = 0
@@ -984,7 +999,6 @@ async def f2_check(request: Request, word_id: str):
         "n_expr_correct": n_expr_correct, "total_expr": len(EXPRESSIONS),
         "expr_explain": cat["expr_explain"],
         "all_correct": all_correct,
-        "hint_level": hint_level,
     })
 
 
