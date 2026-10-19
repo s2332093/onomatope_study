@@ -182,16 +182,19 @@
     .tscroll { overflow-x: auto; }
   </style>
 </head>
-<body>
+<body data-study-prefix="{{ request.scope.get('study_prefix', '') }}">
 <nav>
   <span class="logo">📚 オノマトペ学習支援</span>
-  <a href="/">ホーム（語を選ぶ）</a>
-  <a href="/reference">素性のまとめ</a>
-  <a href="/drill/features">素性ドリル</a>
-  <a href="/drill/expressions">前接条件ドリル</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/">ホーム（語を選ぶ）</a>
+  {% if request.state.study_group != 'control' %}
+  <a href="{{ request.scope.get('study_prefix', '') }}/reference">素性のまとめ</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/drill/features">素性ドリル</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/drill/expressions">前接条件ドリル</a>
+  {% endif %}
 </nav>
 <div class="container {% block container_class %}{% endblock %}">
   {% block content %}{% endblock %}
 </div>
+<script src="/static/study_log.js" defer></script>
 </body>
 </html>

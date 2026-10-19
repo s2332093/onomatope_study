@@ -15,6 +15,10 @@
 #   表現形式の前接条件を素性の集合として持ち、○×の判定と誤答フィードバックを
 #   「どの素性が条件を満たさないか」から自動生成する（feedback engine）。
 import random
+import json
+import uuid
+import math
+import study_logging
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -26,6 +30,96 @@ from database import load_all
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Group is carried in the URL, so tabs in different groups cannot overwrite it.
+@app.middleware("http")
+async def study_context(request: Request, call_next):
+    path = request.scope["path"]
+    prefix = next((p for p in ("/experiment", "/control")
+                   if path == p or path.startswith(p + "/")), "")
+    if not prefix and not path.startswith("/static/"):
+        return RedirectResponse("/experiment" + path +
+                                ("?" + request.url.query if request.url.query else ""), status_code=307)
+    request.scope["study_prefix"] = prefix
+    if prefix:
+        request.scope["path"] = path[len(prefix):] or "/"
+        request.scope["raw_path"] = request.scope["path"].encode()
+    cookie_name = "study_participant"
+    participant = request.cookies.get(cookie_name, "")
+    try:
+        participant = str(uuid.UUID(participant))
+    except (ValueError, AttributeError):
+        participant = str(uuid.uuid4())
+    request.state.participant = participant
+    request.state.study_group = prefix.lstrip("/")
+    if prefix == "/control":
+        import re
+        allowed_path = request.scope["path"] in ("/", "/api/events") or re.fullmatch(r"/word/[^/]+(?:/meaning/check)?", request.scope["path"])
+        if not allowed_path:
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse('このページは統制群の学習内容に含まれません。<a href="/control/">ホームへ</a>', status_code=404)
+    if prefix and request.method == "POST" and request.scope["path"].endswith("/check"):
+        # Save submitted selections, never arbitrary form text or personal information.
+        await request.body()
+        form = await request.form()
+        choices = {k: str(v)[:200] for k, v in form.multi_items()
+                   if k == "choice" or k.startswith(("choice_", "opt_keys_", "spec_", "q_")) or k in EXPR_BY_KEY}
+        result = {"answers": choices}
+        parts = request.scope["path"].strip("/").split("/")
+        if len(parts) >= 3 and parts[0] == "word" and parts[1] in WORD_BY_ID:
+            word = WORD_BY_ID[parts[1]]
+            cat = get_category(word)
+            if parts[2] == "meaning":
+                result["correct"] = choices.get("choice") == word["id"]
+            elif parts[2] == "f1" and len(parts) == 5 and parts[3].isdigit() and 1 <= int(parts[3]) <= 5:
+                result["correct"] = chain_feedback(word, int(parts[3]), choices.get("choice", ""))["ok"]
+            elif parts[2] == "f2":
+                result["correct_by_expression"] = {e["key"]: (choices.get(e["key"]) == "○") == expr_combines(cat, e) for e in EXPRESSIONS}
+            elif parts[2] == "f3":
+                result["correct_by_question"] = {str(q["ord"]): choices.get(f'choice_{q["ord"]}') == q["correct_key"] for q in PRACTICE.get(word["id"], [])}
+        study_logging.record(participant, request.state.study_group, path, "answer_submission", result)
+    response = await call_next(request)
+    location = response.headers.get("location", "")
+    if prefix and location.startswith("/") and not location.startswith(("/experiment", "/control", "/static/")):
+        response.headers["location"] = prefix + location
+    if prefix:
+        response.set_cookie(cookie_name, participant, httponly=True, samesite="lax",
+                            secure=request.url.scheme == "https", max_age=60*60*24*30)
+    return response
+
+@app.post("/api/events")
+async def study_events(request: Request):
+    from fastapi.responses import JSONResponse
+    if int(request.headers.get("content-length", "0") or 0) > 65536:
+        return JSONResponse({"error": "batch too large"}, status_code=413)
+    raw = await request.body()
+    if len(raw) > 65536:
+        return JSONResponse({"error": "batch too large"}, status_code=413)
+    try:
+        payload = json.loads(raw)
+        events = payload["events"]
+        if not isinstance(events, list) or len(events) > 100:
+            raise ValueError()
+        allowed = {"page_view", "click", "answer_change", "submit", "page_hidden", "page_visible",
+                   "page_leave", "heartbeat", "line_add", "line_remove", "conditions_toggle"}
+        for event in events:
+            if not isinstance(event, dict) or event.get("event_type") not in allowed:
+                raise ValueError()
+            elapsed = float(event.get("elapsed_ms", 0))
+            if not math.isfinite(elapsed) or elapsed < 0:
+                raise ValueError()
+            if not isinstance(event.get("detail", {}), dict):
+                raise ValueError()
+        for event in events:
+            study_logging.record(request.state.participant, request.state.study_group,
+                str(event.get("detail", {}).get("path", ""))[:300] or request.headers.get("referer", "").split("?", 1)[0][-300:],
+                event["event_type"], event.get("detail", {}),
+                event_id=request.state.participant + ":" + request.state.study_group + ":" + str(event.get("event_id", uuid.uuid4()))[:120],
+                client_time=str(event.get("client_time", ""))[:40],
+                page_id=str(event.get("page_id", ""))[:80], elapsed_ms=float(event.get("elapsed_ms", 0)))
+    except (ValueError, KeyError, TypeError):
+        return JSONResponse({"error": "invalid events"}, status_code=400)
+    return {"saved": len(events)}
 
 # ---- 起動時：DB が無い／古ければ作り直してから読み込む ----
 #   init_db.py の学習データを直して onomatopoeia.db を更新し忘れても、
@@ -268,8 +362,8 @@ def word_groups():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {
-        "total": len(WORDS), "groups": word_groups(), "chain": CHAIN,
+    return templates.TemplateResponse(request, "control_index.html" if request.state.study_group == "control" else "index.html", {
+        "total": len(WORDS), "groups": word_groups(), "chain": CHAIN, "words": WORDS,
     })
 
 
@@ -549,6 +643,9 @@ async def word_map(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
+    if request.state.study_group == "control":
+        return templates.TemplateResponse(request, "control_meaning.html", {
+            "word": w, "question": chain_question(w, 1), "feedback": None})
     idx = [x["id"] for x in WORDS].index(w["id"])
     return templates.TemplateResponse(request, "word_map.html", {
         "word": w, "chain": CHAIN,
@@ -556,6 +653,16 @@ async def word_map(request: Request, word_id: str):
         "next_word": WORDS[idx + 1] if idx + 1 < len(WORDS) else None,
     })
 
+
+@app.post("/word/{word_id}/meaning/check", response_class=HTMLResponse)
+async def control_meaning_check(request: Request, word_id: str):
+    w = get_word(word_id)
+    if not w or request.state.study_group != "control":
+        return RedirectResponse("/", status_code=303)
+    form = await request.form()
+    return templates.TemplateResponse(request, "control_meaning.html", {
+        "word": w, "question": None,
+        "feedback": chain_feedback(w, 1, form.get("choice", ""))})
 
 @app.get("/reference", response_class=HTMLResponse)
 async def reference(request: Request):
@@ -985,6 +1092,7 @@ async def f2_check(request: Request, word_id: str):
         n_expr_correct += 1 if ok else 0
         expr_results.append({
             "label": e["label"], "phase": e["phase"], "cond_text": e["cond_text"],
+            "checks": fb["checks"],
             "should": can_combine, "connected": user_connected, "ok": ok,
             "headline": fb["headline"], "lines": fb["lines"],
             "no_cond": fb["no_cond"],

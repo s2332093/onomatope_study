@@ -61,14 +61,14 @@
   <p class="muted small" style="margin-bottom:14px;">
     素性 → 文法形式 → 例文 のつながりを、まとめで確認しましょう。
   </p>
-  <a href="/word/{{ word.id }}/complete" class="btn btn-primary" style="background:var(--green);">
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary" style="background:var(--green);">
     まとめを見る →
   </a>
 </div>
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/word/{{ word.id }}/f3" class="btn btn-secondary">もう一度（別の選択肢）</a>
-  <a href="/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-secondary">もう一度（別の選択肢）</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
 </div>
 
 {% endblock %}

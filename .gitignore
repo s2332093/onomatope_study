@@ -3,3 +3,8 @@ __pycache__/
 .DS_Store
 .venv/
 Claude outputs/
+
+# Research data must never be pushed
+study_logs.db*
+logs/
+.testvenv/

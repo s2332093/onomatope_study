@@ -3,7 +3,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/word/{{ word.id }}/f2/learn" class="muted small" style="text-decoration:none;">← 前接条件を読み直す</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/learn" class="muted small" style="text-decoration:none;">← 前接条件を読み直す</a>
   <div style="margin-left:auto; display:flex; gap:4px;">
     <span class="badge badge-green">フェーズ1</span>
     <span class="badge badge-purple">フェーズ2</span>
@@ -11,7 +11,7 @@
   </div>
 </div>
 
-<form method="post" action="/word/{{ word.id }}/f2/check" id="step3Form">
+<form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
 
   <div class="card" style="position:relative;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -71,7 +71,7 @@
   </div>
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="/word/{{ word.id }}/f1/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
 </form>
 
 <style>
@@ -232,6 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
     svg.appendChild(g);
 
     connections.set(key, { g, lines: [hit, vis] });
+    window.studyEvent?.("line_add", {key});
     node.classList.add("active-connection");
     dot.classList.add("connected");
     document.getElementById(`input-${key}`).value = "○";
@@ -241,6 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function removeConnection(key) {
     const conn = connections.get(key);
+    if (conn) window.studyEvent?.("line_remove", {key});
     if (conn) { svg.removeChild(conn.g); connections.delete(key); }
     const node = document.getElementById(`node-${key}`);
     node.classList.remove("active-connection");
@@ -266,6 +268,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let condShown = false;
   btnCond.addEventListener("click", () => {
     condShown = !condShown;
+    window.studyEvent?.("conditions_toggle", {shown: condShown});
     document.querySelectorAll(".hint-cond").forEach(el => { el.style.display = condShown ? "block" : "none"; });
     btnCond.textContent = condShown ? "✕ 前接条件を隠す" : "💡 前接条件を表示";
     redrawLines();

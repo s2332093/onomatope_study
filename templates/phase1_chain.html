@@ -4,7 +4,7 @@
 
 <!-- 進捗 -->
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
   <div style="margin-left:auto; display:flex; gap:4px; align-items:center;">
     {% for c in chain %}
     <span class="badge {% if c.k == k %}badge-blue{% elif c.k < k %}badge-green{% else %}badge-gray{% endif %}">
@@ -58,7 +58,7 @@
   </div>
 </div>
 
-<form method="post" action="/word/{{ word.id }}/f1/{{ k }}/check">
+<form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/{{ k }}/check">
   <div class="card">
     <h2 style="font-size:1.05rem;">{{ q.step.icon }} {{ q.prompt }}</h2>
 
@@ -107,9 +107,9 @@
 
   <button type="submit" class="btn btn-primary">答え合わせ →</button>
   {% if k > 1 %}
-  <a href="/word/{{ word.id }}/f1/{{ k - 1 }}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/{{ k - 1 }}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
   {% else %}
-  <a href="/word/{{ word.id }}" class="btn btn-secondary" style="margin-left:12px;">学習マップに戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="btn btn-secondary" style="margin-left:12px;">学習マップに戻る</a>
   {% endif %}
 </form>
 

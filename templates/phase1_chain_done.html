@@ -3,7 +3,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="muted small" style="text-decoration:none;">← 「{{ word.word }}」の学習マップ</a>
   <div style="margin-left:auto; display:flex; gap:4px;">
     {% for c in chain %}
     <span class="badge badge-green">{{ c.icon }} {{ c.title }}</span>
@@ -56,14 +56,14 @@
 
 <div class="card" style="text-align:center; background:var(--purple-soft);">
   <h2 style="margin-bottom:14px;">次はフェーズ2：文法形式の判断</h2>
-  <a href="/word/{{ word.id }}/f2/learn" class="btn btn-primary" style="background:var(--purple);">
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/learn" class="btn btn-primary" style="background:var(--purple);">
     フェーズ2へ進む →
   </a>
 </div>
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/word/{{ word.id }}/f1/1" class="btn btn-secondary">フェーズ1をもう一度</a>
-  <a href="/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/1" class="btn btn-secondary">フェーズ1をもう一度</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
 </div>
 
 {{ sup.support_script() }}

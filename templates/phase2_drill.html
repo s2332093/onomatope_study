@@ -16,7 +16,7 @@
   </p>
 </div>
 
-<form method="post" action="/drill/expressions/check">
+<form method="post" action="{{ request.scope.get('study_prefix', '') }}/drill/expressions/check">
   {% for q in questions %}
   <div class="card">
     <input type="hidden" name="spec_{{ q.idx }}" value="{{ q.spec }}">
@@ -55,7 +55,7 @@
   {% endfor %}
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="/" class="btn btn-secondary" style="margin-left:12px;">← 語の一覧に戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-secondary" style="margin-left:12px;">← 語の一覧に戻る</a>
 </form>
 
 <script>

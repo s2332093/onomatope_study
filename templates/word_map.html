@@ -2,7 +2,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/" class="muted small" style="text-decoration:none;">← 語の一覧</a>
   <span class="badge badge-gray" style="margin-left:auto;">{{ n }} / {{ total }} 語目</span>
 </div>
 
@@ -32,7 +32,7 @@
     {% if not loop.last %}<div class="muted small" style="font-weight:700;">→</div>{% endif %}
     {% endfor %}
   </div>
-  <a href="/word/{{ word.id }}/f1/1" class="btn btn-primary">フェーズ1を始める →</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/1" class="btn btn-primary">フェーズ1を始める →</a>
 </div>
 
 <!-- フェーズ2 -->
@@ -42,7 +42,7 @@
     <h2 style="margin:0; font-size:1.1rem;">文法形式を判断する</h2>
   </div>
   <p class="muted small" style="margin-top:8px;">前接条件を学んでから線結びをします。</p>
-  <a href="/word/{{ word.id }}/f2/learn" class="btn btn-secondary">先にフェーズ2を見る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/learn" class="btn btn-secondary">先にフェーズ2を見る</a>
 </div>
 
 <!-- フェーズ3 -->
@@ -52,7 +52,7 @@
     <h2 style="margin:0; font-size:1.1rem;">例文で使う</h2>
   </div>
   <p class="muted small" style="margin-top:8px;">例文2問で、文脈に合う形を選びます。</p>
-  <a href="/word/{{ word.id }}/f3" class="btn btn-secondary">先にフェーズ3を見る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-secondary">先にフェーズ3を見る</a>
 </div>
 
 {% if next_word %}

@@ -2,7 +2,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="/" class="muted small" style="text-decoration:none;">← 語の一覧</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/" class="muted small" style="text-decoration:none;">← 語の一覧</a>
   <div style="margin-left:auto; display:flex; gap:4px;">
     <span class="badge badge-green">フェーズ1</span>
     <span class="badge badge-green">フェーズ2</span>
@@ -69,7 +69,7 @@
   <p class="muted small" style="margin-bottom:14px;">
     同じ流れで {{ next_word.emoji }} <strong>{{ next_word.word }}</strong> を学びます。
   </p>
-  <a href="/word/{{ next_word.id }}" class="btn btn-primary">
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ next_word.id }}" class="btn btn-primary">
     {{ next_word.emoji }} {{ next_word.word }} を学ぶ →
   </a>
   {% else %}
@@ -77,15 +77,15 @@
   <p class="muted small" style="margin-bottom:14px;">
     仕上げに、語をまたいで出題されるドリルで確認しましょう。
   </p>
-  <a href="/drill/features" class="btn btn-primary">素性ドリル →</a>
-  <a href="/drill/expressions" class="btn btn-primary" style="background:var(--purple); margin-left:12px;">前接条件ドリル →</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/drill/features" class="btn btn-primary">素性ドリル →</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/drill/expressions" class="btn btn-primary" style="background:var(--purple); margin-left:12px;">前接条件ドリル →</a>
   {% endif %}
 </div>
 
 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="/" class="btn btn-secondary">語の一覧に戻る</a>
-  <a href="/word/{{ word.id }}/f1/1" class="btn btn-secondary">この語をもう一度</a>
-  <a href="/reference" class="btn btn-secondary">素性のまとめ</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-secondary">語の一覧に戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/1" class="btn btn-secondary">この語をもう一度</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/reference" class="btn btn-secondary">素性のまとめ</a>
 </div>
 
 {% endblock %}

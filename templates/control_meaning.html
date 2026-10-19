@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>{{ word.emoji }} {{ word.word }}</h1>
+  <p style="margin-top:12px;">{{ word.scene }}</p>
+  {% if feedback %}
+  <h2 style="margin-top:20px;">{% if feedback.ok %}正解です{% else %}意味を確かめましょう{% endif %}</h2>
+  <p>あなたの回答：{{ feedback.user }}</p>
+  <p style="margin-top:12px;"><strong>正しい意味：{{ feedback.correct }}</strong></p>
+  <p class="muted small" style="margin-top:12px;">{{ feedback.why }}</p>
+  <a class="btn btn-secondary" style="margin-top:20px;" href="/control/word/{{ word.id }}">もう一度学ぶ</a>
+  <a class="btn btn-primary" style="margin-top:20px;" href="/control/">ほかの語を選ぶ</a>
+  {% else %}
+  <form method="post" action="/control/word/{{ word.id }}/meaning/check">
+    <h2 style="margin-top:20px;">この場面での意味はどれですか？</h2>
+    {% for option in question.meaning_opts %}
+    <label style="display:block; padding:14px; border:1px solid var(--border); margin:10px 0; border-radius:8px;">
+      <input type="radio" name="choice" value="{{ option.src }}" required> {{ option.text }}
+    </label>
+    {% endfor %}
+    <button class="btn btn-primary" type="submit">答え合わせ</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
