@@ -31,14 +31,23 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Neutral participant URLs map to stable researcher-only group names.
+STUDY_GROUPS = {"/a": "experiment", "/b": "control"}
+LEGACY_PREFIXES = {"/experiment": "/a", "/control": "/b"}
+
 # Group is carried in the URL, so tabs in different groups cannot overwrite it.
 @app.middleware("http")
 async def study_context(request: Request, call_next):
     path = request.scope["path"]
-    prefix = next((p for p in ("/experiment", "/control")
+    legacy = next((p for p in LEGACY_PREFIXES
+                   if path == p or path.startswith(p + "/")), "")
+    if legacy:
+        target = LEGACY_PREFIXES[legacy] + (path[len(legacy):] or "/")
+        return RedirectResponse(target + ("?" + request.url.query if request.url.query else ""), status_code=307)
+    prefix = next((p for p in STUDY_GROUPS
                    if path == p or path.startswith(p + "/")), "")
     if not prefix and not path.startswith("/static/"):
-        return RedirectResponse("/experiment" + path +
+        return RedirectResponse("/a" + path +
                                 ("?" + request.url.query if request.url.query else ""), status_code=307)
     request.scope["study_prefix"] = prefix
     if prefix:
@@ -51,13 +60,14 @@ async def study_context(request: Request, call_next):
     except (ValueError, AttributeError):
         participant = str(uuid.uuid4())
     request.state.participant = participant
-    request.state.study_group = prefix.lstrip("/")
-    if prefix == "/control":
+    request.state.study_group = STUDY_GROUPS.get(prefix, "")
+    request.state.study_label = {"/a": "A", "/b": "B"}.get(prefix, "")
+    if request.state.study_group == "control":
         import re
         allowed_path = request.scope["path"] in ("/", "/api/events") or re.fullmatch(r"/word/[^/]+(?:/meaning/check)?", request.scope["path"])
         if not allowed_path:
             from fastapi.responses import HTMLResponse
-            return HTMLResponse('このページは統制群の学習内容に含まれません。<a href="/control/">ホームへ</a>', status_code=404)
+            return HTMLResponse('このページは今回の学習内容に含まれません。<a href="/b/">ホームへ</a>', status_code=404)
     if prefix and request.method == "POST" and request.scope["path"].endswith("/check"):
         # Save submitted selections, never arbitrary form text or personal information.
         await request.body()
@@ -80,7 +90,7 @@ async def study_context(request: Request, call_next):
         study_logging.record(participant, request.state.study_group, path, "answer_submission", result)
     response = await call_next(request)
     location = response.headers.get("location", "")
-    if prefix and location.startswith("/") and not location.startswith(("/experiment", "/control", "/static/")):
+    if prefix and location.startswith("/") and not any(location == p or location.startswith(p + "/") for p in (*STUDY_GROUPS, "/static")):
         response.headers["location"] = prefix + location
     if prefix:
         response.set_cookie(cookie_name, participant, httponly=True, samesite="lax",

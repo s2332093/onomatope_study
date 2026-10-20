@@ -185,6 +185,7 @@
 <body data-study-prefix="{{ request.scope.get('study_prefix', '') }}">
 <nav>
   <span class="logo">📚 オノマトペ学習支援</span>
+  <span class="badge">学習システム{{ request.state.study_label }}</span>
   <a href="{{ request.scope.get('study_prefix', '') }}/">ホーム（語を選ぶ）</a>
   {% if request.state.study_group != 'control' %}
   <a href="{{ request.scope.get('study_prefix', '') }}/reference">素性のまとめ</a>

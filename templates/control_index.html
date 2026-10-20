@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1>オノマトペの意味を学ぼう</h1>
+  <h1>📚 オノマトペ学習支援システム</h1>
   <p style="margin-top:12px;">場面を読んで、オノマトペの意味を選びましょう。答え合わせで意味を確かめます。</p>
   <p class="muted small" style="margin-top:12px;">この学習では、研究のため操作回数・操作時刻・解答を匿名IDとともに記録します。氏名は入力しません。</p>
 </div>
 <h2>学習する語を選ぶ（全{{ total }}語）</h2>
 {% for w in words %}
-<a class="card" style="display:block; color:inherit; text-decoration:none;" href="/control/word/{{ w.id }}">
+<a class="card" style="display:block; color:inherit; text-decoration:none;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ w.id }}">
   <strong>{{ w.emoji }} {{ w.word }}</strong><p class="muted small">{{ w.scene }}</p>
 </a>
 {% endfor %}
