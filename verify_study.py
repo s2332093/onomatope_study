@@ -1,5 +1,6 @@
-"""Group isolation, meaning-only curriculum and durable event collection."""
+"""Group isolation, meaning/context lessons and event collection."""
 import re
+import random
 import json
 import os
 import tempfile
@@ -26,8 +27,38 @@ for w in main.WORDS:
     assert '素性' not in visible and '前接条件' not in visible
     result = client.post('/b/word/' + w['id'] + '/meaning/check', data={'choice': w['id']})
     assert '正解です' in result.text and w['meaning'] in result.text
-for suffix in ('reference', 'drill/features', 'word/iraira/f1/1', 'word/iraira/f2', 'word/iraira/f3'):
+    assert f'href="/b/word/{w["id"]}/f3"' in result.text
+    # Both groups use the same frames and option generator, including shuffling.
+    random.seed(20261020)
+    a = client.get(f'/a/word/{w["id"]}/f3')
+    random.seed(20261020)
+    b = client.get(f'/b/word/{w["id"]}/f3')
+    assert b.status_code == 200
+    assert re.findall(r'name="opt_keys_\d+" value="([^"]+)"', a.text) == re.findall(r'name="opt_keys_\d+" value="([^"]+)"', b.text)
+    assert len(main.PRACTICE[w['id']]) == 2
+    for q in main.PRACTICE[w['id']]:
+        assert q['frame'] in a.text and q['frame'] in b.text
+        assert b.text.count(f'name="choice_{q["ord"]}"') == 3
+    assert 'フェーズ2：文脈練習' in b.text
+    correct = {f'choice_{q["ord"]}': q['correct_key'] for q in main.PRACTICE[w['id']]}
+    right = client.post(f'/b/word/{w["id"]}/f3/check', data=correct)
+    wrong = client.post(f'/b/word/{w["id"]}/f3/check', data={k: 'not-an-option' for k in correct})
+    assert '2／2 正解' in right.text and '0／2 正解' in wrong.text
+    assert '（未選択）' in wrong.text
+    assert f'href="/b/word/{w["id"]}/complete"' in right.text
+    complete = client.get(f'/b/word/{w["id"]}/complete')
+    for page in (result, b, right, wrong, complete):
+        assert page.status_code == 200
+        visible = re.sub(r'<style>.*?</style>', '', page.text, flags=re.S)
+        for forbidden in ('素性', '前接条件', 'カテゴリー', '継続性', '動作性', '意志性', '/a/', '/f1/', '/f2', 'フェーズ3'):
+            assert forbidden not in visible, (w['id'], forbidden)
+        assert 'study_log.js' in page.text
+    assert client.get(f'/b/word/{w["id"]}/f3/check').status_code == 405
+assert '実施者の案内' in complete.text
+assert client.get('/b/word/missing/f3', follow_redirects=False).headers['location'] == '/b/'
+for suffix in ('reference', 'drill/features', 'drill/expressions', 'word/iraira/f1/1', 'word/iraira/f1/done', 'word/iraira/f2', 'word/iraira/f2/learn'):
     assert client.get('/b/' + suffix).status_code == 404
+assert client.post('/b/word/iraira/f2/check', data={}).status_code == 404
 for group in ('a', 'b'):
     events = [{'event_id':'test:1','page_id':'visit','client_time':'2026-10-19T00:00:00Z',
                'event_type':'click','elapsed_ms':1200,'detail':{'path':'/' + group + '/', 'click_count':1}}]
@@ -37,7 +68,12 @@ assert client.post('/a/api/events', json={'events':[{'event_type':'unknown'}]}).
 with study_logging.connect() as db:
     assert db.execute("SELECT COUNT(*) FROM events WHERE event_type='click'").fetchone()[0] == 2
     answers = [json.loads(r[0]) for r in db.execute("SELECT detail FROM events WHERE event_type='answer_submission' AND study_group='control'")]
-    assert len(answers) == 16 and all(r['correct'] for r in answers)
+    meaning_answers = [r for r in answers if 'correct' in r]
+    context_answers = [r for r in answers if 'correct_by_question' in r]
+    assert len(meaning_answers) == 16 and all(r['correct'] for r in meaning_answers)
+    assert len(context_answers) == 32
+    assert sum(all(r['correct_by_question'].values()) for r in context_answers) == 16
+    assert all(len(r['correct_by_question']) == 2 for r in context_answers)
 # Legacy links preserve method, nested paths and query while redirecting to neutral URLs.
 for old, new in (('experiment', 'a'), ('control', 'b')):
     for suffix in ('', '/', '/word/iraira'):
@@ -70,4 +106,4 @@ subprocess.run([os.sys.executable, 'study_logging.py', str(study_logging.LOG_PAT
 subprocess.run([os.sys.executable, 'analyze_logs.py', str(study_logging.LOG_PATH.with_name('summary.csv'))], check=True)
 assert study_logging.LOG_PATH.with_suffix('.csv').exists()
 assert client.get('/b/study_logs.db').status_code == 404
-print('OK: both groups, all 16 meaning lessons, blocked curriculum, answers, event deduplication, feedback maps, CSV exports')
+print('OK: both groups, 16 meaning/context lessons, shared questions, correct/wrong answers, blocked curriculum, logs, feedback maps, CSV exports')

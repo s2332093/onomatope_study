@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>🎉「{{ word.word }}」の学習が完了しました</h1>
+  <p style="margin-top:12px;">意味の学習と文脈練習の2つのフェーズを終えました。</p>
+</div>
+<div class="card">
+  {% if next_word %}
+  <h2>次の語へ</h2>
+  <p class="muted small" style="margin-bottom:14px;">次の語も同じ流れで学びます。</p>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ next_word.id }}" class="btn btn-primary">{{ next_word.emoji }} {{ next_word.word }} を学ぶ →</a>
+  {% else %}
+  <h2>最後の語まで進みました</h2>
+  <p style="margin-bottom:14px;">学習が終わったら、実施者の案内に従ってください。</p>
+  {% endif %}
+</div>
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-secondary">語の一覧に戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="btn btn-secondary">この語をもう一度</a>
+</div>
+{% endblock %}

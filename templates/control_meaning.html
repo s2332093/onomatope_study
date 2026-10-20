@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
+  <span class="badge badge-blue">フェーズ1：意味の学習</span>
   <h1>{{ word.emoji }} {{ word.word }}</h1>
   <p style="margin-top:12px;">{{ word.scene }}</p>
   {% if feedback %}
@@ -9,7 +10,7 @@
   <p style="margin-top:12px;"><strong>正しい意味：{{ feedback.correct }}</strong></p>
   <p class="muted small" style="margin-top:12px;">{{ feedback.why }}</p>
   <a class="btn btn-secondary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}">もう一度学ぶ</a>
-  <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/">ほかの語を選ぶ</a>
+  <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3">フェーズ2：文脈練習へ →</a>
   {% else %}
   <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/meaning/check">
     <h2 style="margin-top:20px;">この場面での意味はどれですか？</h2>

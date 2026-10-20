@@ -64,7 +64,7 @@ async def study_context(request: Request, call_next):
     request.state.study_label = {"/a": "A", "/b": "B"}.get(prefix, "")
     if request.state.study_group == "control":
         import re
-        allowed_path = request.scope["path"] in ("/", "/api/events") or re.fullmatch(r"/word/[^/]+(?:/meaning/check)?", request.scope["path"])
+        allowed_path = request.scope["path"] in ("/", "/api/events") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
         if not allowed_path:
             from fastapi.responses import HTMLResponse
             return HTMLResponse('このページは今回の学習内容に含まれません。<a href="/b/">ホームへ</a>', status_code=404)
@@ -1153,6 +1153,10 @@ async def f3(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
+    if request.state.study_group == "control":
+        return templates.TemplateResponse(request, "control_context.html", {
+            "word": w, "questions": step4_build(w),
+        })
     cat = get_category(w)
     return templates.TemplateResponse(request, "step4.html", {
         "word": w, "questions": step4_build(w),
@@ -1165,6 +1169,25 @@ async def f3_check(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
+    if request.state.study_group == "control":
+        form = await request.form()
+        results = []
+        for q in PRACTICE.get(w["id"], []):
+            col = FORM_COL.get(q["form"], "form_base")
+            correct = EXPR_BY_KEY[q["correct_key"]]
+            choice = form.get(f'choice_{q["ord"]}', "")
+            selected = EXPR_BY_KEY.get(choice)
+            results.append({
+                "no": q["ord"] + 1,
+                "ok": choice == q["correct_key"],
+                "user_label": selected[col] if selected else "（未選択）",
+                "correct_label": correct[col],
+                "completed": q["frame"].replace("[ ？ ]", "〈" + correct[col] + "〉"),
+            })
+        return templates.TemplateResponse(request, "control_context_result.html", {
+            "word": w, "results": results,
+            "n_correct": sum(r["ok"] for r in results), "total": len(results),
+        })
     cat = get_category(w)
     form = await request.form()
 
@@ -1221,6 +1244,12 @@ async def word_complete(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
+    if request.state.study_group == "control":
+        idx = [x["id"] for x in WORDS].index(w["id"])
+        return templates.TemplateResponse(request, "control_complete.html", {
+            "word": w,
+            "next_word": WORDS[idx + 1] if idx + 1 < len(WORDS) else None,
+        })
     cat = get_category(w)
     ok_keys = CAT_EXPRS.get(cat["id"], set())
     idx = [x["id"] for x in WORDS].index(w["id"])

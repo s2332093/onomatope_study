@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <span class="badge badge-orange">フェーズ2：文脈練習</span>
+  <h1 style="margin-top:12px;">「{{ word.word }}」の答え合わせ</h1>
+  <p>{{ n_correct }}／{{ total }} 正解</p>
+  <p class="muted small">自分の回答と正解を確認し、完成した例文を読みましょう。</p>
+</div>
+{% for r in results %}
+<div class="card">
+  <h2 style="font-size:1rem;">問{{ r.no }}：{% if r.ok %}✅ 正解{% else %}❌ 不正解{% endif %}</h2>
+  <p>あなたの回答：{{ r.user_label }}</p>
+  <p style="margin-top:12px;"><strong>正解：{{ r.correct_label }}</strong></p>
+  <div style="background:var(--green-soft); border-radius:10px; padding:14px 18px; font-size:1rem; font-weight:700; margin-top:14px;">{{ r.completed }}</div>
+</div>
+{% endfor %}
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary">この語の学習を終える →</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-secondary">文脈練習をもう一度</a>
+</div>
+{% endblock %}
