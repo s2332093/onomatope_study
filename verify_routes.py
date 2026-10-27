@@ -8,6 +8,7 @@ import sys
 
 from fastapi.testclient import TestClient
 
+os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
 from main import app, WORDS, EXPRESSIONS, CAT_EXPRS, CAT_BY_ID, PRACTICE, EXPR_BY_KEY
 

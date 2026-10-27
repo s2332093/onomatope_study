@@ -19,6 +19,8 @@ import json
 import uuid
 import math
 import study_logging
+import research
+import hashlib
 import learning_state
 from urllib.parse import urlencode
 from fastapi import FastAPI, Request, Form
@@ -32,6 +34,7 @@ from database import load_all
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+research.install(app, templates)
 
 # Neutral participant URLs map to stable researcher-only group names.
 STUDY_GROUPS = {"/a": "experiment", "/b": "control"}
@@ -61,15 +64,29 @@ async def study_context(request: Request, call_next):
         participant = str(uuid.UUID(participant))
     except (ValueError, AttributeError):
         participant = str(uuid.uuid4())
+    if research.REQUIRE_NAME and prefix:
+        participant = research.identity(request) or str(uuid.uuid4())
     request.state.participant = participant
     request.state.study_group = STUDY_GROUPS.get(prefix, "")
     request.state.study_label = {"/a": "A", "/b": "B"}.get(prefix, "")
+    current_path = request.scope["path"]
+    request.state.form_attempt_id = str(uuid.uuid4())
+    request.state.require_name = research.REQUIRE_NAME
+    request.state.participant_name = None
+    if prefix and not current_path.startswith("/research") and current_path != "/registration" and research.REQUIRE_NAME:
+        request.state.participant_name = study_logging.participant_name(participant) if research.identity(request) else None
+        if not request.state.participant_name:
+            if current_path == "/api/events":
+                from fastapi.responses import JSONResponse
+                return JSONResponse({"error": "registration required"}, status_code=401)
+            return research.private(RedirectResponse(prefix + "/registration?" + urlencode({"next":path}),status_code=303))
     if request.state.study_group == "control":
         import re
-        allowed_path = request.scope["path"] in ("/", "/api/events") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
+        allowed_path = request.scope["path"] in ("/", "/api/events", "/registration") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
         if not allowed_path:
             from fastapi.responses import HTMLResponse
             return HTMLResponse('このページは今回の学習内容に含まれません。<a href="/b/">ホームへ</a>', status_code=404)
+    submission = None
     if prefix and request.method == "POST" and request.scope["path"].endswith("/check"):
         # Save submitted selections, never arbitrary form text or personal information.
         await request.body()
@@ -89,8 +106,49 @@ async def study_context(request: Request, call_next):
                 result["correct_by_expression"] = {e["key"]: (choices.get(e["key"]) == "○") == expr_combines(cat, e) for e in EXPRESSIONS}
             elif parts[2] == "f3":
                 result["correct_by_question"] = {str(q["ord"]): choices.get(f'choice_{q["ord"]}') == q["correct_key"] for q in PRACTICE.get(word["id"], [])}
-        study_logging.record(participant, request.state.study_group, path, "answer_submission", result)
+        elif request.scope["path"] == "/drill/features/check":
+            graded, _ = grade_feature_questions(form)
+            result["correct_by_question"] = {str(i+1):r["ok"] for i,r in enumerate(graded)}
+        elif request.scope["path"] == "/drill/expressions/check":
+            checks = {}
+            for key in choices:
+                if not key.startswith("spec_"):
+                    continue
+                i = key[5:]; spec = choices[key]; choice = choices.get("choice_"+i, "")
+                e = EXPR_BY_KEY.get(spec[2:])
+                if e and spec.startswith("x:"):
+                    checks[i] = choice == e["cond_text"]
+                elif e and spec.startswith("y:"):
+                    chosen = get_word(choice)
+                    checks[i] = bool(chosen) and expr_combines(get_category(chosen), e)
+            result["correct_by_question"] = checks
+        source = str(form.get("_study_path", ""))[:300].split("?",1)[0]
+        if not source.startswith(prefix + "/") or source.startswith("//"):
+            source = path.removesuffix("/check")
+        result["source_path"] = source
+        def metric(key):
+            try:
+                value = float(form.get(key,0))
+                return max(0,min(value,86400000)) if math.isfinite(value) else 0
+            except (ValueError,TypeError):
+                return 0
+        elapsed = metric("_study_elapsed_ms")
+        result["active_ms"] = min(metric("_study_active_ms"), elapsed)
+        result["click_count"] = min(metric("_study_click_count"),100000)
+        page_id = str(form.get("_study_page_id", ""))[:80]
+        attempt_id = str(form.get("attempt_id", ""))[:120] or str(uuid.uuid4())
+        # The same POST refreshed/retried is one attempt; a changed answer is distinct.
+        fingerprint = hashlib.sha256(json.dumps(choices,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        submission = (result, participant + ":" + request.state.study_group + ":answer:" + attempt_id + ":" + fingerprint, page_id, elapsed)
     response = await call_next(request)
+    if submission and response.status_code < 400:
+        result, event_id, page_id, elapsed = submission
+        study_logging.record(participant,request.state.study_group,path,"answer_submission",result,
+                             event_id=event_id,page_id=page_id,elapsed_ms=elapsed)
+    if prefix and request.scope["path"].startswith("/research"):
+        research.private(response)
+    elif prefix:
+        response.headers["Cache-Control"] = "no-store"
     location = response.headers.get("location", "")
     if prefix and location.startswith("/") and not any(location == p or location.startswith(p + "/") for p in (*STUDY_GROUPS, "/static")):
         response.headers["location"] = prefix + location
@@ -122,13 +180,14 @@ async def study_events(request: Request):
                 raise ValueError()
             if not isinstance(event.get("detail", {}), dict):
                 raise ValueError()
-        for event in events:
-            study_logging.record(request.state.participant, request.state.study_group,
-                str(event.get("detail", {}).get("path", ""))[:300] or request.headers.get("referer", "").split("?", 1)[0][-300:],
-                event["event_type"], event.get("detail", {}),
-                event_id=request.state.participant + ":" + request.state.study_group + ":" + str(event.get("event_id", uuid.uuid4()))[:120],
-                client_time=str(event.get("client_time", ""))[:40],
-                page_id=str(event.get("page_id", ""))[:80], elapsed_ms=float(event.get("elapsed_ms", 0)))
+        with study_logging.connect() as connection:
+            for event in events:
+                study_logging.record(request.state.participant, request.state.study_group,
+                    str(event.get("detail", {}).get("path", ""))[:300] or request.headers.get("referer", "").split("?", 1)[0][-300:],
+                    event["event_type"], event.get("detail", {}),
+                    event_id=request.state.participant + ":" + request.state.study_group + ":" + str(event.get("event_id", uuid.uuid4()))[:120],
+                    client_time=str(event.get("client_time", ""))[:40],
+                    page_id=str(event.get("page_id", ""))[:80], elapsed_ms=float(event.get("elapsed_ms", 0)),connection=connection)
     except (ValueError, KeyError, TypeError):
         return JSONResponse({"error": "invalid events"}, status_code=400)
     return {"saved": len(events)}

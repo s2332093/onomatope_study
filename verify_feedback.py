@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 os.environ['STUDY_LOG_PATH'] = str(Path(tempfile.mkdtemp()) / 'feedback.db')
 from fastapi.testclient import TestClient
+os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
 import learning_state
 

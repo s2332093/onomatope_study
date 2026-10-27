@@ -13,6 +13,7 @@
   <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3">フェーズ2：文脈練習へ →</a>
   {% else %}
   <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/meaning/check">
+  <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
     <h2 style="margin-top:20px;">この場面での意味はどれですか？</h2>
     {% for option in question.meaning_opts %}
     <label style="display:block; padding:14px; border:1px solid var(--border); margin:10px 0; border-radius:8px;">

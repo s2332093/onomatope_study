@@ -187,15 +187,23 @@
     .condition-mismatch td:last-child { font-weight:700;color:var(--red); }
   </style>
 </head>
-<body data-study-prefix="{{ request.scope.get('study_prefix', '') }}">
+<body data-study-prefix="{{ request.scope.get('study_prefix', '') if (request.state.participant_name or not request.state.require_name) and not request.scope.get('path','').startswith('/research') else '' }}" data-study-participant="{{ request.state.participant if (request.state.participant_name or not request.state.require_name) else '' }}">
 <nav>
   <span class="logo">📚 オノマトペ学習支援</span>
+  {% if request.scope.get('path','').startswith('/research') %}
+  <span class="badge">研究者用</span>
+  {% elif request.state.participant_name or request.scope.get('path') != '/registration' %}
   <span class="badge">学習システム{{ request.state.study_label }}</span>
   <a href="{{ request.scope.get('study_prefix', '') }}/">ホーム（語を選ぶ）</a>
   {% if request.state.study_group != 'control' %}
   <a href="{{ request.scope.get('study_prefix', '') }}/reference">学習前の知識</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/drill/features">素性ドリル</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/drill/expressions">前接条件ドリル</a>
+  {% endif %}
+  {% if request.state.participant_name %}
+  <span style="margin-left:auto">{{ request.state.participant_name }} さん</span>
+  <a href="{{ request.scope.get('study_prefix','') }}/registration">利用者を変更</a>
+  {% endif %}
   {% endif %}
 </nav>
 <div class="container {% block container_class %}{% endblock %}">

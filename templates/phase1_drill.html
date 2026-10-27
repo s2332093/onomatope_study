@@ -19,6 +19,7 @@
 </div>
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/drill/features/check">
+  <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
   {% for q in questions %}
   <div class="card">
     <input type="hidden" name="spec_{{ q.idx }}" value="{{ q.spec }}">

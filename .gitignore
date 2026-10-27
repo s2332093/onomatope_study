@@ -8,3 +8,7 @@ Claude outputs/
 study_logs.db*
 logs/
 .testvenv/
+
+.env
+.env.*
+research_credentials*

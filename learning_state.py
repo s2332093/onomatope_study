@@ -27,12 +27,17 @@ def update(participant, group, word_id, change):
     """Read/modify/write under one SQLite transaction, including concurrent tabs."""
     with study_logging.connect() as db:
         _table(db)
-        db.execute('BEGIN IMMEDIATE')
+        if study_logging.DATABASE_URL:
+            # Serialize updates for this learner/word across server workers.
+            db.execute('SELECT pg_advisory_xact_lock(hashtext(?))', (participant + group + word_id,))
+        else:
+            db.execute('BEGIN IMMEDIATE')
         row = db.execute('SELECT state FROM learning_state WHERE participant_id=? AND study_group=? AND word_id=?',
                          (participant, group, word_id)).fetchone()
         state = json.loads(row[0]) if row else {}
         change(state)
-        db.execute('INSERT OR REPLACE INTO learning_state VALUES (?,?,?,?)',
+        db.execute('''INSERT INTO learning_state VALUES (?,?,?,?)
+                   ON CONFLICT(participant_id,study_group,word_id) DO UPDATE SET state=excluded.state''',
                    (participant, group, word_id, json.dumps(state, ensure_ascii=False)))
     return state
 

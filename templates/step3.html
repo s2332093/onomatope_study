@@ -27,6 +27,7 @@
 {% endif %}
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
+  <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
   {% if review_token %}<input type="hidden" name="review_token" value="{{ review_token }}">{% endif %}
 
   <div class="card" style="position:relative;">
