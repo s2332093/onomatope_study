@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block container_class %}wide{% endblock %}
 {% block content %}
+<style>
+  .research-table { width:100%;border-collapse:collapse;font-size:0.84rem;line-height:1.6; }
+  .research-table th,.research-table td { padding:12px 9px;text-align:left;vertical-align:top;border-bottom:1px solid var(--border); }
+  .research-table th { background:var(--blue-soft);font-size:0.78rem;white-space:nowrap; }
+  .research-table td:first-child { min-width:140px;max-width:240px;overflow-wrap:anywhere; }
+  .research-table td:last-child { min-width:100px; }
+  .research-table tbody tr:last-child td { border-bottom:none; }
+</style>
 <div class="card">
   <div style="display:flex;justify-content:space-between;gap:16px;align-items:center"><h1>学習記録</h1><form method="post" action="{{ request.scope.get('study_prefix','') }}/research/logout">
   <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
@@ -22,7 +30,7 @@
 <div class="card">
   <h2>参加者ごとの結果</h2>
   <p class="small muted">「正解の回答」は、その回に提出したすべての項目が正しかった回答。「誤答した回答」は1項目でも誤りがあった回答です。再回答も別の回答として数え、同じ送信の再読込みは重複させません。</p>
-  <div style="overflow-x:auto"><table><thead><tr><th>名前 / 参加ID</th><th>群</th><th>使用時間</th><th>回答数</th><th>正解 / 誤答した回答</th><th>正解率 / 不正解率</th><th>誤答項目数</th><th>最終記録</th></tr></thead><tbody>
+  <div style="overflow-x:auto"><table class="research-table"><thead><tr><th>名前 / 参加ID</th><th>群</th><th>使用時間</th><th>回答数</th><th>正解 / 誤答回数</th><th>正解率 / 不正解率</th><th>誤答項目数</th><th>最終記録</th></tr></thead><tbody>
   {% for p in people %}<tr>
     <td><a href="?participant={{ p.participant_id }}&group={{ p.group }}">{{ p.name }}</a><br><small class="muted">{{ p.participant_id[:8] }}…</small></td><td>{{ 'A' if p.group=='experiment' else 'B' }}</td><td>{{ p.seconds }}秒</td><td>{{ p.attempts }}</td><td>{{ p.correct }} / {{ p.incorrect }}</td><td>{{ (p.rate|string)+'%' if p.rate is not none else '—' }} / {{ (p.wrong_rate|string)+'%' if p.wrong_rate is not none else '—' }}</td><td>{{ p.item_wrong }}</td><td>{{ p.last_jst }}</td>
   </tr>{% else %}<tr><td colspan="8">まだ記録がありません。</td></tr>{% endfor %}
@@ -32,11 +40,11 @@
 <div class="card">
   <h2>ページごとの時間・正誤</h2>
   <p class="small muted">線結びの項目正解率は、10形式それぞれの「結ぶ／結ばない」の判断を数えます。文脈練習は2問を別項目として数えます。回答全体の正解率と区別して確認してください。</p>
-  <div style="overflow-x:auto"><table><thead><tr><th>ページ</th><th>使用時間</th><th>訪問数</th><th>回答数</th><th>誤答した回答</th><th>回答正解率</th><th>項目正解率</th><th>誤答項目数</th></tr></thead><tbody>
+  <div style="overflow-x:auto"><table class="research-table"><thead><tr><th>ページ</th><th>使用時間</th><th>訪問数</th><th>回答数</th><th>誤答回数</th><th>回答正解率</th><th>項目正解率</th><th>誤答項目数</th></tr></thead><tbody>
   {% for p in pages %}<tr><td>{{ p.page_label }}<br><small class="muted">{{ p.path }}</small></td><td>{{ p.seconds }}秒</td><td>{{ p.visits }}</td><td>{{ p.attempts }}</td><td>{{ p.incorrect }}</td><td>{{ (p.rate|string)+'%' if p.rate is not none else '—' }}</td><td>{{ (p.item_rate|string)+'%' if p.item_rate is not none else '—' }}</td><td>{{ p.item_wrong }}</td></tr>{% endfor %}
   </tbody></table></div>
 </div>
-<div class="card"><h2>回答履歴</h2><div style="overflow-x:auto"><table><thead><tr><th>提出時刻</th><th>ページ</th><th>結果</th><th>正解 / 誤答項目</th><th>解答</th></tr></thead><tbody>
+<div class="card"><h2>回答履歴</h2><div style="overflow-x:auto"><table class="research-table"><thead><tr><th>提出時刻</th><th>ページ</th><th>結果</th><th>正解 / 誤答項目</th><th>解答</th></tr></thead><tbody>
 {% for a in attempts %}<tr><td>{{ a.time }}</td><td>{{ a.page_label }}</td><td>{{ '正解' if a.correct else '誤答あり' }}</td><td>{{ a.correct_items }} / {{ a.wrong_items }}</td><td><small>{{ a.answer_label }}</small></td></tr>{% endfor %}
 </tbody></table></div></div>
 {% endif %}
