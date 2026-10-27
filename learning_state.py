@@ -8,16 +8,8 @@ import study_logging
 FEATURE_REVEAL_AFTER = 3
 
 
-def _table(db):
-    db.execute('''CREATE TABLE IF NOT EXISTS learning_state (
-        participant_id TEXT NOT NULL, study_group TEXT NOT NULL, word_id TEXT NOT NULL,
-        state TEXT NOT NULL,
-        PRIMARY KEY (participant_id, study_group, word_id))''')
-
-
 def read(participant, group, word_id):
     with study_logging.connect() as db:
-        _table(db)
         row = db.execute('SELECT state FROM learning_state WHERE participant_id=? AND study_group=? AND word_id=?',
                          (participant, group, word_id)).fetchone()
     return json.loads(row[0]) if row else {}
@@ -26,7 +18,6 @@ def read(participant, group, word_id):
 def update(participant, group, word_id, change):
     """Read/modify/write under one SQLite transaction, including concurrent tabs."""
     with study_logging.connect() as db:
-        _table(db)
         if study_logging.DATABASE_URL:
             # Serialize updates for this learner/word across server workers.
             db.execute('SELECT pg_advisory_xact_lock(hashtext(?))', (participant + group + word_id,))

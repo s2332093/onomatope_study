@@ -1,11 +1,13 @@
 """Private research storage. SQLite locally; PostgreSQL when STUDY_DATABASE_URL is set."""
 from contextlib import contextmanager
 import csv
+import atexit
 import json
 import os
 import sqlite3
 import uuid
 import threading
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +16,20 @@ DATABASE_URL = os.environ.get('STUDY_DATABASE_URL', '')
 
 _initialized = set()
 _schema_lock = threading.Lock()
+_pool = None
+_pool_lock = threading.Lock()
+
+def postgres_pool():
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                from psycopg_pool import ConnectionPool
+                _pool = ConnectionPool(DATABASE_URL, min_size=0, max_size=5,
+                    max_idle=60, max_lifetime=300, timeout=15, open=True,
+                    kwargs={'connect_timeout':15}, check=ConnectionPool.check_connection)
+                atexit.register(_pool.close)
+    return _pool
 
 class PostgresConnection:
     def __init__(self, connection):
@@ -24,8 +40,7 @@ class PostgresConnection:
 @contextmanager
 def connect():
     if DATABASE_URL:
-        import psycopg
-        raw = psycopg.connect(DATABASE_URL, connect_timeout=15)
+        raw = postgres_pool().getconn(timeout=15)
         con = PostgresConnection(raw)
     else:
         raw = sqlite3.connect(LOG_PATH, timeout=15)
@@ -48,7 +63,10 @@ def connect():
         with (raw.transaction() if DATABASE_URL else raw):
             yield con
     finally:
-        raw.close()
+        if DATABASE_URL:
+            postgres_pool().putconn(raw)
+        else:
+            raw.close()
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -57,6 +75,7 @@ def register(participant, name):
     with connect() as con:
         con.execute('INSERT INTO participants VALUES (?,?,?)', (participant, name, now()))
 
+@lru_cache(maxsize=5000)
 def participant_name(participant):
     with connect() as con:
         row = con.execute('SELECT name FROM participants WHERE participant_id=?', (participant,)).fetchone()
