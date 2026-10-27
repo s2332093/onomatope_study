@@ -180,6 +180,11 @@
     }
     table.dtable th { background: var(--blue-soft); color: var(--blue); font-size: 0.76rem; }
     .tscroll { overflow-x: auto; }
+    .feedback-actions { display:flex;gap:12px;align-items:center;flex-wrap:wrap; }
+    .feedback-points dt { font-size:.76rem;font-weight:700;color:var(--muted);margin-top:14px; }
+    .feedback-points dd { margin:5px 0 0;line-height:1.7;font-size:.9rem; }
+    .condition-mismatch td, .condition-mismatch th { background:var(--red-soft) !important; }
+    .condition-mismatch td:last-child { font-weight:700;color:var(--red); }
   </style>
 </head>
 <body data-study-prefix="{{ request.scope.get('study_prefix', '') }}">
@@ -188,7 +193,7 @@
   <span class="badge">学習システム{{ request.state.study_label }}</span>
   <a href="{{ request.scope.get('study_prefix', '') }}/">ホーム（語を選ぶ）</a>
   {% if request.state.study_group != 'control' %}
-  <a href="{{ request.scope.get('study_prefix', '') }}/reference">素性のまとめ</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/reference">学習前の知識</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/drill/features">素性ドリル</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/drill/expressions">前接条件ドリル</a>
   {% endif %}

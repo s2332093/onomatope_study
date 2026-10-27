@@ -3,7 +3,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/learn" class="muted small" style="text-decoration:none;">← 前接条件を読み直す</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/reference#grammar" class="muted small" style="text-decoration:none;">← 学習前の知識で前接条件を確認する</a>
   <div style="margin-left:auto; display:flex; gap:4px;">
     <span class="badge badge-green">フェーズ1</span>
     <span class="badge badge-purple">フェーズ2</span>
@@ -11,7 +11,23 @@
   </div>
 </div>
 
+{% if context_review %}
+<div class="card" role="status">
+  <span class="badge badge-orange">場面・文脈の問題から戻りました</span>
+  <h2 style="margin-top:10px;">線結びで、条件を確かめ直しましょう</h2>
+  {% for r in context_review %}
+  <div class="result-item ng">
+    <p class="small">問{{ r.no }}：{{ r.frame }}</p>
+    <p class="small" style="margin-top:6px;">あなたの選択：<strong>{{ r.choice }}</strong></p>
+    <p class="small" style="margin-top:5px;">{{ r.reason }}</p>
+  </div>
+  {% endfor %}
+  <p class="small muted">線を見直して判定したら、文脈問題に戻ります。</p>
+</div>
+{% endif %}
+
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
+  {% if review_token %}<input type="hidden" name="review_token" value="{{ review_token }}">{% endif %}
 
   <div class="card" style="position:relative;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -25,12 +41,12 @@
       </div>
     </div>
     <p class="muted small" style="margin:8px 0 4px;">
-      左の●から右の●へドラッグ。<strong>線をクリックすると、その1本だけ消えます。</strong>
+      左の●から右の●へドラッグ、または右の●をクリック。<strong>線をクリックすると、その1本だけ消えます。</strong>
     </p>
 
     <!-- 各表現が「○」か「×」かを送信するための隠しフィールド群 -->
     {% for e in expressions %}
-    <input type="hidden" name="{{ e.key }}" id="input-{{ e.key }}" value="×">
+    <input type="hidden" name="{{ e.key }}" id="input-{{ e.key }}" value="{{ '○' if e.key in saved_connections else '×' }}">
     {% endfor %}
 
     <!-- 線結びコンテナ -->
@@ -55,14 +71,15 @@
         <div class="muted small" style="font-weight:700; margin-top:8px; padding-left:14px;">◆ {{ g.name }}</div>
         {% for e in g.exprs %}
         <div class="right-node" id="node-{{ e.key }}" data-key="{{ e.key }}">
-          <div class="dot right-dot"></div>
+          <button type="button" class="dot right-dot" aria-label="〜{{ e.label }}への線を切り替える" aria-pressed="false"></button>
           <div style="flex:1;">
             <div style="font-weight:700; font-size:0.92rem;">〜{{ e.label }}</div>
+            <div class="answer-error small" hidden>条件と合わない</div>
             <div class="hint-cond" style="display:none; font-size:0.74rem; color:var(--muted); margin-top:3px;">
               必要な素性：<span style="color:var(--blue);">{{ e.cond_text }}</span>
             </div>
           </div>
-          <button type="button" class="del-x" title="この線を消す">✕</button>
+          <button type="button" class="del-x" title="この線を消す" aria-label="〜{{ e.label }}の線を消す">消す</button>
         </div>
         {% endfor %}
         {% endfor %}
@@ -70,11 +87,19 @@
     </div>
   </div>
 
-  <button type="submit" class="btn btn-primary">判定する →</button>
+  <button type="submit" class="btn btn-primary" id="matchingSubmit">{% if context_review %}線結びを確認して文脈問題へ{% else %}判定する{% endif %} →</button>
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
 </form>
 
+<div id="matchingStatus" class="notebox" role="status" hidden style="margin-top:18px;"></div>
+<div id="matchingActions" class="feedback-actions" hidden style="margin:14px 0;">
+  <button type="button" class="btn btn-secondary" id="showMatchingFeedback">フィードバックを見る</button>
+  <a class="btn btn-primary" id="matchingNext" hidden>{% if context_review %}文脈問題に戻る{% else %}場面・文脈の問題へ進む{% endif %} →</a>
+</div>
+<section id="matchingFeedback" aria-label="線結びのフィードバック" hidden style="margin-top:20px;scroll-margin-top:20px;"></section>
+
 <style>
+  #matchingActions[hidden], #matchingNext[hidden] { display:none; }
   #matchingContainer {
     position: relative; display: flex; justify-content: space-between;
     gap: 110px; margin: 18px 0 6px; user-select: none; min-height: 480px;
@@ -108,6 +133,9 @@
   .dot:hover { transform: scale(1.3); background-color: var(--blue) !important; }
   .dot.connected { background-color: var(--green) !important; }
   .right-node.active-connection { border-color: var(--green) !important; background: var(--green-soft) !important; }
+  .right-node.active-connection.invalid-answer { border-color:var(--red) !important;background:var(--red-soft) !important;color:var(--red); }
+  .right-node.invalid-answer .right-dot.connected { background-color:var(--red) !important; }
+  .right-node .answer-error { font-weight:700;color:var(--red);margin-top:4px; }
 
   .del-x {
     display: none; border: 1px solid #f0bcbc; background: var(--red-soft); color: var(--red);
@@ -120,11 +148,23 @@
   line.matching-line { stroke: #1d9e57; stroke-width: 3; stroke-linecap: round; pointer-events: none; }
   line.hit-line { stroke: transparent; stroke-width: 20; pointer-events: stroke; cursor: pointer; }
   g.conn:hover line.matching-line { stroke: var(--red); stroke-width: 4; }
+  g.conn.invalid-answer line.matching-line { stroke:var(--red); }
   line.drag-line { stroke: #2f6fed; stroke-width: 2; stroke-dasharray: 4 4; pointer-events: none; }
 
   @media (max-width: 820px) {
     #matchingContainer { gap: 40px; }
     #leftCol { flex: 0 0 150px; }
+  }
+  @media (max-width: 560px) {
+    #matchingContainer { gap:30px; }
+    #leftCol { flex:0 0 90px; }
+    #leftNode { padding:12px 6px; }
+    #leftNode > div:nth-child(2) { font-size:.9rem !important; }
+    #leftNode .small { font-size:.65rem; }
+    #rightCol { min-width:0; }
+    .right-node { padding:10px 5px 10px 13px;gap:3px; }
+    .right-node > div > div:first-child { font-size:.76rem !important;overflow-wrap:anywhere; }
+    .del-x { padding:3px; }
   }
 </style>
 
@@ -137,10 +177,35 @@ document.addEventListener("DOMContentLoaded", () => {
   const leftDot = leftNode.querySelector(".left-dot");
   const rightNodes = document.querySelectorAll(".right-node");
   const lineCount = document.getElementById("lineCount");
+  const form = document.getElementById("step3Form");
+  const submitButton = document.getElementById("matchingSubmit");
+  const status = document.getElementById("matchingStatus");
+  const actions = document.getElementById("matchingActions");
+  const feedback = document.getElementById("matchingFeedback");
+  const nextLink = document.getElementById("matchingNext");
+  let answerRevision = 0;
 
   let isDragging = false;
   let activeLine = null;
   const connections = new Map();   // key -> {g, lines:[hit, vis]}
+
+  function answerChanged() {
+    answerRevision += 1;
+    status.hidden = true;
+    actions.hidden = true;
+    feedback.hidden = true;
+    feedback.replaceChildren();
+    nextLink.hidden = true;
+    nextLink.removeAttribute("href");
+  }
+
+  function markInvalid(key, invalid) {
+    const node = document.getElementById(`node-${key}`);
+    node.classList.toggle("invalid-answer", invalid);
+    node.querySelector(".answer-error").hidden = !invalid;
+    node.querySelector(".right-dot").setAttribute("aria-invalid", String(invalid));
+    connections.get(key)?.g.classList.toggle("invalid-answer", invalid);
+  }
 
   function updateCount() {
     lineCount.textContent = connections.size + "本";
@@ -212,7 +277,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---- 線の作成・削除（1本ずつ） ----
-  function createConnection(key) {
+  function createConnection(key, restored = false) {
+    if (!restored) answerChanged();
     const node = document.getElementById(`node-${key}`);
     const dot = node.querySelector(".right-dot");
     const a = getDotCoords(leftDot);
@@ -232,27 +298,40 @@ document.addEventListener("DOMContentLoaded", () => {
     svg.appendChild(g);
 
     connections.set(key, { g, lines: [hit, vis] });
-    window.studyEvent?.("line_add", {key});
+    if (!restored) window.studyEvent?.("line_add", {key});
     node.classList.add("active-connection");
     dot.classList.add("connected");
+    dot.setAttribute("aria-pressed", "true");
     document.getElementById(`input-${key}`).value = "○";
+    markInvalid(key, false);
     updateCount();
-    if (navigator.vibrate) navigator.vibrate(15);
+    redrawLines();
+    if (!restored && navigator.vibrate) navigator.vibrate(15);
   }
 
   function removeConnection(key) {
+    answerChanged();
+    markInvalid(key, false);
     const conn = connections.get(key);
     if (conn) window.studyEvent?.("line_remove", {key});
     if (conn) { svg.removeChild(conn.g); connections.delete(key); }
     const node = document.getElementById(`node-${key}`);
     node.classList.remove("active-connection");
     node.querySelector(".right-dot").classList.remove("connected");
+    node.querySelector(".right-dot").setAttribute("aria-pressed", "false");
     document.getElementById(`input-${key}`).value = "×";
     updateCount();
+    redrawLines();
   }
 
-  // 各行の ✕ ボタンでも1本だけ消せる
+  // 各行の「消す」ボタンでも1本だけ消せる
   rightNodes.forEach(node => {
+    node.querySelector(".right-dot").addEventListener("click", ev => {
+      ev.stopPropagation();
+      const key = node.getAttribute("data-key");
+      if (connections.has(key)) removeConnection(key);
+      else createConnection(key);
+    });
     node.querySelector(".del-x").addEventListener("click", ev => {
       ev.stopPropagation();
       removeConnection(node.getAttribute("data-key"));
@@ -274,11 +353,58 @@ document.addEventListener("DOMContentLoaded", () => {
     redrawLines();
   });
 
-  document.getElementById("step3Form").addEventListener("submit", ev => {
+  form.addEventListener("submit", async ev => {
+    ev.preventDefault();
     if (connections.size === 0 &&
         !confirm("線を1本も引いていません。「どの表現とも結びつかない」という判断で提出しますか？")) {
-      ev.preventDefault();
+      return;
     }
+    if (submitButton.disabled) return;
+    const submittedRevision = answerRevision;
+    submitButton.disabled = true;
+    status.textContent = "判定しています…";
+    status.hidden = false;
+    actions.hidden = true;
+    feedback.hidden = true;
+    try {
+      const response = await fetch(form.action, {
+        method:"POST", body:new FormData(form), headers:{"Accept":"application/json"},
+      });
+      if (!response.ok) throw new Error("matching check failed");
+      const result = await response.json();
+      if (answerRevision !== submittedRevision) {
+        status.textContent = "回答が変わりました。もう一度判定してください。";
+        status.hidden = false;
+        return;
+      }
+      const invalidKeys = new Set(result.invalid_keys);
+      rightNodes.forEach(node => markInvalid(node.dataset.key, invalidKeys.has(node.dataset.key)));
+      redrawLines();
+      const messages = [];
+      if (result.all_correct) messages.push("結ぶ・結ばないの判断が、前接条件と一致しています。");
+      else {
+        if (invalidKeys.size) messages.push("赤い選択肢は、この語の素性と条件が合っていません。");
+        if (result.has_missing) messages.push("まだ結べていない形式があります。");
+        messages.push("理由はフィードバックで確認できます。");
+      }
+      status.textContent = messages.join(" ");
+      feedback.innerHTML = result.feedback_html;
+      actions.hidden = false;
+      nextLink.hidden = !result.all_correct;
+      if (result.all_correct) nextLink.href = result.context_url;
+      else nextLink.removeAttribute("href");
+      if (invalidKeys.size) document.getElementById(`node-${result.invalid_keys[0]}`).scrollIntoView({behavior:"smooth", block:"center"});
+    } catch (error) {
+      status.textContent = "判定できませんでした。もう一度判定してください。";
+      status.hidden = false;
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  document.getElementById("showMatchingFeedback").addEventListener("click", () => {
+    feedback.hidden = !feedback.hidden;
+    if (!feedback.hidden) feedback.scrollIntoView({behavior:"smooth", block:"start"});
   });
 
   leftDot.addEventListener("mousedown", startDrag);
@@ -296,6 +422,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   window.addEventListener("resize", redrawLines);
+  rightNodes.forEach(node => {
+    const key = node.getAttribute("data-key");
+    if (document.getElementById(`input-${key}`).value === "○") createConnection(key, true);
+  });
+  if (document.fonts) document.fonts.ready.then(redrawLines);
   updateCount();
 });
 </script>

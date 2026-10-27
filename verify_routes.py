@@ -104,18 +104,15 @@ for k, key in main.STAGE_KEY_BY_K.items():
     r = get(f'/a/word/iraira/f1/{k}')
     if "判断の手順" not in r.text:
         fails.append(f'第{k}問に判断手順が出ていません')
-    if "似た語との違い" not in r.text:
+    if main.chain_support(main.WORD_BY_ID['iraira'], k)['pairs'] and "似た語との違い" not in r.text:
         fails.append(f'第{k}問に対比ペアが出ていません')
 r = get('/a/word/iraira/f1/done')
-used_stage_keys.add("category")
-for needle, what in [("判断の手順", "判断手順"), ("似た語との違い", "対比ペア"),
-                     ("別の語で練習", "思考ガイド")]:
-    if needle not in r.text:
-        fails.append(f'まとめページに{what}が出ていません')
+if "迷ったら：" in r.text or 'done-guides' in r.text:
+    fails.append('まとめページに削除した補助欄が残っています')
 
 # DBに入っている段階キーがすべてどこかで使われていること
 for key in set(main.STAGE_GUIDES) | set(main.CONTRAST_PAIRS) | set(main.WORKED_EXAMPLES):
-    if key not in used_stage_keys:
+    if key != "category" and key not in used_stage_keys:
         fails.append(f'学習コンテンツ「{key}」がどの画面でも使われていません')
 
 # 思考ガイドは、学習中の語と同じなら出さない（がっかり＝継続性の例題）
@@ -130,10 +127,10 @@ for k in (3, 4, 5):
         fails.append(f'第{k}問：導入の可視化（.flow）が出ていません')
     if "になりやすい形です" in r.text or "では、実際はどうでしょうか" in r.text:
         fails.append(f'第{k}問：導入に古い説明文が残っています')
-# 予測できない素性（反復形の動作性）は図なしで「予測できない」と示す
+# 問いの導入に正解の予測値を表示しない
 r = get('/a/word/iraira/f1/4')
-if "予測できない" not in r.text:
-    fails.append("第4問：反復形の動作性が「予測できない」と示されていません")
+if "音の形からの予測" in r.text:
+    fails.append("第4問：正解を先取りする予測欄が残っています")
 
 # ---- 音韻形態の図（音のかたち）が実在し、画面に出ていること ----
 import os as _os

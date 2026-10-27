@@ -19,6 +19,7 @@
   </div>
 </div>
 
+{% if returning %}<div class="notebox" style="margin-bottom:16px;">線結びで確かめた条件を使って、場面に合う形をもう一度選びましょう。前の選択を残しています。</div>{% endif %}
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3/check">
   {% for q in questions %}
   <div class="card">
@@ -35,7 +36,7 @@
     </div>
     {% for o in q.options %}
     <label style="display:block; margin-bottom:10px;">
-      <input type="radio" name="choice_{{ q.idx }}" value="{{ o.key }}" required style="display:none;">
+      <input type="radio" name="choice_{{ q.idx }}" value="{{ o.key }}" {% if saved_choices.get(q.idx|string) == o.key %}checked{% endif %} required style="display:none;">
       <div class="opt-card">
         <span style="font-weight:700;">{{ o.label }}</span>
       </div>
@@ -45,7 +46,7 @@
   {% endfor %}
 
   <button type="submit" class="btn btn-primary">判定する →</button>
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2" class="btn btn-secondary" style="margin-left:12px;">← 線結びに戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}{{ matching_url }}" class="btn btn-secondary" style="margin-left:12px;">← 線結びに戻る</a>
 </form>
 
 <script>

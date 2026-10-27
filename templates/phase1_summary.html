@@ -3,16 +3,16 @@
 
 <div class="card">
   <span class="badge badge-gray">学習前の準備・復習</span>
-  <h1 style="margin-top:8px;">素性のまとめ</h1>
+  <h1 style="margin-top:8px;">学習前の知識：素性と文法形式</h1>
   <p class="muted small" style="margin-top:6px;">
-    語の学習を始める前に、3つの素性の見方を図で確かめましょう。学習中も見返せます。<br>
+    語の学習を始める前に、3つの素性と文法形式の前接条件を確かめましょう。学習中も見返せます。<br>
     読み終えたら <a href="{{ request.scope.get('study_prefix', '') }}/">語を選んで学習する</a> へ進んでください。<br>
     オノマトペの語彙的意味を決める3つの素性
     <span class="fbadge fb-continuity">継続性</span>
     <span class="fbadge fb-action">動作性</span>
     <span class="fbadge fb-volition">意志性</span>
     の見方を学びます。<br>
-    この3つが決まると、次のフェーズで学ぶ「結びつく文法形式」も決まります。
+    この3つの素性と文法形式の前接条件を比べて、結びつくかを判断します。
   </p>
 </div>
 
@@ -146,8 +146,10 @@
   {% endfor %}
 </div>
 
+{% include "_grammar_knowledge.html" %}
+
 <div class="card" style="text-align:center; background:var(--blue-soft);">
-  <h2>✏️ 練習に戻る</h2>
+  <h2>✏️ 知識を確認したら、学習を始める</h2>
   <p class="muted small" style="margin-bottom:14px;">
     1語について 意味 → 音の形 → 継続性 → 動作性 → 意志性 の5問をたどります。<br>
     いくつか終えたら、総合ドリルで仕上げましょう。

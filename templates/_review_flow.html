@@ -1,0 +1,18 @@
+{% macro relation(k) %}
+<div class="flow" aria-label="学習する内容のつながり" style="margin:12px 0;">
+  {% if k <= 3 %}
+  <div class="fnode done"><div class="fcap">音韻形態</div><div class="fval">繰り返し・音の区切れ</div></div>
+  <div class="farrow"><div class="fwhy">場面の意味と合わせる</div><div class="fline">→</div></div>
+  <div class="fnode ask"><div class="fcap">継続性</div><div class="fval">何が・いつまで続く？</div></div>
+  {% elif k == 4 %}
+  <div class="fnode done"><div class="fcap">継続性</div><div class="fval">続く状態？ 一瞬の変化？</div></div>
+  <div class="farrow"><div class="fwhy">動き・感覚も確かめる</div><div class="fline">→</div></div>
+  <div class="fnode ask"><div class="fcap">動作性</div><div class="fval">どんな動き・変化？</div></div>
+  {% else %}
+  <div class="fnode done"><div class="fcap">動作性</div><div class="fval">どんな動き・状態？</div></div>
+  <div class="farrow"><div class="fwhy">動きの有無と分ける</div><div class="fline">→</div></div>
+  <div class="fnode ask"><div class="fcap">意志性</div><div class="fval">自分で始められる？</div></div>
+  {% endif %}
+</div>
+<p class="small muted">音の形や継続性だけで決めず、語の意味・場面も合わせて考えます。</p>
+{% endmacro %}

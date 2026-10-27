@@ -5,7 +5,7 @@
 #     /word/{id}              その語の学習マップ（3フェーズの現在地）
 #     /word/{id}/f1/1〜5      フェーズ1：意味 → 音の形 → 継続性 → 動作性 → 意志性
 #     /word/{id}/f1/done      フェーズ1のまとめ（カテゴリー確定）
-#     /word/{id}/f2/learn     フェーズ2：表現形式と前接条件を学ぶ
+#     /reference             学習前：素性・表現形式・前接条件を学ぶ
 #     /word/{id}/f2           フェーズ2：線結び
 #     /word/{id}/f3           フェーズ3：例文の練習
 #     /word/{id}/complete     この語の学習完了
@@ -19,6 +19,8 @@ import json
 import uuid
 import math
 import study_logging
+import learning_state
+from urllib.parse import urlencode
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -189,7 +191,7 @@ def req_label(fkey: str, allowed) -> str:
 # 素性ごとの一般的な考え方（ドリル・Step2 の解説で使用）
 FEATURE_EXPLAINS = {
     "continuity": "継続性は図のイメージで判断します（＋：続く／変化結果の＋：変化後の結果が残る／ー：一瞬）。",
-    "action": "継続性が低いほど動作性は高くなります（ー継続性→高、続く状態→中、だらけた状態→低）。",
+    "action": "感情・感覚では、一瞬の変化か続く状態かを区別します。動作では、具体的な動きや力の抜け方も手がかりにします。",
     "volition": "自分の意志で行える動き・行為なら「＋」、感情・感覚など自然に起こるものは「ー」、状況に反応して起こる動きは「関与しない」です。",
 }
 
@@ -452,8 +454,8 @@ FEATURE_OPTION_NOTES = {
         "ー": "一瞬で成立し、あとに残らない",
     },
     "action": {
-        "高": "外から見える具体的で激しい動きがある",
-        "中": "動きより気持ち・感覚が中心だが、時間の幅がある",
+        "高": "具体的な動き、または一瞬の強い変化・刺激",
+        "中": "動きが激しくない状態や、続く気持ち・感覚",
         "低": "積極的な動きがなく、ゆるやか／力が抜けている",
     },
     "volition": {
@@ -534,7 +536,8 @@ def chain_support(w, k):
         return None
     return {
         "guides": STAGE_GUIDES.get(key, []),
-        "pairs": build_contrast_pairs(key),
+        "pairs": [p for p in build_contrast_pairs(key)
+                  if w["id"] not in (p["a"]["word"]["id"], p["b"]["word"]["id"])],
         "example": build_worked_example(key, exclude_word_id=w["id"]),
     }
 
@@ -576,31 +579,19 @@ def chain_question(w, k):
                 "phon_opts": phon_options(w)}
 
     if k == 3:
-        pred = phon["pred_cont"]
         return {"step": step, "kind": "feature", "fkey": "continuity",
                 "flow": {"known": [_chip("音の形", phon["label"], phon["term"],
                                          fig=PHON_FIGS.get(phon["key"]))],
                          "why": phon["hint"],
-                         "ask": {"cap": "継続性"},
-                         "predict": {"val": val_label("continuity", pred),
-                                     "fig": FEATURE_FIGS["continuity"].get(pred),
-                                     "note": None}},
+                         "ask": {"cap": "継続性"}},
                 "prompt": f'「{w["word"]}」の継続性は？',
                 "options": feature_options("continuity")}
 
     if k == 4:
-        pred = phon["pred_act"]
-        if pred:
-            predict = {"val": val_label("action", pred),
-                       "fig": FEATURE_FIGS["action"].get(pred), "note": None}
-        else:
-            predict = {"val": "予測できない", "fig": None,
-                       "note": f'{phon["label"]}では決まらない（語の意味で決まる）'}
         return {"step": step, "kind": "feature", "fkey": "action",
                 "flow": {"known": [cont_chip],
-                         "why": "継続性が低いほど動作性は高い",
-                         "ask": {"cap": "動作性"},
-                         "predict": predict},
+                         "why": "続き方 ＋ 動き・感覚に注目",
+                         "ask": {"cap": "動作性"}},
                 "prompt": f'「{w["word"]}」の動作性は？',
                 "options": feature_options("action")}
 
@@ -647,6 +638,91 @@ def chain_feedback(w, k, choice):
             "fig": FEATURE_FIGS[fkey].get(fb["correct_value"])}
 
 
+def learner_state(request, word_id):
+    return learning_state.read(request.state.participant, request.state.study_group, word_id)
+
+
+def update_learner(request, word_id, change):
+    return learning_state.update(request.state.participant, request.state.study_group, word_id, change)
+
+
+def active_context_review(state, token):
+    """Show remediation only within the return flow issued by an actual error."""
+    return bool(token and token == state.get("context_review_token") and state.get("context_review"))
+
+
+def clear_context_review(state):
+    state.update(context_review=[], context_review_token="")
+
+
+def review_target(value, k):
+    """A review can return only to a later question in the same word's chain."""
+    try:
+        target = int(value)
+    except (TypeError, ValueError):
+        return None
+    return target if k < target <= len(CHAIN) else None
+
+
+def chain_next_url(word_id, k, review_for=None):
+    if k == len(CHAIN):
+        return f"/word/{word_id}/f1/done"
+    url = f"/word/{word_id}/f1/{k + 1}"
+    if review_for and k + 1 < review_for:
+        url += f"?review_for={review_for}"
+    return url
+
+
+def chain_review_url(word_id, k, review_for=None):
+    review_k = max(1, k - 1)
+    url = f"/word/{word_id}/f1/{review_k}"
+    if k > 1:
+        url += f"?review_for={review_for or k}"
+    return url
+
+
+def chain_retry_feedback(w, k, choice):
+    """Explain the submitted interpretation; never include the target answer."""
+    cat = get_category(w)
+    if k == 1:
+        return {"assumption": "選んだ意味で場面を捉えています。",
+                "reason": "選んだ意味では、場面の人物・動き・気持ちを十分に説明できません。",
+                "prompt": "場面のどの部分と合わないか、確かめましょう。"}
+    if k == 2:
+        chosen = PHON_BY_KEY.get(choice)
+        return {"assumption": chosen["term"] if chosen else "音の形が未選択です。",
+                "reason": "選んだ型の並びと、この語の音の並びが一致していません。",
+                "prompt": "繰り返す部分・小さい「っ」「ん」・語尾の「り」を確かめましょう。"}
+    fkey = {3: "continuity", 4: "action", 5: "volition"}[k]
+    assumption = FEATURE_OPTION_NOTES[fkey].get(choice, "まだ選択していません。")
+    if k == 3:
+        if cat["continuity"] == "ー":
+            reason = "時間の幅を想定していますが、この場面の変化は一瞬で成立します。"
+        elif choice == "ー":
+            reason = "一瞬だけという捉え方では、場面の時間の幅を説明できません。"
+        else:
+            reason = "『動き・変化そのものが続くこと』と『変化の後に状態が残ること』を取り違えています。"
+        prompt = "音の形を手がかりに、何が・いつまで続くかを確かめましょう。"
+    elif k == 4:
+        if cat["action"] == "低":
+            reason = "この場面は、力が抜けたり積極的な動きが弱まったりした様子です。選んだ動きの強さと合いません。"
+        elif cat["action"] == "中":
+            reason = "この場面は、続く気持ち・感覚や激しくない動きが中心です。選んだ動きの強さと合いません。"
+        elif cat["continuity"] == "ー":
+            reason = "この場面の一瞬の変化・刺激を、長く続く状態と同じように捉えています。"
+        else:
+            reason = "この場面には具体的な動きがあります。状態の続きだけで捉えると、動きの強さを見落とします。"
+        prompt = "継続性に戻り、続き方と動き・感覚の関係を確かめましょう。"
+    else:
+        reason = {
+            "＋": "本人が自分で始めたり、やめたりする場面です。選んだ意志の関わり方と合いません。",
+            "ー": "気持ち・感覚や状態が自然に起こる場面です。動きの有無と、意志で起こせるかは別です。",
+            "関与しない": "状況に反応した動きです。動きがあることだけでは、意志で始めたとは言えません。",
+        }[cat["volition"]]
+        prompt = "『今から自分で始めよう』と言える場面か、確かめましょう。"
+    return {"assumption": assumption, "reason": reason, "prompt": prompt}
+
+
 @app.get("/word/{word_id}", response_class=HTMLResponse)
 async def word_map(request: Request, word_id: str):
     """その語の学習マップ。フェーズ1〜3のどこにいるかを示す。"""
@@ -681,6 +757,9 @@ async def reference(request: Request):
         "categories": CATEGORIES,
         "phon_table": build_phon_table(),
         "figs": FEATURE_FIGS,
+        "expr_cards": expression_cards(),
+        "expr_guide": KNOWLEDGE["expr_guide"],
+        "expr_note": KNOWLEDGE["expr_note"],
     })
 
 
@@ -698,9 +777,6 @@ async def phase1_chain_done(request: Request, word_id: str):
         "phon": PHON_BY_KEY[w["phon"]],
         "figs": FEATURE_FIGS,
         "next_word": nxt,
-        "guides": STAGE_GUIDES.get("category", []),
-        "pairs": build_contrast_pairs("category"),
-        "example": build_worked_example("category", exclude_word_id=w["id"]),
     })
 
 
@@ -794,6 +870,10 @@ async def phase1_chain(request: Request, word_id: str, k: int):
         "word": w, "chain": CHAIN, "k": k,
         "q": chain_question(w, k),
         "support": chain_support(w, k),
+        "attempt_id": str(uuid.uuid4()),
+        "review_for": review_target(request.query_params.get("review_for"), k),
+        "failures": learner_state(request, word_id).get("feature_failures", {}).get(str(k), 0),
+        "reveal_after": learning_state.FEATURE_REVEAL_AFTER,
     })
 
 
@@ -804,12 +884,41 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
         return RedirectResponse("/phase1")
     form = await request.form()
     choice = form.get("choice", "")
+    fb = chain_feedback(w, k, choice)
+    outcome = learning_state.feature_attempt(request.state.participant, request.state.study_group,
+        word_id, k, fb["ok"], str(form.get("attempt_id") or uuid.uuid4())[:80] + ":" + str(choice)[:80])
+    # A browser refresh of the same POST is not another failed attempt.
+    fb["ok"] = outcome["ok"]
+    review_for = review_target(form.get("review_for"), k)
+    reveal = not fb["ok"] and outcome["failures"] >= learning_state.FEATURE_REVEAL_AFTER
+    retry_url = f"/word/{word_id}/f1/{k}" + (f"?review_for={review_for}" if review_for else "")
+    review_k = max(1, k - 1)
+    review_url = chain_review_url(word_id, k, review_for)
     return templates.TemplateResponse(request, "phase1_chain_result.html", {
         "word": w, "chain": CHAIN, "k": k,
         "step": CHAIN_BY_K[k],
-        "fb": chain_feedback(w, k, choice),
+        "fb": fb if fb["ok"] or reveal else {"ok": False, "user": fb["user"]},
+        "retry_feedback": chain_retry_feedback(w, k, choice),
+        "failures": outcome["failures"], "reveal_after": learning_state.FEATURE_REVEAL_AFTER,
+        "reveal": reveal, "review_for": review_for,
+        "retry_url": retry_url, "review_url": review_url,
+        "review_title": CHAIN_BY_K[review_k]["title"] if k > 1 else "場面",
+        "next_url": chain_next_url(word_id, k, review_for),
         "next_k": k + 1 if k < len(CHAIN) else None,
     })
+
+
+@app.post("/word/{word_id}/f1/{k}/continue")
+async def phase1_chain_continue(request: Request, word_id: str, k: int):
+    if not get_word(word_id) or k not in CHAIN_BY_K:
+        return RedirectResponse("/", status_code=303)
+    form = await request.form()
+    review_for = review_target(form.get("review_for"), k)
+    if learner_state(request, word_id).get("feature_failures", {}).get(str(k), 0) < learning_state.FEATURE_REVEAL_AFTER:
+        return RedirectResponse(f"/word/{word_id}/f1/{k}", status_code=303)
+    update_learner(request, word_id,
+                   lambda s: s.setdefault("feature_failures", {}).update({str(k): 0}))
+    return RedirectResponse(chain_review_url(word_id, k, review_for), status_code=303)
 
 
 @app.get("/drill/features", response_class=HTMLResponse)
@@ -922,16 +1031,9 @@ async def phase1_drill_check(request: Request):
 
 
 # =====================================================================
-#  フェーズ2：文法形式の学習
+#  学習前の知識：文法形式と前接条件
 # =====================================================================
-@app.get("/word/{word_id}/f2/learn", response_class=HTMLResponse)
-async def f2_learn(request: Request, word_id: str):
-    """フェーズ2の入口：この語の素性を持ったまま、表現形式と前接条件を学ぶ。"""
-    w = get_word(word_id)
-    if not w:
-        return RedirectResponse("/")
-    cat = get_category(w)
-
+def expression_cards():
     expr_cards = []
     for e in EXPRESSIONS:
         reqs = []
@@ -943,12 +1045,15 @@ async def f2_learn(request: Request, word_id: str):
                              "why": e[WHY_COL[fkey]]})
         expr_cards.append({"expr": e, "reqs": reqs})
 
-    return templates.TemplateResponse(request, "phase2.html", {
-        "word": w, "category": cat, "profile": profile_str(cat), "chain": CHAIN,
-        "expr_cards": expr_cards,
-        "expr_guide": KNOWLEDGE["expr_guide"],
-        "expr_note": KNOWLEDGE["expr_note"],
-    })
+    return expr_cards
+
+
+@app.get("/word/{word_id}/f2/learn")
+async def f2_learn(word_id: str):
+    """Keep old bookmarks pointing at the relocated introductory knowledge."""
+    if not get_word(word_id):
+        return RedirectResponse("/")
+    return RedirectResponse("/reference#grammar", status_code=303)
 
 
 # ---------------------------------------------------------------------
@@ -1076,11 +1181,23 @@ async def f2_match(request: Request, word_id: str):
         random.shuffle(exprs)
         groups.append({"name": g["name"], "exprs": exprs})
 
+    state = learner_state(request, word_id)
+    review_token = request.query_params.get("review", "")
+    reviewing = active_context_review(state, review_token)
+    if not reviewing and state.get("context_review"):
+        state = update_learner(request, word_id, clear_context_review)
+    retry_token = request.query_params.get("retry", "")
+    retrying = bool(retry_token and retry_token == state.get("matching_retry_token"))
+    if not retrying and (state.get("connections") or state.get("matching_retry_token")):
+        state = update_learner(request, word_id, lambda s: s.update(connections=[], matching_retry_token=""))
     return templates.TemplateResponse(request, "step3.html", {
         "word": w,
         "word_hint": profile_str(cat),
         "expr_groups": groups,
         "expressions": EXPRESSIONS,
+        "saved_connections": state.get("connections", []) if retrying else [],
+        "context_review": state.get("context_review", []) if reviewing else [],
+        "review_token": review_token if reviewing else "",
     })
 
 
@@ -1101,6 +1218,7 @@ async def f2_check(request: Request, word_id: str):
         ok = (can_combine == user_connected)
         n_expr_correct += 1 if ok else 0
         expr_results.append({
+            "key": e["key"],
             "label": e["label"], "phase": e["phase"], "cond_text": e["cond_text"],
             "checks": fb["checks"],
             "should": can_combine, "connected": user_connected, "ok": ok,
@@ -1110,14 +1228,44 @@ async def f2_check(request: Request, word_id: str):
         })
 
     all_correct = (n_expr_correct == len(EXPRESSIONS))
-    return templates.TemplateResponse(request, "step3_result.html", {
+    retry_token = str(uuid.uuid4()) if not all_correct else ""
+    state = update_learner(request, word_id, lambda s: s.update(
+        connections=[r["key"] for r in expr_results if r["connected"]] if not all_correct else [],
+        matching_retry_token=retry_token))
+    review_token = str(form.get("review_token", ""))
+    reviewing = active_context_review(state, review_token)
+    if not reviewing and state.get("context_review"):
+        state = update_learner(request, word_id, clear_context_review)
+    review_query = f"?review={review_token}" if reviewing else ""
+    retry_params = {"review": review_token} if reviewing else {}
+    if retry_token:
+        retry_params["retry"] = retry_token
+    retry_query = "?" + urlencode(retry_params) if retry_params else ""
+    feedback_context = {
+        "request": request,
         "word": w, "category": cat,
         "profile": profile_str(cat),
         "expr_results": expr_results,
         "n_expr_correct": n_expr_correct, "total_expr": len(EXPRESSIONS),
         "expr_explain": cat["expr_explain"],
         "all_correct": all_correct,
-    })
+        "extra_results": [r for r in expr_results if r["connected"] and not r["should"]],
+        "has_missing": any(r["should"] and not r["connected"] for r in expr_results),
+        "context_review": state.get("context_review", []) if reviewing else [],
+        "retry_url": f"/word/{word_id}/f2{retry_query}",
+        "context_url": f"/word/{word_id}/f3{review_query}",
+    }
+    if "application/json" in request.headers.get("accept", ""):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({
+            "all_correct": all_correct,
+            "invalid_keys": [r["key"] for r in feedback_context["extra_results"]],
+            "has_missing": feedback_context["has_missing"],
+            "feedback_html": templates.env.get_template("_matching_feedback.html").render(
+                {**feedback_context, "inline_feedback": True}),
+            "context_url": request.scope.get("study_prefix", "") + feedback_context["context_url"],
+        })
+    return templates.TemplateResponse(request, "step3_result.html", feedback_context)
 
 
 # =====================================================================
@@ -1126,7 +1274,7 @@ async def f2_check(request: Request, word_id: str):
 FORM_COL = {"base": "form_base", "past": "form_past"}
 
 
-def step4_build(w, n_distractors=2):
+def step4_build(w, n_distractors=2, saved_options=None):
     cat = get_category(w)
     ok_keys = CAT_EXPRS.get(cat["id"], set())
     ng_exprs = [e for e in EXPRESSIONS if e["key"] not in ok_keys]
@@ -1139,6 +1287,10 @@ def step4_build(w, n_distractors=2):
         opts = [{"key": correct["key"], "label": correct[col], "phase": correct["phase"]}]
         opts += [{"key": d["key"], "label": d[col], "phase": d["phase"]} for d in ds]
         random.shuffle(opts)
+        saved = (saved_options or {}).get(str(q["ord"]), [])
+        if (len(saved) == len(set(saved)) == len(opts) and q["correct_key"] in saved
+                and all(k in EXPR_BY_KEY and (k == q["correct_key"] or k not in ok_keys) for k in saved)):
+            opts = [{"key": k, "label": EXPR_BY_KEY[k][col], "phase": EXPR_BY_KEY[k]["phase"]} for k in saved]
         questions.append({
             "idx": q["ord"], "text": q["frame"], "options": opts,
             "correct_key": correct["key"],
@@ -1158,9 +1310,23 @@ async def f3(request: Request, word_id: str):
             "word": w, "questions": step4_build(w),
         })
     cat = get_category(w)
+    state = learner_state(request, word_id)
+    returning = active_context_review(state, request.query_params.get("review", ""))
+    questions = step4_build(w, saved_options=state.get("context_options") if returning else None)
+
+    def prepare(s):
+        s["context_options"] = {str(q["idx"]): [o["key"] for o in q["options"]] for q in questions}
+        if not returning:
+            clear_context_review(s)
+            s["context_choices"] = {}
+
+    state = update_learner(request, word_id, prepare)
     return templates.TemplateResponse(request, "step4.html", {
-        "word": w, "questions": step4_build(w),
+        "word": w, "questions": questions,
         "word_hint": profile_str(cat),
+        "saved_choices": state.get("context_choices", {}),
+        "returning": returning,
+        "matching_url": f"/word/{word_id}/f2" + (f"?review={state['context_review_token']}" if returning else ""),
     })
 
 
@@ -1192,46 +1358,38 @@ async def f3_check(request: Request, word_id: str):
     form = await request.form()
 
     results = []
-    n_correct = 0
+    review = []
+    saved_choices = {}
     for q in PRACTICE.get(w["id"], []):
         i = q["ord"]
         col = FORM_COL.get(q["form"], "form_base")
         choice = form.get(f"choice_{i}", "")
-        shown = [k for k in form.get(f"opt_keys_{i}", "").split(",") if k in EXPR_BY_KEY]
-        if not shown:
-            shown = [q["correct_key"]]
-
         correct = EXPR_BY_KEY[q["correct_key"]]
         ok = (choice == correct["key"])
-        n_correct += 1 if ok else 0
-
-        opt_results = []
-        for k in shown:
-            e = EXPR_BY_KEY[k]
-            fb = expr_feedback(w, cat, e)
-            opt_results.append({
-                "label": e[col], "phase": e["phase"],
-                "is_correct": (k == correct["key"]),
-                "is_chosen": (k == choice),
-                "ok": fb["ok"], "headline": fb["headline"], "lines": fb["lines"],
-            })
-
-        fb_correct = expr_feedback(w, cat, correct)
+        selected = EXPR_BY_KEY.get(choice)
+        saved_choices[str(i)] = choice if selected else ""
+        if not ok:
+            mismatches = [c["name"] for c in expr_checks(cat, selected) if not c["ok"]] if selected else []
+            review.append({"no": i + 1, "frame": q["frame"],
+                           "choice": selected[col] if selected else "未選択",
+                           "reason": ("前接条件と合わない素性：" + "・".join(mismatches)) if mismatches
+                                     else "語の素性・前接条件と、文中の時間表現を見直しましょう。"})
         results.append({
             "no": i + 1, "ok": ok,
             "completed": q["frame"].replace("[ ？ ]", "〈" + correct[col] + "〉"),
-            "correct_label": correct[col],
-            "correct_phase": correct["phase"],
-            "headline": fb_correct["headline"],
-            "lines": fb_correct["lines"],
-            "option_results": opt_results,
+            "label": correct[col], "phase": correct["phase"],
         })
-
-    all_correct = (n_correct == len(results))
+    review_token = str(uuid.uuid4()) if review else ""
+    update_learner(request, word_id, lambda s: s.update(
+        context_review=review, context_review_token=review_token, context_choices=saved_choices,
+        connections=[], matching_retry_token=""))
+    if review:
+        # No completed sentence or correct option is rendered on an error.
+        return RedirectResponse(f"/word/{word_id}/f2?review={review_token}", status_code=303)
     return templates.TemplateResponse(request, "step4_result.html", {
         "word": w, "category": cat, "profile": profile_str(cat),
-        "all_correct": all_correct,
-        "n_correct": n_correct, "total": len(results),
+        "all_correct": True,
+        "n_correct": len(results), "total": len(results),
         "results": results,
     })
 

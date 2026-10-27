@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% import "_support.html" as sup %}
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
@@ -52,11 +51,9 @@
   <div class="notebox" style="margin-top:10px;">{{ category.expr_explain }}</div>
 </div>
 
-{{ sup.support_blocks(guides, pairs, example, "done") }}
-
 <div class="card" style="text-align:center; background:var(--purple-soft);">
   <h2 style="margin-bottom:14px;">次はフェーズ2：文法形式の判断</h2>
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/learn" class="btn btn-primary" style="background:var(--purple);">
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2" class="btn btn-primary" style="background:var(--purple);">
     フェーズ2へ進む →
   </a>
 </div>
@@ -65,7 +62,5 @@
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/1" class="btn btn-secondary">フェーズ1をもう一度</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="btn btn-secondary">学習マップに戻る</a>
 </div>
-
-{{ sup.support_script() }}
 
 {% endblock %}
