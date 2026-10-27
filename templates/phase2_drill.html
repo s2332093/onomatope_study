@@ -17,6 +17,7 @@
 </div>
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/drill/expressions/check">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
   {% for q in questions %}
   <div class="card">

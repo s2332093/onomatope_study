@@ -27,6 +27,7 @@
 {% endif %}
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
   {% if review_token %}<input type="hidden" name="review_token" value="{{ review_token }}">{% endif %}
 
@@ -371,6 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch(form.action, {
         method:"POST", body:new FormData(form), headers:{"Accept":"application/json"},
       });
+      if (response.status === 409) { alert("利用者が変わりました。画面を読み込み直してください。"); return; }
       if (!response.ok) throw new Error("matching check failed");
       const result = await response.json();
       if (answerRevision !== submittedRevision) {

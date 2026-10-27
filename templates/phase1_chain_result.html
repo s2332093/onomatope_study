@@ -33,6 +33,7 @@
   <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
   {% elif reveal %}
   <form method="post" action="{{ prefix }}/word/{{ word.id }}/f1/{{ k }}/continue">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
     {% if review_for %}<input type="hidden" name="review_for" value="{{ review_for }}">{% endif %}
     <button type="submit" class="btn btn-primary">← 知識を確認して{{ review_title }}から見直す</button>

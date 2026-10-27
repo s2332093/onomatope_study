@@ -32,9 +32,9 @@ events=[dict(event_id=f'visit:{i}',page_id='visit',client_time='2026-10-27T00:00
     event_type=kind,detail={'path':'/a/word/iraira/f1/1','active_ms':active,'click_count':2})
     for i,(kind,elapsed,active) in enumerate([('page_view',0,0),('heartbeat',1500,1000),('heartbeat',6000,2000),('page_leave',7000,2500)])]
 for _ in range(2):
-    assert client.post('/a/api/events',json={'events':events}).status_code==200
+    assert client.post('/a/api/events',json={'participant_id':pid,'events':events}).status_code==200
 # Score must be authoritative on server; duplicate POST refresh counts once.
-meta=dict(_study_path='/a/word/iraira/f1/1',_study_page_id='visit',_study_elapsed_ms='6500',_study_active_ms='2300')
+meta=dict(_study_participant=pid,_study_path='/a/word/iraira/f1/1',_study_page_id='visit',_study_elapsed_ms='6500',_study_active_ms='2300')
 wrong=dict(meta,choice='wrong',attempt_id='wrong-1')
 for _ in range(2):
     assert client.post('/a/word/iraira/f1/1/check',data=wrong).status_code==200
@@ -48,11 +48,11 @@ assert all(not row['path'].endswith('/check') for row in stats['pages'])
 # Matching inline JSON and context redirect both generate scored attempts linked to source.
 cat=main.get_category(main.WORD_BY_ID['iraira'])
 connections={key:'○' for key in main.CAT_EXPRS[cat['id']]}
-r=client.post('/a/word/iraira/f2/check',data=dict(connections,attempt_id='matching-right',_study_path='/a/word/iraira/f2'),headers={'Accept':'application/json'})
+r=client.post('/a/word/iraira/f2/check',data=dict(connections,_study_participant=pid,attempt_id='matching-right',_study_path='/a/word/iraira/f2'),headers={'Accept':'application/json'})
 assert r.json()['all_correct']
 choices={f'choice_{q["ord"]}':q['correct_key'] for q in main.PRACTICE['iraira']}
 choices['choice_1']='wrong'
-r=client.post('/a/word/iraira/f3/check',data=dict(choices,attempt_id='context-wrong'),follow_redirects=False)
+r=client.post('/a/word/iraira/f3/check',data=dict(choices,_study_participant=pid,attempt_id='context-wrong'),follow_redirects=False)
 assert r.status_code==303
 stats=research.report(pid)
 p=stats['people'][0]
@@ -65,9 +65,15 @@ for kind in ['people','pages','attempts','events']:
     r=client.get('/a/research/export/'+kind,auth=auth)
     assert r.status_code==200 and r.content.startswith(b'\xef\xbb\xbf')
     assert r.headers['cache-control']=='no-store'
+# Old/unstamped browser tabs must not be attributed to a newly named learner.
+assert client.post('/a/api/events',json={'events':events}).status_code==409
+assert client.post('/a/api/events',json={'participant_id':'other','events':events}).status_code==409
+assert client.post('/a/word/iraira/f1/1/check',data={'choice':'iraira'}).status_code==409
 # Same name does not merge different participants; changing user rotates identity.
 client.post('/b/registration',data={'name':'検証用 A'})
 pid2=research.identity(type('R',(),{'cookies':client.cookies})())
+assert client.post('/a/api/events',json={'participant_id':pid,'events':events}).status_code==409
+assert client.post('/a/word/iraira/f1/1/check',data=wrong).status_code==409
 assert pid!=pid2 and 'data-study-prefix="/b"' in client.get('/b/').text
 assert len(research.report()['people'])==2
 assert len(research.report(pid)['people'])==1

@@ -70,6 +70,7 @@
 </div>
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/{{ k }}/check">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
   {% if review_for %}<input type="hidden" name="review_for" value="{{ review_for }}">{% endif %}
   <div class="card">

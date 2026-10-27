@@ -6,6 +6,7 @@
   <p class="muted small">研究のため、入力した名前と、ページの使用時間・操作・解答・正誤・誤答回数を記録します。記録は研究者用の画面で確認します。</p>
   {% if error %}<p role="alert" style="color:var(--red)">{{ error }}</p>{% endif %}
   <form method="post" action="{{ request.scope.get('study_prefix','') }}/registration">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
     <input type="hidden" name="next" value="{{ next }}">
     <label for="learnerName" style="display:block;margin:20px 0 8px;font-weight:700">名前</label>

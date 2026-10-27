@@ -5,6 +5,7 @@
   <p class="muted small">学習記録の閲覧・CSV出力にはパスワードが必要です。</p>
   {% if error %}<p role="alert" style="color:var(--red)">{{ error }}</p>{% endif %}
   <form method="post" action="{{ request.scope.get('study_prefix','') }}/research/login">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
     <label for="researchPassword" style="display:block;margin:20px 0 8px">閲覧用パスワード</label>
     <input id="researchPassword" type="password" name="password" required autocomplete="current-password" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font:inherit">

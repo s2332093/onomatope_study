@@ -84,8 +84,15 @@ async def study_context(request: Request, call_next):
         import re
         allowed_path = request.scope["path"] in ("/", "/api/events", "/registration") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
         if not allowed_path:
-            from fastapi.responses import HTMLResponse
             return HTMLResponse('このページは今回の学習内容に含まれません。<a href="/b/">ホームへ</a>', status_code=404)
+    if prefix and research.REQUIRE_NAME and request.method == "POST" and current_path.startswith(("/word/", "/drill/")):
+        await request.body()
+        learner_form = await request.form()
+        if learner_form.get("_study_participant") != participant:
+            from fastapi.responses import JSONResponse
+            if "application/json" in request.headers.get("accept", ""):
+                return JSONResponse({"error":"participant changed", "message":"利用者が変わりました。画面を読み込み直してください。"},status_code=409)
+            return research.private(HTMLResponse('利用者が変わりました。画面を読み込み直してください。<a href="'+prefix+'/">ホームから開き直す</a>',status_code=409))
     submission = None
     if prefix and request.method == "POST" and request.scope["path"].endswith("/check"):
         # Save submitted selections, never arbitrary form text or personal information.
@@ -167,6 +174,8 @@ async def study_events(request: Request):
         return JSONResponse({"error": "batch too large"}, status_code=413)
     try:
         payload = json.loads(raw)
+        if research.REQUIRE_NAME and payload.get("participant_id") != request.state.participant:
+            return JSONResponse({"error":"participant changed"},status_code=409)
         events = payload["events"]
         if not isinstance(events, list) or len(events) > 100:
             raise ValueError()

@@ -3,6 +3,7 @@
 {% block content %}
 <div class="card">
   <div style="display:flex;justify-content:space-between;gap:16px;align-items:center"><h1>学習記録</h1><form method="post" action="{{ request.scope.get('study_prefix','') }}/research/logout">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}"><button class="btn" style="background:var(--blue-soft)">ログアウト</button></form></div>
   <p class="muted small">時刻は日本時間。使用時間はページを表示していた時間です。別タブ・最小化中は除き、同じ訪問の途中記録は重複して足しません。最終送信前に端末が強制終了すると、直前の数秒が記録できない場合があります。</p>
   <p>{% if remote %}<span class="badge">外部データベースに保存</span>{% else %}<span class="badge">このサーバー内に保存</span> <strong style="color:var(--red)">公開版で永続保存するには、外部データベースまたは永続ディスクの設定が必要です。</strong>{% endif %}</p>
