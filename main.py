@@ -1182,6 +1182,10 @@ async def f2_check(request: Request, word_id: str):
             "key": e["key"],
             "label": e["label"], "phase": e["phase"], "cond_text": e["cond_text"],
             "checks": fb["checks"],
+            "comparison": [next((c for c in fb["checks"] if c["key"] == fkey), {
+                "name": FEATURE_NAME[fkey], "actual": val_label(fkey, cat[fkey]),
+                "req": "制限なし", "ok": True, "unrestricted": True,
+            }) for fkey in ("continuity", "action", "volition")],
             "should": can_combine, "connected": user_connected, "ok": ok,
             "headline": fb["headline"], "lines": fb["lines"],
             "no_cond": fb["no_cond"],
@@ -1221,6 +1225,7 @@ async def f2_check(request: Request, word_id: str):
         return JSONResponse({
             "all_correct": all_correct,
             "invalid_keys": [r["key"] for r in feedback_context["extra_results"]],
+            "invalid_conditions": {r["key"]: r["cond_text"] for r in feedback_context["extra_results"]},
             "has_missing": feedback_context["has_missing"],
             "feedback_html": templates.env.get_template("_matching_feedback.html").render(
                 {**feedback_context, "inline_feedback": True}),

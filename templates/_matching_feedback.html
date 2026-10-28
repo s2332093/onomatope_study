@@ -6,10 +6,15 @@
 </div>
 {% for r in extra_results %}
 <section class="card">
-  <h2>〜{{ r.label }}の前接条件</h2>
-  <div class="tscroll"><table class="dtable" style="min-width:300px;">
-    <thead><tr><th>素性</th><th>{{ r.label }}の条件</th></tr></thead>
-    <tbody>{% for c in r.checks %}<tr><th>{{ c.name }}</th><td>{{ c.req }}</td></tr>{% endfor %}</tbody>
+  <h2>「{{ word.word }}」と「〜{{ r.label }}」の比較</h2>
+  <div class="tscroll"><table class="dtable" style="min-width:520px;">
+    <thead><tr><th scope="col">素性</th><th scope="col">「{{ word.word }}」の素性</th><th scope="col">{{ r.label }}の条件</th><th scope="col">照合</th></tr></thead>
+    <tbody>{% for c in r.comparison %}
+      <tr{% if not c.ok %} style="background:var(--red-soft);color:var(--red);font-weight:700;"{% endif %}>
+        <th scope="row">{{ c.name }}</th><td>{{ c.actual }}</td><td>{{ c.req }}</td>
+        <td style="white-space:nowrap;">{% if c.unrestricted %}―{% elif c.ok %}○ 合う{% else %}× 合わない{% endif %}</td>
+      </tr>
+    {% endfor %}</tbody>
   </table></div>
 </section>
 {% endfor %}

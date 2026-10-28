@@ -97,14 +97,15 @@ submitted = {invalid['key']: '○'}
 r = client.post(f'{base}/f2/check', data=submitted)
 assert [e['key'] for e in r.context['extra_results']] == [invalid['key']]
 assert r.text.count('<table') == 1
-assert 'が合わない理由' not in r.text and '<th>比べる</th>' not in r.text
-assert '<th>「いらいら」</th>' not in r.text
+assert 'が合わない理由' not in r.text
+assert '<th scope="col">「いらいら」の素性</th>' in r.text
+assert '× 合わない' in r.text and 'var(--red-soft)' in r.text
 for c in r.context['extra_results'][0]['checks']: assert c['req'] in r.text
 for e in main.EXPRESSIONS:
-    if e['key']!=invalid['key']: assert e['label']+'の前接条件' not in r.text
+    if e['key']!=invalid['key']: assert '「〜'+e['label']+'」の比較' not in r.text
 assert 'まだ結べていない形式があります' in r.text
 assert '正解の線結び' not in r.text
-assert '<th>' + invalid['label'] + 'の条件</th>' in r.text
+assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in r.text
 assert '<th>必要な条件</th>' not in r.text
 assert 'invalid-expression' not in r.text
 retry_url = '/a' + r.context['retry_url']
@@ -150,7 +151,7 @@ for key in correct:
     assert f'id="input-{key}" value="×"' in review.text
 # An incorrect matching answer can be edited within the current context-review flow.
 wrong_match = client.post(f'{base}/f2/check', data={invalid['key']: '○', 'review_token': review_token})
-assert '<th>' + invalid['label'] + 'の条件</th>' in wrong_match.text
+assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in wrong_match.text
 repair = client.get('/a' + wrong_match.context['retry_url'])
 assert repair.context['review_token'] == review_token
 assert repair.context['saved_connections'] == [invalid['key']]
@@ -182,17 +183,38 @@ response = client.post(f'{base}/f2/check', data={invalid['key']: '○', one_vali
 assert response.status_code == 200
 judgment = response.json()
 assert judgment['invalid_keys'] == [invalid['key']]
+assert judgment['invalid_conditions'] == {invalid['key']:invalid['cond_text']}
 assert judgment['has_missing'] and not judgment['all_correct']
-assert set(judgment) == {'all_correct', 'invalid_keys', 'has_missing', 'feedback_html', 'context_url'}
-assert '<th>' + invalid['label'] + 'の条件</th>' in judgment['feedback_html']
+assert set(judgment) == {'all_correct', 'invalid_keys', 'invalid_conditions', 'has_missing', 'feedback_html', 'context_url'}
+assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in judgment['feedback_html']
 assert 'invalid-expression' not in judgment['feedback_html']
 assert 'href="#step3Form"' in judgment['feedback_html']
 missing_only = client.post(f'{base}/f2/check', data={}, headers=json_headers).json()
-assert missing_only['invalid_keys'] == [] and missing_only['has_missing']
+assert missing_only['invalid_keys'] == [] and missing_only['invalid_conditions'] == {} and missing_only['has_missing']
 assert '<table' not in missing_only['feedback_html']
 right = client.post(f'{base}/f2/check', data=correct, headers=json_headers).json()
-assert right['all_correct'] and not right['has_missing'] and right['invalid_keys'] == []
+assert right['all_correct'] and not right['has_missing'] and right['invalid_keys'] == [] and right['invalid_conditions'] == {}
 assert right['context_url'] == f'{base}/f3'
 assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
 
-print('OK: no reveal at any count, all 16 words and selected diagrams, concise feedback, no phase-1 hints, only incorrect grammar conditions, preserved review flow and group isolation')
+# Conditions are sent only for invalid connected forms; comparison matches all 3 features.
+initial=client.get('/a/word/bikkuri/f2').text
+assert 'id="btnCond"' not in initial and 'hint-cond' not in initial
+assert initial.count('class="answer-condition small" hidden></div>')==len(main.EXPRESSIONS)
+for w in main.WORDS:
+    cat=main.get_category(w)
+    good=next(e for e in main.EXPRESSIONS if main.expr_combines(cat,e))
+    for e in main.EXPRESSIONS:
+        if main.expr_combines(cat,e): continue
+        r=client.post(f'/a/word/{w["id"]}/f2/check',data={e['key']:'○',good['key']:'○'},headers=json_headers).json()
+        assert r['invalid_conditions']=={e['key']:e['cond_text']}
+        assert r['feedback_html'].count('<table')==1
+        assert f'「{w["word"]}」と「〜{e["label"]}」の比較' in r['feedback_html']
+        assert '× 合わない' in r['feedback_html']
+        for fkey in ['continuity','action','volition']:
+            assert main.val_label(fkey,cat[fkey]) in r['feedback_html']
+        assert '「〜'+good['label']+'」の比較' not in r['feedback_html']
+bikkuri=client.post('/a/word/bikkuri/f2/check',data={'shidasu':'○'},headers=json_headers).json()
+assert bikkuri['invalid_conditions']=={'shidasu':'＋継続性・動作性（中・高）・意志的でないこと'}
+
+print('OK: no reveal at any count, all 16 words and selected diagrams, concise feedback, no phase-1 hints, invalid-card-only conditions, accurate three-feature comparisons, preserved review flow and group isolation')

@@ -38,7 +38,6 @@
       </h2>
       <div style="display:flex; gap:8px; align-items:center;">
         <span class="badge badge-blue" id="lineCount">0本</span>
-        <button type="button" class="hint-btn" id="btnCond">💡 前接条件を表示</button>
         <button type="button" id="btnResetLines" class="btn btn-secondary" style="padding:4px 12px; font-size:0.75rem;">全部消す</button>
       </div>
     </div>
@@ -77,9 +76,7 @@
           <div style="flex:1;">
             <div style="font-weight:700; font-size:0.92rem;">〜{{ e.label }}</div>
             <div class="answer-error small" hidden>条件と合わない</div>
-            <div class="hint-cond" style="display:none; font-size:0.74rem; color:var(--muted); margin-top:3px;">
-              必要な素性：<span style="color:var(--blue);">{{ e.cond_text }}</span>
-            </div>
+            <div class="answer-condition small" hidden></div>
           </div>
           <button type="button" class="del-x" title="この線を消す" aria-label="〜{{ e.label }}の線を消す">消す</button>
         </div>
@@ -138,6 +135,7 @@
   .right-node.active-connection.invalid-answer { border-color:var(--red) !important;background:var(--red-soft) !important;color:var(--red); }
   .right-node.invalid-answer .right-dot.connected { background-color:var(--red) !important; }
   .right-node .answer-error { font-weight:700;color:var(--red);margin-top:4px; }
+  .right-node .answer-condition { margin-top:5px;line-height:1.6;font-weight:400; }
 
   .del-x {
     display: none; border: 1px solid #f0bcbc; background: var(--red-soft); color: var(--red);
@@ -201,10 +199,13 @@ document.addEventListener("DOMContentLoaded", () => {
     nextLink.removeAttribute("href");
   }
 
-  function markInvalid(key, invalid) {
+  function markInvalid(key, invalid, condition = "") {
     const node = document.getElementById(`node-${key}`);
     node.classList.toggle("invalid-answer", invalid);
     node.querySelector(".answer-error").hidden = !invalid;
+    const conditionText = node.querySelector(".answer-condition");
+    conditionText.textContent = invalid ? condition : "";
+    conditionText.hidden = !invalid || !condition;
     node.querySelector(".right-dot").setAttribute("aria-invalid", String(invalid));
     connections.get(key)?.g.classList.toggle("invalid-answer", invalid);
   }
@@ -344,17 +345,6 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(connections.keys()).forEach(removeConnection);
   });
 
-  // ---- 前接条件の表示（ヒントは1つだけ） ----
-  const btnCond = document.getElementById("btnCond");
-  let condShown = false;
-  btnCond.addEventListener("click", () => {
-    condShown = !condShown;
-    window.studyEvent?.("conditions_toggle", {shown: condShown});
-    document.querySelectorAll(".hint-cond").forEach(el => { el.style.display = condShown ? "block" : "none"; });
-    btnCond.textContent = condShown ? "✕ 前接条件を隠す" : "💡 前接条件を表示";
-    redrawLines();
-  });
-
   form.addEventListener("submit", async ev => {
     ev.preventDefault();
     if (connections.size === 0 &&
@@ -382,7 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       const invalidKeys = new Set(result.invalid_keys);
-      rightNodes.forEach(node => markInvalid(node.dataset.key, invalidKeys.has(node.dataset.key)));
+      rightNodes.forEach(node => markInvalid(node.dataset.key, invalidKeys.has(node.dataset.key), result.invalid_conditions?.[node.dataset.key] || ""));
       redrawLines();
       const messages = [];
       if (result.all_correct) messages.push("線結びを確認できました。");
