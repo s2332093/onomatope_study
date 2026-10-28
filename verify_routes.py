@@ -97,29 +97,13 @@ for w in WORDS:
     if cat["name"] not in r.text:
         fails.append(f'{w["word"]} のまとめにカテゴリー名が出ていません')
 
-# ---- 学習コンテンツ（判断手順・対比ペア・思考ガイド）が画面に出ていること ----
-#      DBに入れたのに表示されていない「宙に浮いたデータ」を防ぐ
-used_stage_keys = set()
-for k, key in main.STAGE_KEY_BY_K.items():
-    used_stage_keys.add(key)
-    r = get(f'/a/word/iraira/f1/{k}')
-    if "判断の手順" not in r.text:
-        fails.append(f'第{k}問に判断手順が出ていません')
-    if main.chain_support(main.WORD_BY_ID['iraira'], k)['pairs'] and "似た語との違い" not in r.text:
-        fails.append(f'第{k}問に対比ペアが出ていません')
-r = get('/a/word/iraira/f1/done')
-if "迷ったら：" in r.text or 'done-guides' in r.text:
-    fails.append('まとめページに削除した補助欄が残っています')
-
-# DBに入っている段階キーがすべてどこかで使われていること
-for key in set(main.STAGE_GUIDES) | set(main.CONTRAST_PAIRS) | set(main.WORKED_EXAMPLES):
-    if key != "category" and key not in used_stage_keys:
-        fails.append(f'学習コンテンツ「{key}」がどの画面でも使われていません')
-
-# 思考ガイドは、学習中の語と同じなら出さない（がっかり＝継続性の例題）
-r = get('/a/word/bikkuri/f1/3')
-if "別の語で練習" in r.text:
-    fails.append("学習中の語と同じ例題が「別の語」として出ています（びっくり）")
+# Phase 1 has no optional hint panels, including review and summary pages.
+for suffix in [*(f'f1/{k}' for k in range(1,6)), 'f1/done']:
+    r=get('/a/word/iraira/'+suffix)
+    for removed in ['迷ったら','判断の手順','似た語との違い','別の語で練習','done-guides']:
+        if removed in r.text: fails.append(f'{suffix}: 削除したヒントが残っています：{removed}')
+r=get('/a/drill/features')
+if '迷ったら' in r.text or 'class="hint-toggle"' in r.text: fails.append('素性ドリルにヒントが残っています')
 
 # ---- 連鎖の導入が「文章」ではなく「図」になっていること ----
 for k in (3, 4, 5):

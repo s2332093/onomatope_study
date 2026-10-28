@@ -530,59 +530,6 @@ def phon_options(word, n_distractors=2):
     return out
 
 
-def build_contrast_pairs(stage_key):
-    """対比ペア（似ているが素性が違う語）を表示用に組み立てる"""
-    out = []
-    for p in CONTRAST_PAIRS.get(stage_key, []):
-        wa, wb = WORD_BY_ID[p["word_a"]], WORD_BY_ID[p["word_b"]]
-        ca, cb = CAT_BY_ID[wa["category_id"]], CAT_BY_ID[wb["category_id"]]
-        if p["feature"]:
-            fkey = p["feature"]
-            side_a = {"value": val_label(fkey, ca[fkey]), "key": fkey}
-            side_b = {"value": val_label(fkey, cb[fkey]), "key": fkey}
-        else:
-            side_a = {"value": profile_str(ca), "key": None}
-            side_b = {"value": profile_str(cb), "key": None}
-        out.append({
-            "a": {"word": wa, "kind": ca["kind"], "cat": ca["name"], **side_a},
-            "b": {"word": wb, "kind": cb["kind"], "cat": cb["name"], **side_b},
-            "point": p["point"],
-        })
-    return out
-
-
-def build_worked_example(stage_key, exclude_word_id=None):
-    """段階的に開く思考ガイド（採点しない例題）。学習中の語と同じなら出さない。"""
-    ex = WORKED_EXAMPLES.get(stage_key)
-    if not ex or ex["word_id"] == exclude_word_id:
-        return None
-    w = WORD_BY_ID[ex["word_id"]]
-    return {
-        "word": w,
-        "phon": PHON_BY_KEY[w["phon"]],
-        "steps": WORKED_STEPS.get(stage_key, []),
-        "conclusion": ex["conclusion"],
-        "note": ex["note"],
-    }
-
-
-# 連鎖の各問 → 学習コンテンツの段階キー
-STAGE_KEY_BY_K = {2: "phon", 3: "continuity", 4: "action", 5: "volition"}
-
-
-def chain_support(w, k):
-    """問いを解くときに開ける補助（判断手順・対比ペア・思考ガイド）"""
-    key = STAGE_KEY_BY_K.get(k)
-    if not key:
-        return None
-    return {
-        "guides": STAGE_GUIDES.get(key, []),
-        "pairs": [p for p in build_contrast_pairs(key)
-                  if w["id"] not in (p["a"]["word"]["id"], p["b"]["word"]["id"])],
-        "example": build_worked_example(key, exclude_word_id=w["id"]),
-    }
-
-
 def _chip(cap, val, sub=None, fig=None):
     """連鎖の可視化で使う小カード（確定した事実／問う素性）"""
     return {"cap": cap, "val": val, "sub": sub, "fig": fig}
@@ -723,45 +670,25 @@ def chain_review_url(word_id, k, review_for=None):
 
 
 def chain_retry_feedback(w, k, choice):
-    """Explain the submitted interpretation; never include the target answer."""
-    cat = get_category(w)
+    """One word-specific sentence; diagrams describe only the learner's selection."""
+    word = f'「{w["word"]}」'
     if k == 1:
-        return {"assumption": "選んだ意味で場面を捉えています。",
-                "reason": "選んだ意味では、場面の人物・動き・気持ちを十分に説明できません。",
-                "prompt": "場面のどの部分と合わないか、確かめましょう。"}
+        chosen = get_word(choice)
+        message = (f'「{chosen["meaning"]}」に近いオノマトペは「{chosen["word"]}」です。もう一度選んでみましょう。'
+                   if chosen else '意味をもう一度選んでみましょう。')
+        return {"message": message, "fig": None}
     if k == 2:
         chosen = PHON_BY_KEY.get(choice)
-        return {"assumption": chosen["term"] if chosen else "音の形が未選択です。",
-                "reason": "選んだ型の並びと、この語の音の並びが一致していません。",
-                "prompt": "繰り返す部分・小さい「っ」「ん」・語尾の「り」を確かめましょう。"}
+        message = (f'{chosen["label"]}の並びと{word}の並びは一致しません。'
+                   if chosen else f'{word}の音の並びに合う形を選んでみましょう。')
+        return {"message": message, "fig": None}
     fkey = {3: "continuity", 4: "action", 5: "volition"}[k]
-    assumption = FEATURE_OPTION_NOTES[fkey].get(choice, "まだ選択していません。")
-    if k == 3:
-        if cat["continuity"] == "ー":
-            reason = "時間の幅を想定していますが、この場面の変化は一瞬で成立します。"
-        elif choice == "ー":
-            reason = "一瞬だけという捉え方では、場面の時間の幅を説明できません。"
-        else:
-            reason = "『動き・変化そのものが続くこと』と『変化の後に状態が残ること』を取り違えています。"
-        prompt = "音の形を手がかりに、何が・いつまで続くかを確かめましょう。"
-    elif k == 4:
-        if cat["action"] == "低":
-            reason = "この場面は、力が抜けたり積極的な動きが弱まったりした様子です。選んだ動きの強さと合いません。"
-        elif cat["action"] == "中":
-            reason = "この場面は、続く気持ち・感覚や激しくない動きが中心です。選んだ動きの強さと合いません。"
-        elif cat["continuity"] == "ー":
-            reason = "この場面の一瞬の変化・刺激を、長く続く状態と同じように捉えています。"
-        else:
-            reason = "この場面には具体的な動きがあります。状態の続きだけで捉えると、動きの強さを見落とします。"
-        prompt = "継続性に戻り、続き方と動き・感覚の関係を確かめましょう。"
-    else:
-        reason = {
-            "＋": "本人が自分で始めたり、やめたりする場面です。選んだ意志の関わり方と合いません。",
-            "ー": "気持ち・感覚や状態が自然に起こる場面です。動きの有無と、意志で起こせるかは別です。",
-            "関与しない": "状況に反応した動きです。動きがあることだけでは、意志で始めたとは言えません。",
-        }[cat["volition"]]
-        prompt = "『今から自分で始めよう』と言える場面か、確かめましょう。"
-    return {"assumption": assumption, "reason": reason, "prompt": prompt}
+    message = {
+        3: f'{word}の続き方（続く・結果が残る・一瞬）を考え、音の形に戻って継続性を選び直しましょう。',
+        4: f'{word}がどのような動き・変化・状態を表すかを考え、継続性に戻って動作性を選び直しましょう。',
+        5: f'{word}を自分の意志で始めたりやめたりできるかを考え、動作性に戻って意志性を選び直しましょう。',
+    }[k]
+    return {"message": message, "fig": FEATURE_FIGS[fkey].get(choice)}
 
 
 @app.get("/word/{word_id}", response_class=HTMLResponse)
@@ -789,7 +716,8 @@ async def control_meaning_check(request: Request, word_id: str):
     form = await request.form()
     return templates.TemplateResponse(request, "control_meaning.html", {
         "word": w, "question": None,
-        "feedback": chain_feedback(w, 1, form.get("choice", ""))})
+        "feedback": chain_feedback(w, 1, form.get("choice", "")),
+        "retry_feedback": chain_retry_feedback(w, 1, form.get("choice", ""))})
 
 @app.get("/reference", response_class=HTMLResponse)
 async def reference(request: Request):
@@ -910,11 +838,9 @@ async def phase1_chain(request: Request, word_id: str, k: int):
     return templates.TemplateResponse(request, "phase1_chain.html", {
         "word": w, "chain": CHAIN, "k": k,
         "q": chain_question(w, k),
-        "support": chain_support(w, k),
         "attempt_id": str(uuid.uuid4()),
         "review_for": review_target(request.query_params.get("review_for"), k),
         "failures": learner_state(request, word_id).get("feature_failures", {}).get(str(k), 0),
-        "reveal_after": learning_state.FEATURE_REVEAL_AFTER,
     })
 
 
@@ -931,17 +857,15 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
     # A browser refresh of the same POST is not another failed attempt.
     fb["ok"] = outcome["ok"]
     review_for = review_target(form.get("review_for"), k)
-    reveal = not fb["ok"] and outcome["failures"] >= learning_state.FEATURE_REVEAL_AFTER
     retry_url = f"/word/{word_id}/f1/{k}" + (f"?review_for={review_for}" if review_for else "")
     review_k = max(1, k - 1)
     review_url = chain_review_url(word_id, k, review_for)
     return templates.TemplateResponse(request, "phase1_chain_result.html", {
         "word": w, "chain": CHAIN, "k": k,
         "step": CHAIN_BY_K[k],
-        "fb": fb if fb["ok"] or reveal else {"ok": False, "user": fb["user"]},
+        "fb": fb if fb["ok"] else {"ok": False, "user": fb["user"]},
         "retry_feedback": chain_retry_feedback(w, k, choice),
-        "failures": outcome["failures"], "reveal_after": learning_state.FEATURE_REVEAL_AFTER,
-        "reveal": reveal, "review_for": review_for,
+        "failures": outcome["failures"], "review_for": review_for,
         "retry_url": retry_url, "review_url": review_url,
         "review_title": CHAIN_BY_K[review_k]["title"] if k > 1 else "場面",
         "next_url": chain_next_url(word_id, k, review_for),
@@ -953,13 +877,9 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
 async def phase1_chain_continue(request: Request, word_id: str, k: int):
     if not get_word(word_id) or k not in CHAIN_BY_K:
         return RedirectResponse("/", status_code=303)
-    form = await request.form()
-    review_for = review_target(form.get("review_for"), k)
-    if learner_state(request, word_id).get("feature_failures", {}).get(str(k), 0) < learning_state.FEATURE_REVEAL_AFTER:
-        return RedirectResponse(f"/word/{word_id}/f1/{k}", status_code=303)
-    update_learner(request, word_id,
-                   lambda s: s.setdefault("feature_failures", {}).update({str(k): 0}))
-    return RedirectResponse(chain_review_url(word_id, k, review_for), status_code=303)
+    # Legacy forms must never reveal an answer or skip an unconfirmed question.
+    return RedirectResponse(f"/word/{word_id}/f1/{k}", status_code=303)
+
 
 
 @app.get("/drill/features", response_class=HTMLResponse)

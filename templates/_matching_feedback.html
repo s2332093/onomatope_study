@@ -1,43 +1,22 @@
 {% set prefix = request.scope.get('study_prefix', '') %}
 <div class="card" aria-live="polite">
-  <h1>{% if all_correct %}線結びを確認できました{% else %}線を見直してみましょう{% endif %}</h1>
-  <p class="small muted">「{{ word.word }}」：{{ profile }}</p>
-  {% if all_correct %}
-    <p style="margin-top:12px;"><strong>{{ n_expr_correct }} / {{ total_expr }} 正解</strong></p>
-    <p class="small" style="margin-top:6px;">結ぶ・結ばないの判断が、前接条件と一致しています。</p>
-  {% else %}
-    {% if extra_results %}<p style="margin-top:12px;">引いた線の中に、前接条件と合わないものがあります。下の表で違いを確かめましょう。</p>{% endif %}
-    {% if has_missing %}<div class="notebox" style="margin-top:14px;"><strong>まだ結べていない形式があります。</strong><p class="small" style="margin-top:5px;">線を引いていない形式の前接条件を、もう一度確かめましょう。</p></div>{% endif %}
-  {% endif %}
+  <h1>{% if all_correct %}線結びを確認できました{% else %}線を見直しましょう{% endif %}</h1>
+  {% if all_correct %}<p style="margin-top:12px;"><strong>{{ n_expr_correct }} / {{ total_expr }} 正解</strong></p>
+  {% elif has_missing %}<p style="margin-top:12px;">まだ結べていない形式があります。</p>{% endif %}
 </div>
 {% for r in extra_results %}
 <section class="card">
-  <h2>あなたが結んだ線：{{ word.word }} — 〜{{ r.label }}</h2>
-  <p class="small muted" style="margin-bottom:12px;">色の付いた行に、条件との違いがあります。</p>
-  <div class="tscroll"><table class="dtable" style="min-width:430px;">
-    <thead><tr><th>素性</th><th>「{{ word.word }}」</th><th>{{ r.label }}の条件</th><th>比べる</th></tr></thead>
-    <tbody>
-    {% for key, name, actual in [('continuity', '継続性', category.continuity), ('action', '動作性', category.action), ('volition', '意志性', category.volition)] %}
-    {% set matches = r.checks | selectattr('key', 'equalto', key) | list %}
-    <tr{% if matches and not matches[0].ok %} class="condition-mismatch"{% endif %}>
-      <th>{{ name }}</th><td>{{ actual }}</td><td>{{ matches[0].req if matches else '不問' }}</td>
-      <td>{% if matches %}{{ '一致' if matches[0].ok else '条件と合わない' }}{% else %}条件にしない{% endif %}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
+  <h2>〜{{ r.label }}の前接条件</h2>
+  <div class="tscroll"><table class="dtable" style="min-width:300px;">
+    <thead><tr><th>素性</th><th>{{ r.label }}の条件</th></tr></thead>
+    <tbody>{% for c in r.checks %}<tr><th>{{ c.name }}</th><td>{{ c.req }}</td></tr>{% endfor %}</tbody>
   </table></div>
-  {% for c in r.checks if not c.ok %}
-  <div class="infobox" style="margin-top:12px;"><strong>{{ c.name }}が合わない理由</strong><p style="margin-top:5px;">{{ c.why }}</p></div>
-  {% endfor %}
-  <p class="small" style="margin-top:12px;">この線をどう直すか、条件を比べて考えましょう。</p>
 </section>
 {% endfor %}
 <div class="feedback-actions">
   {% if all_correct %}
   <a href="{{ prefix }}{{ context_url }}" class="btn btn-primary">{% if context_review %}文脈問題に戻る{% else %}場面・文脈の問題へ進む{% endif %} →</a>
-  <a href="{{ prefix }}{{ retry_url }}" class="btn btn-secondary">線結びをもう一度</a>
   {% else %}
   <a href="{% if inline_feedback %}#step3Form{% else %}{{ prefix }}{{ retry_url }}{% endif %}" class="btn btn-primary">自分の線を直す →</a>
-  <a href="{{ prefix }}/reference#grammar" class="btn btn-secondary">前接条件を確認する</a>
   {% endif %}
 </div>

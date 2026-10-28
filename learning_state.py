@@ -8,8 +8,6 @@ from copy import deepcopy
 
 import study_logging
 
-# Change this one value to adjust the knowledge-reveal threshold.
-FEATURE_REVEAL_AFTER = 3
 
 
 # Feedback needs fast working state; it is not an analytics log upload.

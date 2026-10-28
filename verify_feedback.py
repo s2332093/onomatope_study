@@ -1,4 +1,4 @@
-"""Retry thresholds, non-revealing feedback, review paths and answer preservation."""
+"""Non-revealing feedback, selected diagrams, review paths and answer preservation."""
 import os
 import re
 import tempfile
@@ -21,81 +21,44 @@ def submit(k, choice, review_for=None, attempt_id=None):
     return client.post(f'{base}/f1/{k}/check', data=data)
 
 
-# One or two errors show the submitted interpretation and its mismatch, no answer.
-for count in (1, 2):
-    r = submit(4, '高', attempt_id=f'dynamic-{count}')
-    assert r.status_code == 200 and r.context['failures'] == count
-    assert '場面と合わない点' in r.text and '選んだ答えの捉え方' in r.text
-    assert '動作性（中）' not in r.text and 'act_mid.svg' not in r.text
-    assert '正解：' not in r.text and '/f1/4/continue' not in r.text
-    assert ('この問いをもう一度考える' in r.text) == (count == 2)
-    assert (f'href="{base}/f1/4"' in r.text) == (count == 2)
-    assert f'href="{base}/f1/3?review_for=4"' in r.text
-    assert f'href="{base}/f1/5"' not in r.text
-    # Refreshing a submitted form does not consume another attempt.
-    repeat = submit(4, '高', attempt_id=f'dynamic-{count}')
-    assert repeat.context['failures'] == count
-
-# Early continue is rejected; this action does not reset the counter.
-r = client.post(f'{base}/f1/4/continue', follow_redirects=False)
-assert r.status_code == 303 and r.headers['location'] == f'{base}/f1/4'
-
-# The review chain goes 4 -> 3 -> 2 -> 3 -> 4, preserving the original destination.
-r = client.get(f'{base}/f1/3?review_for=4')
-assert r.context['review_for'] == 4 and '継続性' in r.text and '動作性' in r.text
-r = submit(3, 'ー', review_for=4)
-assert f'href="{base}/f1/2?review_for=4"' in r.text
-assert '正解：' not in r.text and 'cont_plus.svg' not in r.text
-r = client.get(f'{base}/f1/2?review_for=4')
-assert '音韻形態' in r.text and '継続性' in r.text
-r = submit(2, 'repeat', review_for=4)
-assert f'href="{base}/f1/3?review_for=4"' in r.text
-r = submit(3, '＋', review_for=4)
-assert f'href="{base}/f1/4"' in r.text
-
-# Only the third failed answer reveals knowledge, and continuation requires a click.
-r = submit(4, '高', attempt_id='dynamic-3')
-assert r.context['reveal'] and '正解：動作性（中）' in r.text
-assert 'この問いをもう一度' not in r.text
-assert '知識を確認して継続性から見直す' in r.text
-assert '意志性へ' not in r.text
-assert f'action="{base}/f1/4/continue"' in r.text
-r = client.post(f'{base}/f1/4/continue', follow_redirects=False)
-assert r.headers['location'] == f'{base}/f1/3?review_for=4'
-r = submit(4, '高')
-assert r.context['failures'] == 1 and '正解：' not in r.text
-r = submit(4, '中')
-assert '正解です' in r.text
-assert 'この問いをもう一度' not in r.text
-r = submit(4, '高')
-assert r.context['failures'] == 1
-
-# Same POST token, changed answer (browser back) is a new, correctly graded submission.
-r = submit(4, '中', attempt_id='changed-answer')
-r = submit(4, '高', attempt_id='changed-answer')
-assert not r.context['fb']['ok'] and r.context['failures'] == 1
-
-# All stages and words hide the exact answer object and answer diagram on first error.
+# No answer reveal after any number of errors. Only the selected figure is shown.
 for word in main.WORDS:
-    fresh = TestClient(main.app)
-    for k in range(1, 6):
-        cat = main.get_category(word)
-        correct = {1: word['id'], 2: word['phon']}.get(k) or cat[{3:'continuity',4:'action',5:'volition'}[k]]
-        choices = (list(main.WORD_BY_ID) if k == 1 else list(main.PHON_BY_KEY) if k == 2
-                   else [o['value'] for o in main.feature_options({3:'continuity',4:'action',5:'volition'}[k])])
-        for wrong in [v for v in choices if v != correct][:2]:
-            response = fresh.post(f'/a/word/{word["id"]}/f1/{k}/check', data={'choice': wrong})
-            assert response.status_code == 200 and not response.context['reveal']
-            assert set(response.context['fb']) == {'ok', 'user'}
-            assert '正解：' not in response.text
-            assert ('この問いをもう一度考える' in response.text) == (response.context['failures'] == 2)
-            assert 'から見直す' in response.text
-        if k in (3, 4, 5):
-            wrong = next(v for v in choices if v != correct)
-            response = fresh.post(f'/a/word/{word["id"]}/f1/{k}/check', data={'choice': wrong})
-            assert response.context['reveal']
-            back = fresh.post(f'/a/word/{word["id"]}/f1/{k}/continue', follow_redirects=False)
-            assert back.headers['location'] == f'/a/word/{word["id"]}/f1/{k - 1}?review_for={k}'
+    fresh=TestClient(main.app)
+    for k in range(1,6):
+        fkey={3:'continuity',4:'action',5:'volition'}.get(k)
+        correct=word['id'] if k==1 else word['phon'] if k==2 else main.get_category(word)[fkey]
+        choices=list(main.WORD_BY_ID) if k==1 else list(main.PHON_BY_KEY) if k==2 else list(main.FEATURE_FIGS[fkey])
+        wrong=next(v for v in choices if v!=correct)
+        for attempt in range(5):
+            data={'choice':wrong,'attempt_id':f'{k}-{attempt}'}
+            r=fresh.post(f'/a/word/{word["id"]}/f1/{k}/check',data=data)
+            assert r.status_code==200 and set(r.context['fb'])=={'ok','user'}
+            assert r.context['failures']==attempt+1
+            assert all(text not in r.text for text in ['正解：','知識を確認','回で知識を表示','選んだ答えの捉え方','場面と合わない点','確かめること'])
+            if fkey:
+                assert main.FEATURE_FIGS[fkey][wrong] in r.text and main.FEATURE_FIGS[fkey][correct] not in r.text
+                assert f'href="/a/word/{word["id"]}/f1/{k-1}?review_for={k}"' in r.text
+            elif k==1: assert '近いオノマトペは「'+main.WORD_BY_ID[wrong]['word']+'」' in r.text
+            else: assert main.PHON_BY_KEY[wrong]['label']+'の並びと「'+word['word']+'」の並びは一致しません。' in r.text
+            repeat=fresh.post(f'/a/word/{word["id"]}/f1/{k}/check',data=data)
+            assert repeat.context['failures']==attempt+1
+r=submit(1,'bikkuri')
+assert '「突然のことに驚く」に近いオノマトペは「びっくり」です。もう一度選んでみましょう。' in r.text
+r=submit(2,'nri')
+assert '「ん＋り」型の並びと「いらいら」の並びは一致しません。' in r.text
+assert client.post(f'{base}/f1/4/continue',follow_redirects=False).headers['location']==f'{base}/f1/4'
+r=submit(4,'高');assert 'act_high.svg' in r.text and 'act_mid.svg' not in r.text
+r=submit(3,'ー',review_for=4);assert f'href="{base}/f1/2?review_for=4"' in r.text
+r=submit(2,'repeat',review_for=4);assert f'href="{base}/f1/3?review_for=4"' in r.text
+r=submit(3,'＋',review_for=4);assert f'href="{base}/f1/4"' in r.text
+r=submit(4,'中');assert r.context['fb']['ok'] and '正解です' in r.text
+assert submit(4,'高').context['failures']==1
+for suffix in ['f1/1','f1/2','f1/3','f1/4','f1/5','f1/done']:
+    page=client.get(base+'/'+suffix).text
+    assert all(label not in page for label in ['迷ったら','判断の手順','似た語との違い','別の語で練習'])
+assert 'class="hint-toggle"' not in client.get('/a/drill/features').text
+b=client.post('/b/word/iraira/meaning/check',data={'choice':'bikkuri'})
+assert '近いオノマトペは「びっくり」' in b.text and '正しい意味' not in b.text and '/b/word/iraira/f3' not in b.text
 
 # Grammar knowledge is introductory content; phase 2 starts directly with matching.
 intro = client.get('/a/reference')
@@ -128,13 +91,17 @@ assert 'まだ結べていない形式があります' in r.text
 assert not r.context['extra_results'] and '<table' not in r.text
 assert '正解の線結び' not in r.text and '/f3"' not in r.text
 
-# Invalid selected links get comparison tables; unselected correct forms stay undisclosed.
+# Invalid selected links show only their prerequisites; correct forms stay undisclosed.
 invalid = next(e for e in main.EXPRESSIONS if e['key'] not in correct)
 submitted = {invalid['key']: '○'}
 r = client.post(f'{base}/f2/check', data=submitted)
 assert [e['key'] for e in r.context['extra_results']] == [invalid['key']]
-assert r.text.count('<table') == 1 and 'condition-mismatch' in r.text
-assert '条件と合わない' in r.text and 'が合わない理由' in r.text
+assert r.text.count('<table') == 1
+assert 'が合わない理由' not in r.text and '<th>比べる</th>' not in r.text
+assert '<th>「いらいら」</th>' not in r.text
+for c in r.context['extra_results'][0]['checks']: assert c['req'] in r.text
+for e in main.EXPRESSIONS:
+    if e['key']!=invalid['key']: assert e['label']+'の前接条件' not in r.text
 assert 'まだ結べていない形式があります' in r.text
 assert '正解の線結び' not in r.text
 assert '<th>' + invalid['label'] + 'の条件</th>' in r.text
@@ -228,4 +195,4 @@ assert right['all_correct'] and not right['has_missing'] and right['invalid_keys
 assert right['context_url'] == f'{base}/f3'
 assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
 
-print('OK: 3-attempt reveal, duplicate submissions, review chain, all 16 words, non-revealing matching, preserved answers, context return and participant/group isolation')
+print('OK: no reveal at any count, all 16 words and selected diagrams, concise feedback, no phase-1 hints, only incorrect grammar conditions, preserved review flow and group isolation')

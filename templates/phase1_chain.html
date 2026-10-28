@@ -1,6 +1,4 @@
 {% extends "base.html" %}
-{% import "_support.html" as sup %}
-{% import "_review_flow.html" as review %}
 {% block content %}
 
 <!-- 進捗 -->
@@ -16,16 +14,7 @@
 </div>
 
 <!-- 学習中の語 -->
-{% if review_for %}
-<div class="card">
-  <span class="badge badge-orange">{{ chain[review_for - 1].title }}を考え直すための確認</span>
-  <h2 style="margin-top:10px;">{{ chain[k - 1].title }}から、つながりを見直しましょう</h2>
-  {{ review.relation(review_for if k == review_for - 1 else k + 1) }}
-  <p class="small" style="margin-top:10px;">この問いを確認したら、{{ chain[review_for - 1].title }}の問いへ戻ります。</p>
-</div>
-{% elif failures %}
-<div class="notebox" style="margin-bottom:16px;">もう一度、場面と手がかりを確かめましょう。（この問いの誤答：{{ failures }}回）</div>
-{% endif %}
+{% if review_for %}<p class="muted small" style="margin-bottom:12px;">{{ chain[review_for - 1].title }}の見直し：{{ chain[k - 1].title }}</p>{% endif %}
 <div class="card" style="padding:16px 20px;">
   <div style="display:flex; align-items:center; gap:14px;">
     <div style="font-size:2.2rem;">{{ word.emoji }}</div>
@@ -115,10 +104,6 @@
     {% endif %}
   </div>
 
-  {% if support %}
-  {{ sup.support_blocks(support.guides, support.pairs, support.example, "q" ~ k) }}
-  {% endif %}
-
   <button type="submit" class="btn btn-primary">答え合わせ →</button>
   {% if k > 1 %}
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/{{ k - 1 }}{% if review_for %}?review_for={{ review_for }}{% endif %}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
@@ -127,6 +112,5 @@
   {% endif %}
 </form>
 
-{{ sup.support_script() }}
 
 {% endblock %}

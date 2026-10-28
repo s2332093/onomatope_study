@@ -385,11 +385,10 @@ document.addEventListener("DOMContentLoaded", () => {
       rightNodes.forEach(node => markInvalid(node.dataset.key, invalidKeys.has(node.dataset.key)));
       redrawLines();
       const messages = [];
-      if (result.all_correct) messages.push("結ぶ・結ばないの判断が、前接条件と一致しています。");
+      if (result.all_correct) messages.push("線結びを確認できました。");
       else {
         if (invalidKeys.size) messages.push("赤い選択肢は、この語の素性と条件が合っていません。");
         if (result.has_missing) messages.push("まだ結べていない形式があります。");
-        messages.push("理由はフィードバックで確認できます。");
       }
       status.textContent = messages.join(" ");
       feedback.innerHTML = result.feedback_html;
@@ -408,6 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("showMatchingFeedback").addEventListener("click", () => {
     feedback.hidden = !feedback.hidden;
+    status.hidden = !feedback.hidden;
     if (!feedback.hidden) feedback.scrollIntoView({behavior:"smooth", block:"start"});
   });
 

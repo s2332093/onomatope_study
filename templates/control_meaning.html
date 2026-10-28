@@ -3,15 +3,16 @@
 <div class="card">
   <span class="badge badge-blue">フェーズ1：意味の学習</span>
   <h1>{{ word.emoji }} {{ word.word }}</h1>
-  <p style="margin-top:12px;">{{ word.scene }}</p>
   {% if feedback %}
-  <h2 style="margin-top:20px;">{% if feedback.ok %}正解です{% else %}意味を確かめましょう{% endif %}</h2>
-  <p>あなたの回答：{{ feedback.user }}</p>
-  <p style="margin-top:12px;"><strong>正しい意味：{{ feedback.correct }}</strong></p>
-  <p class="muted small" style="margin-top:12px;">{{ feedback.why }}</p>
-  <a class="btn btn-secondary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}">もう一度学ぶ</a>
-  <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3">フェーズ2：文脈練習へ →</a>
+    {% if feedback.ok %}
+    <p style="margin-top:20px;">正解です：{{ feedback.user }}</p>
+    <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3">フェーズ2：文脈練習へ →</a>
+    {% else %}
+    <p style="margin-top:20px;">{{ retry_feedback.message }}</p>
+    <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}">もう一度選ぶ</a>
+    {% endif %}
   {% else %}
+  <p style="margin-top:12px;">{{ word.scene }}</p>
   <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/meaning/check">
   <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
