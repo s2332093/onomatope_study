@@ -10,7 +10,15 @@ from fastapi.testclient import TestClient
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
 import study_logging
+import deferred_logging
 client = TestClient(main.app)
+receipts=[]
+original_post=client.post
+def buffered_post(*args,**kwargs):
+    r=original_post(*args,**kwargs)
+    if r.headers.get('x-study-receipt'): receipts.append(r.headers['x-study-receipt'])
+    return r
+client.post=buffered_post
 assert client.get('/', follow_redirects=False).headers['location'] == '/a/'
 for group in ('a', 'b'):
     home = client.get('/' + group + '/')
@@ -60,12 +68,17 @@ assert client.get('/b/word/missing/f3', follow_redirects=False).headers['locatio
 for suffix in ('reference', 'drill/features', 'drill/expressions', 'word/iraira/f1/1', 'word/iraira/f1/done', 'word/iraira/f2', 'word/iraira/f2/learn'):
     assert client.get('/b/' + suffix).status_code == 404
 assert client.post('/b/word/iraira/f2/check', data={}).status_code == 404
+with study_logging.connect() as db:
+    assert db.execute('SELECT COUNT(*) FROM events').fetchone()[0]==0
 for group in ('a', 'b'):
-    events = [{'event_id':'test:1','page_id':'visit','client_time':'2026-10-19T00:00:00Z',
-               'event_type':'click','elapsed_ms':1200,'detail':{'path':'/' + group + '/', 'click_count':1}}]
+    events=[{'event_id':'test:1','page_id':'visit','event_type':'click','elapsed_ms':1200,'detail':{'path':'/'+group+'/','click_count':1}}]
+    pid=client.cookies.get('study_participant');grp=main.STUDY_GROUPS['/'+group];chosen=[]
+    for token in receipts:
+        try:deferred_logging.open_receipt(token,pid,grp);chosen.append(token)
+        except ValueError:pass
     for _ in range(2):
-        assert client.post('/' + group + '/api/events', json={'events':events}).status_code == 200
-assert client.post('/a/api/events', json={'events':[{'event_type':'unknown'}]}).status_code == 400
+        assert client.post('/'+group+'/api/finish',json={'participant_id':pid,'events':events,'receipts':chosen}).status_code==200
+assert client.post('/a/api/events',json={'events':[]}).status_code==409
 with study_logging.connect() as db:
     assert db.execute("SELECT COUNT(*) FROM events WHERE event_type='click'").fetchone()[0] == 2
     answers = [json.loads(r[0]) for r in db.execute("SELECT detail FROM events WHERE event_type='answer_submission' AND study_group='control'")]

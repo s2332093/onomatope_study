@@ -88,4 +88,9 @@
   <a href="{{ request.scope.get('study_prefix', '') }}/reference" class="btn btn-secondary">素性のまとめ</a>
 </div>
 
+<div class="card" style="margin-top:20px">
+  <h2>全ての学習を終えたら</h2>
+  <p class="muted small">他の語も学ぶ場合は、そのまま次の語へ進んでください。記録は最後にまとめて保存します。</p>
+  <a class="btn btn-primary" href="{{ request.scope.get('study_prefix','') }}/finish">学習を終了して記録を保存 →</a>
+</div>
 {% endblock %}

@@ -374,6 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       if (response.status === 409) { alert("利用者が変わりました。画面を読み込み直してください。"); return; }
       if (!response.ok) throw new Error("matching check failed");
+      window.studyRecordReceipt?.(response.headers.get("X-Study-Receipt"));
       const result = await response.json();
       if (answerRevision !== submittedRevision) {
         status.textContent = "回答が変わりました。もう一度判定してください。";

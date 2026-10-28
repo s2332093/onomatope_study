@@ -12,3 +12,5 @@ logs/
 .env
 .env.*
 research_credentials*
+
+*.db.working*

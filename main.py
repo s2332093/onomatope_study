@@ -22,6 +22,7 @@ import study_logging
 import research
 import hashlib
 import learning_state
+import deferred_logging
 from urllib.parse import urlencode
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -35,6 +36,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 research.install(app, templates)
+deferred_logging.install(app, templates)
 
 # Neutral participant URLs map to stable researcher-only group names.
 STUDY_GROUPS = {"/a": "experiment", "/b": "control"}
@@ -72,17 +74,18 @@ async def study_context(request: Request, call_next):
     current_path = request.scope["path"]
     request.state.form_attempt_id = str(uuid.uuid4())
     request.state.require_name = research.REQUIRE_NAME
+    request.state.answer_receipt = request.cookies.get("study_receipt_" + request.state.study_label.lower(), "")
     request.state.participant_name = None
     if prefix and not current_path.startswith("/research") and current_path != "/registration" and research.REQUIRE_NAME:
         request.state.participant_name = study_logging.participant_name(participant) if research.identity(request) else None
         if not request.state.participant_name:
-            if current_path == "/api/events":
+            if current_path.startswith("/api/"):
                 from fastapi.responses import JSONResponse
                 return JSONResponse({"error": "registration required"}, status_code=401)
             return research.private(RedirectResponse(prefix + "/registration?" + urlencode({"next":path}),status_code=303))
     if request.state.study_group == "control":
         import re
-        allowed_path = request.scope["path"] in ("/", "/api/events", "/registration") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
+        allowed_path = request.scope["path"] in ("/", "/api/events", "/api/finish", "/finish", "/registration") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
         if not allowed_path:
             return HTMLResponse('このページは今回の学習内容に含まれません。<a href="/b/">ホームへ</a>', status_code=404)
     if prefix and research.REQUIRE_NAME and request.method == "POST" and current_path.startswith(("/word/", "/drill/")):
@@ -147,11 +150,18 @@ async def study_context(request: Request, call_next):
         # The same POST refreshed/retried is one attempt; a changed answer is distinct.
         fingerprint = hashlib.sha256(json.dumps(choices,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
         submission = (result, participant + ":" + request.state.study_group + ":answer:" + attempt_id + ":" + fingerprint, page_id, elapsed)
+    if submission:
+        result, event_id, page_id, elapsed = submission
+        request.state.answer_receipt = deferred_logging.receipt(participant,request.state.study_group,path,result,event_id,page_id,elapsed)
     response = await call_next(request)
     if submission and response.status_code < 400:
         result, event_id, page_id, elapsed = submission
-        study_logging.record(participant,request.state.study_group,path,"answer_submission",result,
-                             event_id=event_id,page_id=page_id,elapsed_ms=elapsed)
+        response.headers['X-Study-Receipt'] = request.state.answer_receipt
+        if 300<=response.status_code<400:
+            response.set_cookie('study_receipt_'+request.state.study_label.lower(),request.state.answer_receipt,
+                                httponly=False,samesite='lax',secure=research.secure_cookie(request),max_age=600)
+    elif request.state.answer_receipt and response.status_code==200:
+        response.delete_cookie('study_receipt_'+request.state.study_label.lower())
     if prefix and request.scope["path"].startswith("/research"):
         research.private(response)
     elif prefix:
@@ -163,43 +173,6 @@ async def study_context(request: Request, call_next):
         response.set_cookie(cookie_name, participant, httponly=True, samesite="lax",
                             secure=request.url.scheme == "https", max_age=60*60*24*30)
     return response
-
-@app.post("/api/events")
-async def study_events(request: Request):
-    from fastapi.responses import JSONResponse
-    if int(request.headers.get("content-length", "0") or 0) > 65536:
-        return JSONResponse({"error": "batch too large"}, status_code=413)
-    raw = await request.body()
-    if len(raw) > 65536:
-        return JSONResponse({"error": "batch too large"}, status_code=413)
-    try:
-        payload = json.loads(raw)
-        if research.REQUIRE_NAME and payload.get("participant_id") != request.state.participant:
-            return JSONResponse({"error":"participant changed"},status_code=409)
-        events = payload["events"]
-        if not isinstance(events, list) or len(events) > 100:
-            raise ValueError()
-        allowed = {"page_view", "click", "answer_change", "submit", "page_hidden", "page_visible",
-                   "page_leave", "heartbeat", "line_add", "line_remove", "conditions_toggle"}
-        for event in events:
-            if not isinstance(event, dict) or event.get("event_type") not in allowed:
-                raise ValueError()
-            elapsed = float(event.get("elapsed_ms", 0))
-            if not math.isfinite(elapsed) or elapsed < 0:
-                raise ValueError()
-            if not isinstance(event.get("detail", {}), dict):
-                raise ValueError()
-        with study_logging.connect() as connection:
-            for event in events:
-                study_logging.record(request.state.participant, request.state.study_group,
-                    str(event.get("detail", {}).get("path", ""))[:300] or request.headers.get("referer", "").split("?", 1)[0][-300:],
-                    event["event_type"], event.get("detail", {}),
-                    event_id=request.state.participant + ":" + request.state.study_group + ":" + str(event.get("event_id", uuid.uuid4()))[:120],
-                    client_time=str(event.get("client_time", ""))[:40],
-                    page_id=str(event.get("page_id", ""))[:80], elapsed_ms=float(event.get("elapsed_ms", 0)),connection=connection)
-    except (ValueError, KeyError, TypeError):
-        return JSONResponse({"error": "invalid events"}, status_code=400)
-    return {"saved": len(events)}
 
 # ---- 起動時：DB が無い／古ければ作り直してから読み込む ----
 #   init_db.py の学習データを直して onomatopoeia.db を更新し忘れても、

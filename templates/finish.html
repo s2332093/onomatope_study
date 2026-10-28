@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>学習を終了して記録を保存</h1>
+  <p>指定された学習を全て終えたら、下のボタンを押してください。</p>
+  <p id="finishStatus" role="status" style="margin:20px 0">ブラウザ内の記録を確認しています…</p>
+  <button id="saveStudy" class="btn btn-primary" type="button">記録をまとめて保存する</button>
+  <noscript><p>記録の保存にはJavaScriptが必要です。実施者に知らせてください。</p></noscript>
+  <p class="muted small" style="margin-top:18px">「保存しました」と表示されるまで、この画面を閉じないでください。保存前にブラウザの閲覧データを消さないでください。</p>
+  <a id="continueStudy" class="btn btn-secondary" href="{{ request.scope.get('study_prefix','') }}/">まだ学習を続ける</a>
+</div>
+{% endblock %}

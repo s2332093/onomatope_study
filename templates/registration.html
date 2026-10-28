@@ -4,6 +4,7 @@
   <h1>学習を始める</h1>
   <p>名前を入力してください。</p>
   <p class="muted small">研究のため、入力した名前と、ページの使用時間・操作・解答・正誤・誤答回数を記録します。記録は研究者用の画面で確認します。</p>
+  <p class="muted small">記録は学習中にこのブラウザへ一時保存し、全ての学習を終えた時にまとめて送信します。</p>
   {% if error %}<p role="alert" style="color:var(--red)">{{ error }}</p>{% endif %}
   <form method="post" action="{{ request.scope.get('study_prefix','') }}/registration">
   <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">

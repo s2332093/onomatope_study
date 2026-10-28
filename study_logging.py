@@ -36,6 +36,8 @@ class PostgresConnection:
         self.connection = connection
     def execute(self, sql, params=()):
         return self.connection.execute(sql.replace('?', '%s'), params)
+    def executemany(self, sql, params):
+        return self.connection.cursor().executemany(sql.replace('?', '%s'), params)
 
 @contextmanager
 def connect():
@@ -94,6 +96,10 @@ def record(participant, group, path, kind, detail=None, *, event_id=None,
     else:
         with connect() as con:
             insert(con)
+
+def save_batch(rows):
+    with connect() as db:
+        db.executemany("INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(event_id) DO NOTHING",rows)
 
 if __name__ == '__main__':
     import argparse

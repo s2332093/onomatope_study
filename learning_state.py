@@ -1,5 +1,9 @@
 """Small, participant-scoped retry/review state in the research database."""
 import json
+import os
+import sqlite3
+from pathlib import Path
+from contextlib import contextmanager
 from copy import deepcopy
 
 import study_logging
@@ -8,8 +12,20 @@ import study_logging
 FEATURE_REVEAL_AFTER = 3
 
 
+# Feedback needs fast working state; it is not an analytics log upload.
+# Render may replace this working file on restart; pending browser logs are independent.
+STATE_PATH=Path(os.environ.get('STUDY_STATE_PATH', str(study_logging.LOG_PATH)+'.working'))
+@contextmanager
+def connect():
+    db=sqlite3.connect(STATE_PATH,timeout=15)
+    db.execute('CREATE TABLE IF NOT EXISTS learning_state (participant_id TEXT, study_group TEXT, word_id TEXT, state TEXT NOT NULL, PRIMARY KEY(participant_id,study_group,word_id))')
+    try:
+        with db: yield db
+    finally: db.close()
+
+
 def read(participant, group, word_id):
-    with study_logging.connect() as db:
+    with connect() as db:
         row = db.execute('SELECT state FROM learning_state WHERE participant_id=? AND study_group=? AND word_id=?',
                          (participant, group, word_id)).fetchone()
     return json.loads(row[0]) if row else {}
@@ -17,12 +33,8 @@ def read(participant, group, word_id):
 
 def update(participant, group, word_id, change):
     """Read/modify/write under one SQLite transaction, including concurrent tabs."""
-    with study_logging.connect() as db:
-        if study_logging.DATABASE_URL:
-            # Serialize updates for this learner/word across server workers.
-            db.execute('SELECT pg_advisory_xact_lock(hashtext(?))', (participant + group + word_id,))
-        else:
-            db.execute('BEGIN IMMEDIATE')
+    with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
         row = db.execute('SELECT state FROM learning_state WHERE participant_id=? AND study_group=? AND word_id=?',
                          (participant, group, word_id)).fetchone()
         state = json.loads(row[0]) if row else {}

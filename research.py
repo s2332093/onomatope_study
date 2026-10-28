@@ -238,7 +238,6 @@ def install(app, templates):
             return private(templates.TemplateResponse(request,'registration.html',dict(next=target,error='名前を1〜80文字で入力してください。'),status_code=400))
         pid = str(uuid.uuid4())
         study_logging.register(pid,name)
-        study_logging.record(pid,request.state.study_group,prefix+'/registration','registration')
         response = private(RedirectResponse(target,status_code=303))
         response.set_cookie(COOKIE,sign(pid),httponly=True,samesite='lax',secure=secure_cookie(request),max_age=60*60*24*30)
         return response

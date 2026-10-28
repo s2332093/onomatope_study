@@ -187,7 +187,7 @@
     .condition-mismatch td:last-child { font-weight:700;color:var(--red); }
   </style>
 </head>
-<body data-study-prefix="{{ request.scope.get('study_prefix', '') if (request.state.participant_name or not request.state.require_name) and not request.scope.get('path','').startswith('/research') else '' }}" data-study-participant="{{ request.state.participant if (request.state.participant_name or not request.state.require_name) else '' }}">
+<body data-study-receipt="{{ request.state.answer_receipt|default('') }}" data-study-finish="{{ '1' if request.scope.get('path')=='/finish' else '' }}" data-study-prefix="{{ request.scope.get('study_prefix', '') if (request.state.participant_name or not request.state.require_name) and not request.scope.get('path','').startswith('/research') else '' }}" data-study-participant="{{ request.state.participant if (request.state.participant_name or not request.state.require_name) else '' }}">
 <nav>
   <span class="logo">📚 オノマトペ学習支援</span>
   {% if request.scope.get('path','').startswith('/research') %}
@@ -202,6 +202,7 @@
   {% endif %}
   {% if request.state.participant_name %}
   <span style="margin-left:auto">{{ request.state.participant_name }} さん</span>
+  <a href="{{ request.scope.get('study_prefix','') }}/finish">学習を終了・記録を保存</a>
   <a href="{{ request.scope.get('study_prefix','') }}/registration">利用者を変更</a>
   {% endif %}
   {% endif %}
