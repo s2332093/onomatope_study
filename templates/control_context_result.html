@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
+<div class="card feedback-panel {% if n_correct == total %}is-correct{% else %}is-incorrect{% endif %}">
   <span class="badge badge-orange">フェーズ2：文脈練習</span>
   <h1 style="margin-top:12px;">「{{ word.word }}」の答え合わせ</h1>
-  <p>{{ n_correct }}／{{ total }} 正解</p>
+  <h2 class="feedback-verdict {% if n_correct == total %}is-correct{% else %}is-incorrect{% endif %}" style="margin-top:16px;">{% if n_correct == total %}○ 全問正解！{% else %}× 不正解があります{% endif %}</h2>
+  <p class="feedback-answer">{{ n_correct }}／{{ total }} 正解</p>
   <p class="muted small">自分の回答と正解を確認し、完成した例文を読みましょう。</p>
 </div>
 {% for r in results %}
 <div class="card">
-  <h2 style="font-size:1rem;">問{{ r.no }}：{% if r.ok %}✅ 正解{% else %}❌ 不正解{% endif %}</h2>
+  <h2 class="feedback-verdict {% if r.ok %}is-correct{% else %}is-incorrect{% endif %}">問{{ r.no }}：{% if r.ok %}○ 正解{% else %}× 不正解{% endif %}</h2>
   <p>あなたの回答：{{ r.user_label }}</p>
   <p style="margin-top:12px;"><strong>正解：{{ r.correct_label }}</strong></p>
   <div style="background:var(--green-soft); border-radius:10px; padding:14px 18px; font-size:1rem; font-weight:700; margin-top:14px;">{{ r.completed }}</div>

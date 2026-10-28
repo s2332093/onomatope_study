@@ -12,12 +12,14 @@
 </div>
 
 {% if context_review %}
-<div class="card" role="status">
+<div class="card feedback-panel is-incorrect" role="status">
   <span class="badge badge-orange">場面・文脈の問題から戻りました</span>
+  <p class="feedback-verdict is-incorrect" style="margin-top:12px;">× 文脈問題に不正解があります</p>
   <h2 style="margin-top:10px;">線結びで、条件を確かめ直しましょう</h2>
   {% for r in context_review %}
   <div class="result-item ng">
-    <p class="small">問{{ r.no }}：{{ r.frame }}</p>
+    <p class="feedback-check is-incorrect">問{{ r.no }}：× 不正解</p>
+    <p class="small" style="margin-top:6px;">{{ r.frame }}</p>
     <p class="small" style="margin-top:6px;">あなたの選択：<strong>{{ r.choice }}</strong></p>
     <p class="small" style="margin-top:5px;">{{ r.reason }}</p>
   </div>
@@ -90,7 +92,7 @@
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
 </form>
 
-<div id="matchingStatus" class="notebox" role="status" hidden style="margin-top:18px;"></div>
+<div id="matchingStatus" class="feedback-banner" role="status" hidden style="margin-top:18px;"></div>
 <div id="matchingActions" class="feedback-actions" hidden style="margin:14px 0;">
   <button type="button" class="btn btn-secondary" id="showMatchingFeedback">フィードバックを見る</button>
   <a class="btn btn-primary" id="matchingNext" hidden>{% if context_review %}文脈問題に戻る{% else %}場面・文脈の問題へ進む{% endif %} →</a>
@@ -188,6 +190,15 @@ document.addEventListener("DOMContentLoaded", () => {
   let isDragging = false;
   let activeLine = null;
   const connections = new Map();   // key -> {g, lines:[hit, vis]}
+
+  function showMatchingStatus(message, tone = "neutral") {
+    status.className = `feedback-banner is-${tone}`;
+    const title = document.createElement("p");
+    title.className = tone === "neutral" ? "" : `feedback-verdict is-${tone}`;
+    title.textContent = message;
+    status.replaceChildren(title);
+    status.hidden = false;
+  }
 
   function answerChanged() {
     answerRevision += 1;
@@ -354,8 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (submitButton.disabled) return;
     const submittedRevision = answerRevision;
     submitButton.disabled = true;
-    status.textContent = "判定しています…";
-    status.hidden = false;
+    showMatchingStatus("判定しています…");
     actions.hidden = true;
     feedback.hidden = true;
     try {
@@ -367,29 +377,28 @@ document.addEventListener("DOMContentLoaded", () => {
       window.studyRecordReceipt?.(response.headers.get("X-Study-Receipt"));
       const result = await response.json();
       if (answerRevision !== submittedRevision) {
-        status.textContent = "回答が変わりました。もう一度判定してください。";
-        status.hidden = false;
+        showMatchingStatus("回答が変わりました。もう一度判定してください。");
         return;
       }
       const invalidKeys = new Set(result.invalid_keys);
       rightNodes.forEach(node => markInvalid(node.dataset.key, invalidKeys.has(node.dataset.key), result.invalid_conditions?.[node.dataset.key] || ""));
       redrawLines();
-      const messages = [];
-      if (result.all_correct) messages.push("線結びを確認できました。");
-      else {
-        if (invalidKeys.size) messages.push("赤い選択肢は、この語の素性と条件が合っていません。");
-        if (result.has_missing) messages.push("まだ結べていない形式があります。");
+      showMatchingStatus(result.all_correct ? "○ 正解です！" : "× 不正解です", result.all_correct ? "correct" : "incorrect");
+      if (result.has_missing) {
+        const missing = document.createElement("p");
+        missing.className = "feedback-missing";
+        missing.textContent = "！ まだ結べていない形式があります。";
+        status.appendChild(missing);
       }
-      status.textContent = messages.join(" ");
       feedback.innerHTML = result.feedback_html;
       actions.hidden = false;
       nextLink.hidden = !result.all_correct;
       if (result.all_correct) nextLink.href = result.context_url;
       else nextLink.removeAttribute("href");
       if (invalidKeys.size) document.getElementById(`node-${result.invalid_keys[0]}`).scrollIntoView({behavior:"smooth", block:"center"});
+      else status.scrollIntoView({behavior:"smooth", block:"center"});
     } catch (error) {
-      status.textContent = "判定できませんでした。もう一度判定してください。";
-      status.hidden = false;
+      showMatchingStatus("判定できませんでした。もう一度判定してください。", "incorrect");
     } finally {
       submitButton.disabled = false;
     }

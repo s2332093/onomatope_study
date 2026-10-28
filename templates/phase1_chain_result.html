@@ -1,13 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 {% set prefix = request.scope.get('study_prefix', '') %}
-<div class="card" aria-live="polite">
+<div class="card feedback-panel {% if fb.ok %}is-correct{% else %}is-incorrect{% endif %}" aria-live="polite">
   <span class="badge badge-blue">{{ k }} / {{ chain|length }}：{{ step.title }}</span>
   <h1 style="margin-top:10px;">「{{ word.word }}」の{{ step.title }}</h1>
   {% if fb.ok %}
-    <p class="result-item">正解です：<strong>{{ fb.user }}</strong></p>
+    <h2 class="feedback-verdict is-correct" style="margin-top:16px;">○ 正解です！</h2>
+    <p class="feedback-answer"><strong>{{ fb.user }}</strong></p>
     {% if fb.fig %}<div style="text-align:center;margin:16px 0;"><img src="/static/{{ fb.fig }}" alt="{{ fb.user }}" style="width:100%;max-width:240px;"></div>{% endif %}
   {% else %}
+    <h2 class="feedback-verdict is-incorrect" style="margin-top:16px;">× 不正解です</h2>
     {% if retry_feedback.fig %}
     <figure style="text-align:center;margin:20px 0;">
       <figcaption style="margin-bottom:10px;">選んだ答え：<strong>{{ fb.user }}</strong></figcaption>

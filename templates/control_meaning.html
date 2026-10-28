@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
+<div class="card{% if feedback %} feedback-panel {% if feedback.ok %}is-correct{% else %}is-incorrect{% endif %}{% endif %}">
   <span class="badge badge-blue">フェーズ1：意味の学習</span>
   <h1>{{ word.emoji }} {{ word.word }}</h1>
   {% if feedback %}
     {% if feedback.ok %}
-    <p style="margin-top:20px;">正解です：{{ feedback.user }}</p>
+    <h2 class="feedback-verdict is-correct" style="margin-top:20px;">○ 正解です！</h2>
+    <p class="feedback-answer">{{ feedback.user }}</p>
     <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3">フェーズ2：文脈練習へ →</a>
     {% else %}
-    <p style="margin-top:20px;">{{ retry_feedback.message }}</p>
+    <h2 class="feedback-verdict is-incorrect" style="margin-top:20px;">× 不正解です</h2>
+    <p class="feedback-answer">{{ retry_feedback.message }}</p>
     <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}">もう一度選ぶ</a>
     {% endif %}
   {% else %}

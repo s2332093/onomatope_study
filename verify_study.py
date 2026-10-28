@@ -108,7 +108,7 @@ w=main.WORD_BY_ID['iraira']; cat=main.get_category(w)
 correct={k:'○' for k in main.CAT_EXPRS[cat['id']]}
 r=client.post('/a/word/iraira/f2/check', data=correct)
 assert '10 / 10 正解' in r.text
-assert '線結びを確認できました' in r.text
+assert '○ 正解です！' in r.text
 assert '正解の線結び' not in r.text and '<line ' not in r.text
 r=client.post('/a/word/iraira/f2/check', data={})
 assert '<line ' not in r.text and '<table' not in r.text

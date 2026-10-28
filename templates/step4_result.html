@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <h1 style="color:var(--green);">全問正解！「{{ word.word }}」の学習が完了しました</h1>
+<div class="card feedback-panel is-correct">
+  <h1 class="feedback-verdict is-correct">○ 全問正解！</h1>
+  <p class="feedback-answer">「{{ word.word }}」の学習が完了しました</p>
   <p class="small muted">場面・文脈の問題（{{ n_correct }}／{{ total }} 正解）</p>
 </div>
 {% for r in results %}
 <div class="card">
-  <h2>問{{ r.no }}：あなたが選んだ形</h2>
+  <h2 class="feedback-check is-correct">問{{ r.no }}：○ 正解</h2>
   <div class="infobox" style="font-weight:700;">{{ r.completed }}</div>
   <p class="small" style="margin-top:12px;">「〜{{ r.label }}」の局面：{{ r.phase }}</p>
 </div>

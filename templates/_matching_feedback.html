@@ -1,8 +1,8 @@
 {% set prefix = request.scope.get('study_prefix', '') %}
-<div class="card" aria-live="polite">
-  <h1>{% if all_correct %}線結びを確認できました{% else %}線を見直しましょう{% endif %}</h1>
+<div class="card feedback-panel {% if all_correct %}is-correct{% else %}is-incorrect{% endif %}" aria-live="polite">
+  <h1 class="feedback-verdict {% if all_correct %}is-correct{% else %}is-incorrect{% endif %}">{% if all_correct %}○ 正解です！{% else %}× 不正解です{% endif %}</h1>
   {% if all_correct %}<p style="margin-top:12px;"><strong>{{ n_expr_correct }} / {{ total_expr }} 正解</strong></p>
-  {% elif has_missing %}<p style="margin-top:12px;">まだ結べていない形式があります。</p>{% endif %}
+  {% elif has_missing %}<p class="feedback-missing">！ まだ結べていない形式があります。</p>{% endif %}
 </div>
 {% for r in extra_results %}
 <section class="card">
@@ -12,7 +12,7 @@
     <tbody>{% for c in r.comparison %}
       <tr{% if not c.ok %} style="background:var(--red-soft);color:var(--red);font-weight:700;"{% endif %}>
         <th scope="row">{{ c.name }}</th><td>{{ c.actual }}</td><td>{{ c.req }}</td>
-        <td style="white-space:nowrap;">{% if c.unrestricted %}―{% elif c.ok %}○ 合う{% else %}× 合わない{% endif %}</td>
+        <td class="feedback-check {% if not c.unrestricted %}{% if c.ok %}is-correct{% else %}is-incorrect{% endif %}{% endif %}" style="white-space:nowrap;">{% if c.unrestricted %}―{% elif c.ok %}○ 合う{% else %}× 合わない{% endif %}</td>
       </tr>
     {% endfor %}</tbody>
   </table></div>
