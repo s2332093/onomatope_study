@@ -3,17 +3,7 @@
 
 <div class="card">
   <h1>📚 オノマトペ学習支援システム</h1>
-  <p class="muted" style="margin-top:8px;">
-    意味がわかっても、後ろにつける文法形式を迷うことはありませんか？<br>
-    「素性」は、語がもつ「続くか・どんな動きか・自分の意志でできるか」という特徴です。
-    この特徴と、文法形式が必要とする条件（前接条件）を比べると、<strong>なぜその形を使えるのか</strong>を説明できます。
-  </p>
-  <p style="margin-top:12px;">例えば「いらいら」は続く感情なので「いらいらしてきた」と言えます。
-    特徴を確かめる手順を学ぶと、初めての語でも文法形式を考える手がかりになります。</p>
-  <a class="btn btn-primary" style="margin-top:18px;" href="{{ request.scope.get('study_prefix', '') }}/reference">学習の前に：素性と文法形式を学ぶ →</a>
-  <p class="muted small" style="margin-top:12px;">この学習では、研究のため入力した名前と、ページの使用時間・操作・解答・正誤・誤答回数を記録します。
-    語を1つ選ぶと、その語で3つのフェーズを通して学びます。
-  </p>
+  <a class="btn btn-primary" style="margin-top:18px;" href="{{ request.scope.get('study_prefix', '') }}/reference">学習前の知識を見る →</a>
 </div>
 
 <!-- 学習の流れ -->
@@ -35,13 +25,12 @@
 </div>
 
 <!-- 語の一覧 -->
-<h2 style="margin:28px 0 14px;">✏️ 学習する語を選ぶ（8カテゴリー × 2語 ＝ 全{{ total }}語）</h2>
+<h2 style="margin:28px 0 14px;">✏️ 学習する語を選ぶ（全{{ total }}語）</h2>
 
 {% for g in groups %}
 <h2 style="margin:24px 0 10px; font-size:1rem;">
   <span class="badge {% if g.category.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ g.category.kind }}</span>
   {{ g.category.name }}
-  <span class="small" style="color:var(--blue); margin-left:6px;">{{ g.category.profile_text }}</span>
 </h2>
 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px;">
   {% for w in g.words %}

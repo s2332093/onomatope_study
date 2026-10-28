@@ -1,0 +1,65 @@
+<section class="card" id="example" style="scroll-margin-top:20px;">
+  <h2>例題：「いらいら」の素性を考える</h2>
+  <p class="intro-scene">電車が遅れて、不快な気持ちが続いている。</p>
+  <ol class="intro-steps">
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">1</span> 音の形</h3>
+        <div class="intro-sound"><span>いら<small>AB</small></span><span>いら<small>AB</small></span><strong>→ ABAB型</strong></div>
+        <p>同じ2モーラを繰り返す形。続く様子の手がかり。</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">2</span> 継続性</h3>
+        <p>この気持ちは、一瞬で終わる？ 続く？</p>
+        <p class="intro-answer">不快な気持ちが続く → 継続性「＋」</p>
+      </div>
+      <img src="/static/{{ figs.continuity['＋'] }}" alt="時間の中で気持ちが続く：継続性＋">
+    </li>
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">3</span> 動作性</h3>
+        <p>続いているのは、激しい動き？ 気持ち・感覚？</p>
+        <p class="intro-answer">続く気持ち・感覚 → 動作性「中」</p>
+      </div>
+      <img src="/static/{{ figs.action['中'] }}" alt="続く気持ち・感覚：動作性中">
+    </li>
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">4</span> 意志性</h3>
+        <p>自分の意志で「いらいらしようとする」と言える？</p>
+        <p class="intro-answer">意志で起こせない感情 → 意志性「ー」</p>
+      </div>
+      <img src="/static/{{ figs.volition['ー'] }}" alt="自分の意志で起こせない：意志性ー">
+    </li>
+  </ol>
+  <div class="infobox" style="margin-top:16px;">
+    <strong>「いらいら」</strong>
+    <span class="fbadge fb-continuity">＋継続性</span>
+    <span class="fbadge fb-action">動作性（中）</span>
+    <span class="fbadge fb-volition">ー意志性</span>
+  </div>
+</section>
+<style>
+  .intro-scene { margin:12px 0 18px;line-height:1.8; }
+  .intro-steps { list-style:none;padding:0;margin:0; }
+  .intro-steps li { position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border:1px solid var(--border);border-radius:10px;background:#fbfcfe; }
+  .intro-steps li + li { margin-top:28px; }
+  .intro-steps li + li::before { content:"↓";position:absolute;top:-28px;left:50%;transform:translateX(-50%);color:var(--blue);font-weight:700;font-size:1.2rem; }
+  .intro-steps li > div { flex:1;min-width:0; }
+  .intro-steps h3 { font-size:1rem;margin-bottom:8px; }
+  .intro-steps p { font-size:.9rem;line-height:1.8; }
+  .intro-steps .intro-answer { margin-top:6px;font-weight:700;color:var(--blue); }
+  .intro-steps img { width:120px;max-width:25%;flex-shrink:0; }
+  .intro-sound { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px; }
+  .intro-sound span { padding:6px 18px;text-align:center;background:var(--blue-soft);border:1px solid #bcd0f4;border-radius:8px;font-weight:700; }
+  .intro-sound small { display:block;color:var(--blue); }
+  .knowledge-index > summary { font-weight:700;cursor:pointer; }
+  .knowledge-index[open] > summary { margin-bottom:18px; }
+  @media(max-width:560px) {
+    .intro-steps li { gap:10px;padding:12px; }
+    .intro-steps img { width:85px; }
+    .intro-steps p { font-size:.85rem; }
+  }
+</style>

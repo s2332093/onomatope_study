@@ -1,161 +1,53 @@
 {% extends "base.html" %}
 {% block content %}
-
 <div class="card">
-  <span class="badge badge-gray">学習前の準備・復習</span>
-  <h1 style="margin-top:8px;">学習前の知識：素性と文法形式</h1>
-  <p class="muted small" style="margin-top:6px;">
-    語の学習を始める前に、3つの素性と文法形式の前接条件を確かめましょう。学習中も見返せます。<br>
-    読み終えたら <a href="{{ request.scope.get('study_prefix', '') }}/">語を選んで学習する</a> へ進んでください。<br>
-    オノマトペの語彙的意味を決める3つの素性
-    <span class="fbadge fb-continuity">継続性</span>
-    <span class="fbadge fb-action">動作性</span>
-    <span class="fbadge fb-volition">意志性</span>
-    の見方を学びます。<br>
-    この3つの素性と文法形式の前接条件を比べて、結びつくかを判断します。
-  </p>
+  <h1>学習前の知識：素性と文法形式</h1>
+  <p class="small" style="margin-top:12px;">素性は、続き方・動きの強さ・意志の関わりを表す特徴です。</p>
 </div>
 
-<!-- 継続性 -->
-<div class="card">
-  <h2>⏱ <span class="fbadge fb-continuity">継続性</span> とは</h2>
-  <p class="muted small" style="margin-bottom:16px;">
-    オノマトペが表す感情・状態・動きが、時間の中でどう続くかという性質です。図のイメージで覚えましょう。
-  </p>
-  <div style="display:flex; gap:14px; flex-wrap:wrap;">
-    {% for k in knowledge.continuity %}
-    <div style="flex:1; min-width:200px; border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
-      <img src="/static/{{ k.fig }}" alt="{{ k.label }}" style="width:100%; max-width:200px;">
-      <div style="font-weight:700; margin-top:6px;
-        color:{% if loop.index == 1 %}#c0392b{% elif loop.index == 2 %}#f39c12{% else %}#27ae60{% endif %};">
-        {{ k.label }}
-      </div>
-      <div class="muted small" style="margin-top:6px; text-align:left;">{{ k.body }}</div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-
-<!-- 動作性 -->
-<div class="card">
-  <h2>🏃 <span class="fbadge fb-action">動作性</span> とは</h2>
-  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
-    {% for k in knowledge.action if k.fig %}
-    <div style="flex:1; min-width:180px; border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center;">
-      <img src="/static/{{ k.fig }}" alt="{{ k.label }}" style="width:100%; max-width:180px;">
-      <div style="font-weight:700; margin-top:4px;">{{ k.label }}</div>
-      <div class="muted small" style="margin-top:4px; text-align:left;">{{ k.body }}</div>
-    </div>
-    {% endfor %}
-  </div>
-  {% for k in knowledge.action if not k.fig %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <span style="font-weight:700;">{{ k.label }}</span>
-    <span class="muted small" style="margin-left:8px;">{{ k.body }}</span>
-  </div>
-  {% endfor %}
-  <div class="notebox" style="margin-top:14px;">
-    💡 <strong>{{ knowledge.rule[0].label }}：</strong>{{ knowledge.rule[0].body }}
-  </div>
-</div>
-
-<!-- 意志性 -->
-<div class="card">
-  <h2>✋ <span class="fbadge fb-volition">意志性</span> とは</h2>
-  <div style="display:flex; gap:12px; flex-wrap:wrap;">
-    {% for k in knowledge.volition %}
-    <div style="flex:1; min-width:180px; border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center;">
-      {% if k.fig %}<img src="/static/{{ k.fig }}" alt="{{ k.label }}" style="width:100%; max-width:180px;">{% endif %}
-      <div style="font-weight:700; margin-top:4px;">{{ k.label }}</div>
-      <div class="muted small" style="margin-top:4px; text-align:left;">{{ k.body }}</div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-
-<!-- 音韻形態と素性の関係 -->
-<div class="card">
-  <h2>🔤 音の形からも素性が予測できる</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    オノマトペは<strong>音韻形態（音の形）</strong>が素性のヒントになります。
-    初めて出会う語でも、形から素性を予測できます。
-  </p>
-  {% for k in knowledge.phon_feature %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <div style="font-weight:700; color:var(--blue);">{{ k.label }}</div>
-    <div class="muted small" style="margin-top:4px;">{{ k.body }}</div>
-  </div>
-  {% endfor %}
-
-  <h3 style="margin-top:20px;">📋 音韻形態 × 素性 対応表</h3>
-  <p class="muted small" style="margin-bottom:10px;">
-    「予測」はあくまで傾向です。<strong>例外の語</strong>もあわせて確認しておきましょう。
-  </p>
-  <div class="tscroll">
-    <table class="dtable">
-      <tr>
-        <th style="min-width:130px;">音韻形態</th>
-        <th style="min-width:100px;">予測される継続性</th>
-        <th style="min-width:90px;">予測される動作性</th>
-        <th style="min-width:140px;">例語</th>
-        <th style="min-width:120px;">予測と違う語（例外）</th>
-      </tr>
-      {% for r in phon_table %}
-      <tr>
-        <td>
-          <strong>{{ r.form.label }}</strong>
-          <div class="muted" style="font-size:0.72rem;">{{ r.form.term }}</div>
-        </td>
-        <td><span class="fbadge fb-continuity">{{ r.pred_cont_label }}</span></td>
-        <td><span class="fbadge fb-action">{{ r.pred_act_label }}</span></td>
-        <td class="muted">{{ r.form.example }}</td>
-        <td class="muted">
-          {% if r.exceptions %}{{ r.exceptions|join("・") }}{% else %}—{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-  {% for r in phon_table %}
-  {% if r.exceptions %}
-  <div class="small muted" style="margin-top:8px;">
-    ▸ <strong>{{ r.form.label }}</strong>：{{ r.form.pred_note }}
-  </div>
-  {% endif %}
-  {% endfor %}
-</div>
-
-<!-- 8カテゴリー -->
-<div class="card">
-  <h2>🗂 素性の組み合わせ → 8つのカテゴリー</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    種類（感情・感覚／動作）と3つの素性の組み合わせで、オノマトペは8つのカテゴリーに分かれます。
-    各カテゴリーの下の文は「なぜその素性値になるのか」です。
-  </p>
-  {% for c in categories %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <span class="badge {% if c.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ c.kind }}</span>
-    <span style="font-weight:700; margin-left:6px;">{{ c.name }}</span>
-    <div class="small" style="color:var(--blue); margin-top:4px;">{{ c.profile_text }}</div>
-    <ul class="checklines">
-      <li><span class="fbadge fb-continuity">継続性</span>{{ c.why_cont }}</li>
-      <li><span class="fbadge fb-action">動作性</span>{{ c.why_act }}</li>
-      <li><span class="fbadge fb-volition">意志性</span>{{ c.why_vol }}</li>
-    </ul>
-  </div>
-  {% endfor %}
-</div>
-
+{% include "_intro_example.html" %}
 {% include "_grammar_knowledge.html" %}
 
-<div class="card" style="text-align:center; background:var(--blue-soft);">
-  <h2>✏️ 知識を確認したら、学習を始める</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    1語について 意味 → 音の形 → 継続性 → 動作性 → 意志性 の5問をたどります。<br>
-    いくつか終えたら、総合ドリルで仕上げましょう。
-  </p>
-  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-primary">語を選んで学習する →</a>
-  <a href="{{ request.scope.get('study_prefix', '') }}/drill/features" class="btn btn-secondary" style="margin-left:12px;">素性ドリル →</a>
-</div>
+<details class="card knowledge-index">
+  <summary>素性の一覧（図）</summary>
+  {% for key, title, values in [
+    ('continuity', '継続性', [('＋', '＋継続性', '状態・動きが続く'), ('変化結果の＋', '＋変化結果の継続性', '変化した後の結果が残る'), ('ー', 'ー継続性', '一瞬で成立する')]),
+    ('action', '動作性', [('高', '動作性（高）', '具体的な動き・一瞬の強い変化'), ('中', '動作性（中）', '続く気持ち・感覚・状態'), ('低', '動作性（低）', 'ゆるやかで、積極的な動きが弱い')]),
+    ('volition', '意志性', [('＋', '＋意志性', '自分の意志で行える'), ('ー', 'ー意志性', '意志で起こせない感情・感覚'), ('関与しない', '意志性は関与しない', '状況に反応して起こる動き')])
+  ] %}
+  <h2 style="font-size:1rem;margin:18px 0 10px;">{{ title }}</h2>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    {% for value, label, note in values %}
+    <div style="flex:1;min-width:170px;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+      <img src="/static/{{ figs[key][value] }}" alt="{{ label }}" style="width:100%;max-width:150px;">
+      <p style="font-weight:700;">{{ label }}</p>
+      <p class="small" style="margin-top:6px;">{{ note }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</details>
 
+<details class="card knowledge-index">
+  <summary>音の形と素性の対応・例外</summary>
+  <p class="small" style="margin-bottom:12px;">音の形からの予測は傾向です。意味・場面でも確かめます。</p>
+  <div class="tscroll"><table class="dtable" style="min-width:600px;">
+    <thead><tr><th>音韻形態</th><th>継続性の予測</th><th>動作性の予測</th><th>例語</th><th>例外</th></tr></thead>
+    <tbody>{% for r in phon_table %}<tr>
+      <th scope="row">{{ r.form.label }}</th><td>{{ r.pred_cont_label }}</td><td>{{ r.pred_act_label }}</td><td>{{ r.form.example }}</td><td>{% if r.exceptions %}{{ r.exceptions|join('・') }}{% else %}—{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</details>
+
+<details class="card knowledge-index">
+  <summary>素性の組み合わせと8つのカテゴリー</summary>
+  <div class="tscroll"><table class="dtable" style="min-width:500px;">
+    <thead><tr><th>種類</th><th>カテゴリー</th><th>素性</th></tr></thead>
+    <tbody>{% for c in categories %}<tr><td>{{ c.kind }}</td><th scope="row">{{ c.name }}</th><td>{{ c.profile_text }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</details>
+
+<div class="card" style="text-align:center;background:var(--blue-soft);">
+  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-primary">語を選んで学習する →</a>
+</div>
 {% endblock %}

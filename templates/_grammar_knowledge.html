@@ -1,76 +1,24 @@
 <section id="grammar" style="scroll-margin-top:20px;">
 <div class="card">
-  <span class="badge badge-gray">学習前の知識</span>
-  <h2 style="margin-top:8px;">文法形式を判断する</h2>
-  <p class="muted small">語の素性と、文法形式が必要とする条件（前接条件）を比べます。学習を始める前に、判断の方法と各形式の条件を確かめましょう。</p>
-</div>
-<!-- 考え方 -->
-<div class="card">
-  <h2>🧭 判断の考え方（3ステップ）</h2>
-  {% for k in expr_guide %}
-  <div style="border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px;">
-    <span style="font-weight:700; color:var(--blue);">{{ k.label }}</span>
-    <div class="muted small" style="margin-top:4px;">{{ k.body | replace("思い出す（フェーズ1で学んだ判断）", "確認する") }}</div>
-  </div>
-  {% endfor %}
-  <div class="infobox" style="margin-top:12px;">
-    <div style="font-weight:700; color:var(--blue); margin-bottom:6px;">例：「いらいら」×「しはじめる」「するところだ」</div>
-    <div class="small">
-      「いらいら」の素性は <strong>＋継続性・動作性（中）・ー意志性</strong>。<br>
-      ・「〜しはじめる」の条件は〈＋継続性／動作性（中・高）〉→ すべて満たす →
-        <strong style="color:var(--green);">○ 結びつく</strong>（いらいらしはじめる）<br>
-      ・「〜するところだ」の条件は〈動作性（高）／＋意志性〉→ 動作性も意志性も満たさない →
-        <strong style="color:var(--red);">× 結びつかない</strong>（×いらいらするところだ）
-    </div>
-  </div>
+  <h2>例：「いらいら」と文法形式</h2>
+  <p class="small" style="margin:10px 0 16px;">前接条件＝文法形式の前に来る語が満たす条件。</p>
+  <div class="tscroll"><table class="dtable" style="min-width:510px;">
+    <thead><tr><th>文法形式</th><th>前接条件</th><th>「いらいら」との照合</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">〜しはじめる</th><td>＋継続性・動作性（中・高）</td><td class="feedback-check is-correct">○ 条件を満たす</td></tr>
+      <tr><th scope="row">〜するところだ</th><td>動作性（高）・＋意志性</td><td class="feedback-check is-incorrect">× 動作性・意志性が合わない</td></tr>
+    </tbody>
+  </table></div>
 </div>
 
-<!-- 接続表現の学び方 -->
-<div class="card">
-  <h2>🔑 「前接条件」をどう捉えるか</h2>
-  {% for k in expr_note %}
-  <div style="border-left:4px solid var(--purple); background:#fbfcfe; border-radius:0 8px 8px 0; padding:10px 14px; margin-bottom:10px;">
-    <div style="font-weight:700; font-size:0.9rem;">{{ k.label }}</div>
-    <div class="muted small" style="margin-top:4px;">{{ k.body }}</div>
-  </div>
-  {% endfor %}
-</div>
-
-<!-- 表現形式の詳細カード -->
-<div class="card">
-  <h2>📝 表現形式と前接条件（全{{ expr_cards|length }}形式）</h2>
-  {% for c in expr_cards %}
-  <div style="border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-      <span style="font-weight:700; font-size:1rem;">〜{{ c.expr.label }}</span>
-      <span class="badge badge-gray">局面：{{ c.expr.phase }}</span>
-    </div>
-
-    <div style="margin-top:8px;">
-      <span class="muted small">必要な素性：</span>
-      {% if c.reqs %}
-      {% for r in c.reqs %}
-      <span class="fbadge fb-{{ r.key }}">{{ r.text }}</span>
-      {% endfor %}
-      {% else %}
-      <span class="badge badge-green">条件なし（素性を問わない）</span>
-      {% endif %}
-    </div>
-
-    {% if c.reqs %}
-    <ul class="checklines">
-      {% for r in c.reqs %}
-      {% if r.why %}<li><strong>{{ r.name }}が必要な理由：</strong>{{ r.why }}</li>{% endif %}
-      {% endfor %}
-    </ul>
-    {% endif %}
-
-    <div class="small" style="margin-top:8px; display:flex; gap:16px; flex-wrap:wrap;">
-      <span style="color:var(--green);">{{ c.expr.ok_example }}</span>
-      <span style="color:var(--red);">{{ c.expr.ng_example }}</span>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-
+<details class="card knowledge-index">
+  <summary>文法形式の前接条件（全{{ expr_cards|length }}形式）</summary>
+  <div class="tscroll"><table class="dtable" style="min-width:590px;">
+    <thead><tr><th>文法形式・局面</th><th>前接条件</th><th>例</th></tr></thead>
+    <tbody>{% for c in expr_cards %}<tr>
+      <th scope="row">〜{{ c.expr.label }}<div class="small muted" style="margin-top:4px;">{{ c.expr.phase }}</div></th>
+      <td>{{ c.expr.cond_text }}</td><td>{{ c.expr.ok_example }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</details>
 </section>

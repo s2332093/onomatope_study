@@ -63,7 +63,7 @@ assert '近いオノマトペは「びっくり」' in b.text and '正しい意�
 # Grammar knowledge is introductory content; phase 2 starts directly with matching.
 intro = client.get('/a/reference')
 assert '学習前の知識：素性と文法形式' in intro.text
-assert 'id="grammar"' in intro.text and '判断の考え方（3ステップ）' in intro.text
+assert 'id="grammar"' in intro.text and '例題：「いらいら」の素性を考える' in intro.text
 assert len(intro.context['expr_cards']) == len(main.EXPRESSIONS)
 assert 'フェーズ2' not in intro.text
 assert 'フェーズ1で学んだ判断' not in intro.text
