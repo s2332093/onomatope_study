@@ -618,7 +618,7 @@ def chain_question(w, k):
                 "options": feature_options("action")}
 
     return {"step": step, "kind": "feature", "fkey": "volition",
-            "flow": {"known": [cont_chip, act_chip],
+            "flow": {"known": [_chip("意味", w["meaning"])],
                      "why": "その気持ち・感覚を自分で起こせる？" if cat["kind"] == "感情・感覚" else "自分で始める動き？ 状況への反応？",
                      "ask": {"cap": "意志性"}},
             "prompt": f'「{w["word"]}」の意志性は？',
@@ -715,7 +715,11 @@ def chain_retry_feedback(w, k, choice):
         chosen = PHON_BY_KEY.get(choice)
         message = (f'{chosen["label"]}の並びと{word}の並びは一致しません。'
                    if chosen else f'{word}の音の並びに合う形を選んでみましょう。')
-        return {"message": message, "fig": None}
+        return {"message": message, "fig": PHON_FIGS.get(choice)}
+    if k == 5:
+        message = feature_reason(w, "volition").replace("、", "，").replace("。", "．")
+        return {"message": message + "もう一度選んでみましょう．",
+                "fig": FEATURE_FIGS["volition"].get(choice)}
     fkey = {3: "continuity", 4: "action", 5: "volition"}[k]
     if get_category(w)["kind"] == "感情・感覚":
         message = {

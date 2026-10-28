@@ -37,9 +37,16 @@ for word in main.WORDS:
             assert all(text not in r.text for text in ['正解：','知識を確認','回で知識を表示','選んだ答えの捉え方','場面と合わない点','確かめること'])
             if fkey:
                 assert main.FEATURE_FIGS[fkey][wrong] in r.text and main.FEATURE_FIGS[fkey][correct] not in r.text
-                assert f'href="/a/word/{word["id"]}/f1/{k-1}?review_for={k}"' in r.text
+                if k == 5:
+                    assert f'href="/a/word/{word["id"]}/f1/5"' in r.text
+                    assert '動作性から見直す' not in r.text
+                    assert main.feature_reason(word, 'volition').replace('、','，').replace('。','．') in r.text
+                else:
+                    assert f'href="/a/word/{word["id"]}/f1/{k-1}?review_for={k}"' in r.text
             elif k==1: assert '近いオノマトペは「'+main.WORD_BY_ID[wrong]['word']+'」' in r.text
-            else: assert main.PHON_BY_KEY[wrong]['label']+'の並びと「'+word['word']+'」の並びは一致しません。' in r.text
+            else:
+                assert main.PHON_FIGS[wrong] in r.text and main.PHON_FIGS[correct] not in r.text
+                assert main.PHON_BY_KEY[wrong]['label']+'の並びと「'+word['word']+'」の並びは一致しません。' in r.text
             repeat=fresh.post(f'/a/word/{word["id"]}/f1/{k}/check',data=data)
             assert repeat.context['failures']==attempt+1
 r=submit(1,'bikkuri')
@@ -68,6 +75,7 @@ assert len(intro.context['expr_cards']) == len(main.EXPRESSIONS)
 assert 'フェーズ2' not in intro.text
 assert 'フェーズ1で学んだ判断' not in intro.text
 summary = client.get(f'{base}/f1/done')
+assert 'expr_explain' not in summary.text and main.get_category(main.WORD_BY_ID['iraira'])['expr_explain'] not in summary.text
 assert '迷ったら：' not in summary.text and 'done-guides' not in summary.text
 assert f'href="{base}/f2"' in summary.text and '/f2/learn' not in summary.text
 legacy = client.get(f'{base}/f2/learn', follow_redirects=False)

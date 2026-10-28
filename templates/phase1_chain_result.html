@@ -23,7 +23,7 @@
 <div class="feedback-actions">
   {% if fb.ok %}
   <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
-  {% elif k <= 2 %}
+  {% elif k <= 2 or k == 5 %}
   <a href="{{ prefix }}{{ retry_url }}" class="btn btn-primary">もう一度選ぶ</a>
   {% else %}
   <a href="{{ prefix }}{{ review_url }}" class="btn btn-primary">← {{ review_title }}から見直す</a>

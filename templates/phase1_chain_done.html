@@ -42,13 +42,8 @@
 <div class="card">
   <h2 style="font-size:1rem;">🗂 決まったカテゴリー</h2>
   <div class="infobox">
-    「{{ word.word }}」は
-    <span class="badge {% if category.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ category.kind }}</span>
-    <strong style="color:var(--blue);">「{{ category.name }}」</strong><br>
-    <strong>{{ profile }}</strong>
-    <div class="muted" style="margin-top:6px;">{{ category.profile_text }}</div>
+    「{{ word.word }}」は，{{ category.kind }}の「{{ category.name }}」カテゴリーです．
   </div>
-  <div class="notebox" style="margin-top:10px;">{{ category.expr_explain }}</div>
 </div>
 
 <div class="card" style="text-align:center; background:var(--purple-soft);">
