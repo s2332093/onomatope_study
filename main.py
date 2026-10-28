@@ -352,13 +352,47 @@ def phon_note(word, fkey):
                     f'{phon["pred_note"]}'}
 
 
+def feature_reason(word, fkey):
+    """Explain the target feature using its kind; continuity alone does not fix action."""
+    cat = get_category(word)
+    emotional = cat["kind"] == "感情・感覚"
+    value = cat[fkey]
+    if fkey == "continuity":
+        subject = "気持ち・感覚" if emotional else "動き・様子"
+        reason = {
+            "＋": f'{subject}が時間幅をもって続くため、継続性は「＋」です。',
+            "変化結果の＋": f'{subject}が変化した後の状態が残るため、変化結果の継続性は「＋」です。',
+            "ー": f'{subject}の変化が一瞬で成立するため、継続性は「ー」です。',
+        }[value]
+    elif fkey == "action":
+        if emotional:
+            reason = ("気持ち・感覚の一瞬の強い変化を表すため、動作性は「高」です。"
+                      if value == "高" else "時間幅のある気持ち・感覚の状態を表すため、動作性は「中」です。")
+        else:
+            reason = {
+                "高": "動きが続くことに加え、具体的な身体の動きを表すため、動作性は「高」です。",
+                "中": "動きが激しくなく、続く表情・状態を表すため、動作性は「中」です。",
+                "低": "積極的な動きが弱く、ゆるやかな様子を表すため、動作性は「低」です。",
+            }[value]
+    else:
+        if emotional:
+            reason = "意志では起こせない気持ち・感覚を表すため、意志性は「ー」です。"
+        else:
+            reason = {
+                "＋": "自分でその動作・過ごし方を選べるため、意志性は「＋」です。",
+                "ー": "自分の意志で起こす行為として扱わないため、意志性は「ー」です。",
+                "関与しない": "状況への反応で起こる動きとして扱うため、意志性は「関与しない」です。",
+            }[value]
+    return f'「{word["word"]}」は、{reason}'
+
+
 def feature_feedback(word, fkey):
     """素性1つぶんのフィードバック（Step2・素性ドリルで使う）"""
     cat = CAT_BY_ID[word["category_id"]]
     return {
         "correct_value": cat[fkey],
         "correct_label": val_label(fkey, cat[fkey]),
-        "why": cat[WHY_COL[fkey]],
+        "why": feature_reason(word, fkey),
         "general": FEATURE_EXPLAINS[fkey],
         "phon": phon_note(word, fkey),
     }
@@ -578,14 +612,14 @@ def chain_question(w, k):
     if k == 4:
         return {"step": step, "kind": "feature", "fkey": "action",
                 "flow": {"known": [cont_chip],
-                         "why": "続き方 ＋ 動き・感覚に注目",
+                         "why": "気持ち・感覚の変化と続き方" if cat["kind"] == "感情・感覚" else "体の動きの強さ・積極性に注目",
                          "ask": {"cap": "動作性"}},
                 "prompt": f'「{w["word"]}」の動作性は？',
                 "options": feature_options("action")}
 
     return {"step": step, "kind": "feature", "fkey": "volition",
             "flow": {"known": [cont_chip, act_chip],
-                     "why": "「今から〜しよう」と言える？",
+                     "why": "その気持ち・感覚を自分で起こせる？" if cat["kind"] == "感情・感覚" else "自分で始める動き？ 状況への反応？",
                      "ask": {"cap": "意志性"}},
             "prompt": f'「{w["word"]}」の意志性は？',
             "options": feature_options("volition")}
@@ -683,11 +717,18 @@ def chain_retry_feedback(w, k, choice):
                    if chosen else f'{word}の音の並びに合う形を選んでみましょう。')
         return {"message": message, "fig": None}
     fkey = {3: "continuity", 4: "action", 5: "volition"}[k]
-    message = {
-        3: f'{word}の続き方（続く・結果が残る・一瞬）を考え、音の形に戻って継続性を選び直しましょう。',
-        4: f'{word}がどのような動き・変化・状態を表すかを考え、継続性に戻って動作性を選び直しましょう。',
-        5: f'{word}を自分の意志で始めたりやめたりできるかを考え、動作性に戻って意志性を選び直しましょう。',
-    }[k]
+    if get_category(w)["kind"] == "感情・感覚":
+        message = {
+            3: f'{word}の気持ち・感覚の続き方（一瞬・続く・結果が残る）を考え、音の形から継続性を見直しましょう。',
+            4: f'{word}の気持ち・感覚が一瞬の変化か、時間幅のある状態かを考え、継続性から動作性を見直しましょう。',
+            5: f'{word}の気持ち・感覚を意志で起こせるかを考え、動作性から意志性を見直しましょう。',
+        }[k]
+    else:
+        message = {
+            3: f'{word}の動き・様子が続くのか、一瞬で終わるのかを考え、音の形から継続性を見直しましょう。',
+            4: f'{word}の体の動きの強さ・積極性を考え、継続性から動作性を見直しましょう。',
+            5: f'{word}の動き・様子を自分で始めるのか、状況への反応で起こるのかを考え、動作性から意志性を見直しましょう。',
+        }[k]
     return {"message": message, "fig": FEATURE_FIGS[fkey].get(choice)}
 
 
@@ -743,6 +784,7 @@ async def phase1_chain_done(request: Request, word_id: str):
     return templates.TemplateResponse(request, "phase1_chain_done.html", {
         "word": w, "category": cat, "chain": CHAIN,
         "profile": profile_str(cat),
+        "feature_reasons": {f: feature_reason(w, f) for f in ("continuity", "action", "volition")},
         "phon": PHON_BY_KEY[w["phon"]],
         "figs": FEATURE_FIGS,
         "next_word": nxt,
@@ -952,8 +994,7 @@ def grade_feature_questions(form):
                      "user": f'{chosen["word"]}（{val_label(fkey, cv)}）' if chosen else "(未選択)",
                      "correct_value": f'{val_label(fkey, tv)}の語',
                      "ok": ok,
-                     "explain": f'「{target["word"]}」は〈{val_label(fkey, tv)}〉です。'
-                                f'{CAT_BY_ID[target["category_id"]][WHY_COL[fkey]]}',
+                     "explain": feature_reason(target, fkey),
                      "extra": (f'選んだ「{chosen["word"]}」は〈{val_label(fkey, cv)}〉なので違います。'
                                if chosen and not ok else FEATURE_EXPLAINS[fkey])}
 
