@@ -468,7 +468,7 @@ def build_phon_table(exclude_word=None, hide_feature=None):
                 continue
             cat = CAT_BY_ID[w["category_id"]]
             for fkey in ("continuity", "action"):
-                if fkey == hide_feature:
+                if hide_feature in (fkey, "both"):
                     continue
                 pred = p[PRED_COL[fkey]]
                 if pred and cat[fkey] != pred:
@@ -596,10 +596,7 @@ def chain_question(w, k):
 
     if k == 2:
         return {"step": step, "kind": "phon",
-                "flow": {"known": [_chip("意味", w["meaning"])],
-                         "why": "音の形にも手がかりがある",
-                         "ask": {"cap": "音の形"}},
-                "prompt": f'「{w["word"]}」はどの音韻形態？',
+                "prompt": f'「{w["word"]}」の音の形は？',
                 "phon_opts": phon_options(w)}
 
     if k == 3:
@@ -719,9 +716,11 @@ def chain_retry_feedback(w, k, choice):
                    if chosen else f'{word}の音の並びに合う形を選んでみましょう。')
         return {"message": message, "fig": PHON_FIGS.get(choice)}
     if k == 5:
-        message = feature_reason(w, "volition").replace("、", "，").replace("。", "．")
-        return {"message": message + "もう一度選んでみましょう．",
-                "fig": FEATURE_FIGS["volition"].get(choice)}
+        if get_category(w)["kind"] == "感情・感覚":
+            message = f'{word}の意味をもう一度確かめ，感情・感覚を表すオノマトペかどうか考えてみましょう．'
+        else:
+            message = feature_reason(w, "volition").replace("、", "，").replace("。", "．") + "もう一度選んでみましょう．"
+        return {"message": message, "fig": FEATURE_FIGS["volition"].get(choice)}
     fkey = {3: "continuity", 4: "action", 5: "volition"}[k]
     if get_category(w)["kind"] == "感情・感覚":
         message = {
@@ -914,8 +913,8 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
         "fb": fb if fb["ok"] else {"ok": False, "user": fb["user"]},
         "retry_feedback": chain_retry_feedback(w, k, choice),
         "feedback_feature_options": feature_options({3: "continuity", 4: "action", 5: "volition"}[k]) if k >= 3 and not fb["ok"] else [],
-        "feedback_phon_table": build_phon_table(w["word"], {3: "continuity", 4: "action"}.get(k)) if k in (2, 3, 4) and not fb["ok"] else [],
-        "hide_phon_feature": {3: "continuity", 4: "action"}.get(k),
+        "feedback_phon_table": build_phon_table(w["word"], {2: "both", 3: "both", 4: "action"}.get(k)) if k in (2, 3, 4) and not fb["ok"] else [],
+        "hide_phon_feature": {2: "both", 3: "both", 4: "action"}.get(k),
         "failures": outcome["failures"], "review_for": review_for,
         "retry_url": retry_url, "review_url": review_url,
         "review_title": CHAIN_BY_K[review_k]["title"] if k > 1 else "場面",

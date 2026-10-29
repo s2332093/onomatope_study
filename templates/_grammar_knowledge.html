@@ -1,11 +1,11 @@
 <section id="grammar" style="scroll-margin-top:20px;">
-<details class="card knowledge-index">
-  <summary>文法形式の前接条件（全{{ expr_cards|length }}形式）</summary>
-  <div class="tscroll"><table class="dtable" style="min-width:590px;">
-    <thead><tr><th>文法形式・局面</th><th>前接条件</th><th>例</th></tr></thead>
+<details class="card knowledge-index knowledge-important knowledge-grammar">
+  <summary>文法形式の前接条件（全{{ expr_cards|length }}形式） <span class="knowledge-tag">重要</span></summary>
+  <div class="tscroll"><table class="dtable" style="min-width:420px;">
+    <thead><tr><th>文法形式・局面</th><th>前接条件</th></tr></thead>
     <tbody>{% for c in expr_cards %}<tr>
       <th scope="row">〜{{ c.expr.label }}<div class="small muted" style="margin-top:4px;">{{ c.expr.phase }}</div></th>
-      <td>{{ c.expr.cond_text }}</td><td>{{ c.expr.ok_example }}</td>
+      <td>{{ c.expr.cond_text }}</td>
     </tr>{% endfor %}</tbody>
   </table></div>
 </details>

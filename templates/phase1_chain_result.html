@@ -35,7 +35,7 @@
 {% endif %}
 {% if not fb.ok and feedback_phon_table %}
 <section class="card" aria-label="音の形の参照表">
-  <h2>音の形と素性の対応</h2>
+  <h2>{{ '音の形' if k in (2, 3) else '音の形と素性の対応' }}</h2>
   {% with phon_table=feedback_phon_table %}{% include "_phon_table.html" %}{% endwith %}
 </section>
 {% endif %}

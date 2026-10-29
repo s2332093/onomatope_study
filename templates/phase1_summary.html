@@ -4,13 +4,18 @@
   <h1>学習前の知識：素性と文法形式</h1>
   <p style="margin-top:12px;line-height:1.8;font-weight:500;">組み合わせを一つずつ覚えると，語や文法形式が増えるほど，覚える負担も大きくなります．</p>
   <p style="margin-top:12px;line-height:1.8;font-weight:500;">このシステムでは，語の特徴（素性）と文法形式の条件を照合する方法を学びます．</p>
-<p style="margin-top:12px;line-height:1.8;font-weight:500;">この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．それぞれの例で，素性の判断から文法形式との組み合わせまでを見てみましょう．</p>
 </div>
+
+<section class="card" id="study-scope">
+  <h2>扱うオノマトペ</h2>
+  <p class="lesson-instruction">この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．それぞれの例で，素性の判断から文法形式との組み合わせまでを見てみましょう．</p>
+</section>
 
 {% include "_intro_example.html" %}
 
-<details class="card knowledge-index">
-  <summary>素性の一覧（図）</summary>
+<p class="knowledge-reminder">重要：この3つの知識を確認してから，学習を進めてください．</p>
+<details class="card knowledge-index knowledge-important knowledge-features">
+  <summary>素性の一覧（図） <span class="knowledge-tag">重要</span></summary>
   {% for key, title, values in [
     ('continuity', '継続性', [('＋', '＋継続性', '状態・動きが続く'), ('変化結果の＋', '＋変化結果の継続性', '変化した後の結果が残る'), ('ー', 'ー継続性', '一瞬で成立する')]),
     ('action', '動作性', [('高', '動作性（高）', '具体的な動き・一瞬の強い変化'), ('中', '動作性（中）', '続く気持ち・感覚・状態'), ('低', '動作性（低）', 'ゆるやかで、積極的な動きが弱い')]),
@@ -29,8 +34,8 @@
   {% endfor %}
 </details>
 
-<details class="card knowledge-index">
-  <summary>音の形と素性の対応・例外</summary>
+<details class="card knowledge-index knowledge-important knowledge-phon">
+  <summary>音の形と素性の対応・例外 <span class="knowledge-tag">重要</span></summary>
   <p class="lesson-instruction" style="margin-bottom:12px;">音の形からの予測は傾向です．意味や場面も確かめます．</p>
   {% include "_phon_table.html" %}
 </details>

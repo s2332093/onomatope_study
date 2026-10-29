@@ -26,6 +26,7 @@
   </div>
 </div>
 
+{% if k != 2 %}
 <!-- ここまでで分かったこと → これから問うこと（図で示す） -->
 <div class="card" style="padding:18px 20px;">
   <div class="flow">
@@ -58,6 +59,7 @@
   </div>
 </div>
 
+{% endif %}
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/{{ k }}/check">
   <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ attempt_id }}">

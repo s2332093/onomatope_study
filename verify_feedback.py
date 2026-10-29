@@ -41,7 +41,13 @@ for word in main.WORDS:
                 if k == 5:
                     assert f'href="/a/word/{word["id"]}/f1/5"' in r.text
                     assert '動作性から見直す' not in r.text
-                    assert main.feature_reason(word, 'volition').replace('、','，').replace('。','．') in r.text
+                    if main.get_category(word)['kind'] == '感情・感覚':
+                        message = r.context['retry_feedback']['message']
+                        assert '意味をもう一度確かめ' in message
+                        assert '感情・感覚を表すオノマトペかどうか' in message
+                        assert not any(v in message for v in ('「ー」', 'ー意志性', '意志性は', 'ため'))
+                    else:
+                        assert main.feature_reason(word, 'volition').replace('、','，').replace('。','．') in r.text
                 else:
                     assert f'href="/a/word/{word["id"]}/f1/{k-1}?review_for={k}"' in r.text
             elif k==1: assert '近いオノマトペは「'+main.WORD_BY_ID[wrong]['word']+'」' in r.text
@@ -76,19 +82,26 @@ for word in main.WORDS:
     options = phon_page.context['q']['phon_opts']
     assert len(options) == 5 and {o['value'] for o in options} == set(main.PHON_BY_KEY)
     assert all(word['word'] not in o['example'].split('・') for o in options)
-    for k, hidden in [(2, None), (3, 'continuity'), (4, 'action')]:
-        correct = word['phon'] if k == 2 else main.get_category(word)[hidden]
-        choices = main.PHON_BY_KEY if k == 2 else main.FEATURE_FIGS[hidden]
+    for k, hidden in [(2, 'both'), (3, 'both'), (4, 'action')]:
+        feature = {3: 'continuity', 4: 'action'}.get(k)
+        correct = word['phon'] if k == 2 else main.get_category(word)[feature]
+        choices = main.PHON_BY_KEY if k == 2 else main.FEATURE_FIGS[feature]
         wrong = next(v for v in choices if v != correct)
         response = client.post(f'/a/word/{word["id"]}/f1/{k}/check', data={'choice':wrong})
         table = re.search(r'<table class="dtable phon-reference-table".*?</table>', response.text, re.S)[0]
         assert word['word'] not in table
         assert all('/static/' + fig in table for fig in main.PHON_FIGS.values())
-        assert ('<th>継続性の予測</th>' in table) == (hidden != 'continuity')
-        assert ('<th>動作性の予測</th>' in table) == (hidden != 'action')
-        for row in response.context['feedback_phon_table']:
-            if hidden:
-                assert all(main.FEATURE_NAME[hidden] not in e for e in row['exceptions'])
+        assert ('<th>継続性の予測</th>' in table) == (hidden not in ('continuity', 'both'))
+        assert ('<th>動作性の予測</th>' in table) == (hidden not in ('action', 'both'))
+        if hidden == 'both':
+            assert '<th>例外</th>' not in table
+            assert '<h2>音の形</h2>' in response.text
+            assert all(not row['exceptions'] for row in response.context['feedback_phon_table'])
+        else:
+            assert all(main.FEATURE_NAME[hidden] not in e for row in response.context['feedback_phon_table'] for e in row['exceptions'])
+    assert '音の形にも手がかりがある' not in phon_page.text
+    assert 'class="flow"' not in phon_page.text
+    assert f'「{word["word"]}」の音の形は？' in phon_page.text
 
 # Home cards provide no meaning/scene answers. Only A groups words by the two broad kinds.
 for prefix in ('/a', '/b'):
@@ -99,8 +112,15 @@ assert [g['kind'] for g in main.word_groups()] == ['感情・感覚', '動作']
 intro_page = client.get('/a/reference').text
 assert intro_page.index('<summary>素性の一覧') < intro_page.index('<summary>音の形') < intro_page.index('<summary>文法形式')
 assert '素性の組み合わせと8つのカテゴリー' not in intro_page
+assert 'id="study-scope"' in intro_page
+assert intro_page.count('class="knowledge-tag"') == 3
+assert 'この3つの知識を確認してから' in intro_page
+grammar = re.search(r'<section id="grammar".*?</section>', intro_page, re.S)[0]
+assert '<th>例</th>' not in grammar
+assert all(e['ok_example'] not in grammar for e in main.EXPRESSIONS)
+
 assert 'この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．' in intro_page
-assert '結びつく形式を，理由を考えて選ぶ練習です．' in client.get('/a/word/iraira/f2').text
+assert '結びつく形式を，理由を考えて選ぶ練習です．' not in client.get('/a/word/iraira/f2').text
 assert 'learning-scene' in client.get('/a/word/iraira/f1/1').text
 assert 'learning-scene' in client.get('/b/word/iraira').text
 assert not any(q['spec'].startswith('C:') for q in client.get('/a/drill/features').context['questions'])
