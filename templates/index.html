@@ -31,8 +31,7 @@
 
 {% for g in groups %}
 <h2 style="margin:24px 0 10px; font-size:1rem;">
-  <span class="badge {% if g.category.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ g.category.kind }}</span>
-  {{ g.category.name }}
+  <span class="badge {% if g.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ g.kind }}</span>
 </h2>
 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px;">
   {% for w in g.words %}
@@ -42,7 +41,6 @@
       <div style="font-size:1.8rem;">{{ w.emoji }}</div>
       <div style="flex:1;">
         <div style="font-size:1.05rem; font-weight:700;">{{ w.word }}</div>
-        <div class="muted small">{{ w.scene }}</div>
       </div>
       <span class="badge badge-blue">学ぶ →</span>
     </div>

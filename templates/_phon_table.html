@@ -1,0 +1,17 @@
+<div class="tscroll">
+  <table class="dtable phon-reference-table" style="min-width:680px;">
+    <thead><tr>
+      <th>音の形</th><th>図</th>
+      {% if hide_phon_feature != 'continuity' %}<th>継続性の予測</th>{% endif %}
+      {% if hide_phon_feature != 'action' %}<th>動作性の予測</th>{% endif %}
+      <th>例語</th><th>例外</th>
+    </tr></thead>
+    <tbody>{% for row in phon_table %}<tr>
+      <th scope="row">{{ row.form.label }}</th>
+      <td><img src="/static/{{ row.fig }}" alt="{{ row.form.label }}の図" width="150" style="display:block;max-width:none;"></td>
+      {% if hide_phon_feature != 'continuity' %}<td>{{ row.pred_cont_label }}</td>{% endif %}
+      {% if hide_phon_feature != 'action' %}<td>{{ row.pred_act_label }}</td>{% endif %}
+      <td>{{ row.examples or '―' }}</td><td>{{ row.exceptions|join('・') if row.exceptions else '―' }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+</div>

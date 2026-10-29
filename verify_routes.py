@@ -94,8 +94,8 @@ for w in WORDS:
 
     # まとめページ
     r = get(f'/a/word/{w["id"]}/f1/done')
-    if cat["name"] not in r.text:
-        fails.append(f'{w["word"]} のまとめにカテゴリー名が出ていません')
+    if cat["name"] in r.text or cat["kind"] not in r.text:
+        fails.append(f'{w["word"]} のまとめに詳細カテゴリーが残っているか種類がありません')
 
 # Phase 1 has no optional hint panels, including review and summary pages.
 for suffix in [*(f'f1/{k}' for k in range(1,6)), 'f1/done']:
@@ -195,9 +195,9 @@ for attempt in range(60):
         else:
             data[f"choice_{idx}"] = random.choice(WORDS)["id"]
     post("/a/drill/features/check", data)
-    if seen >= {"f", "p", "S", "C"}:
+    if seen >= {"f", "p", "S"}:
         break
-if seen < {"f", "p", "S", "C"}:
+if seen < {"f", "p", "S"}:
     fails.append(f"素性ドリルの全タイプが出題されませんでした：{seen}")
 
 # ---- 前接条件ドリル ----
@@ -253,8 +253,8 @@ for w in WORDS:
     post(f'/a/word/{w["id"]}/f3/check', data2)
 
     r = get(f'/a/word/{w["id"]}/complete')
-    if cat["name"] not in r.text:
-        fails.append(f'{w["word"]} の完了画面にカテゴリー名が出ていません')
+    if cat["name"] in r.text or cat["kind"] not in r.text:
+        fails.append(f'{w["word"]} の完了画面に詳細カテゴリーが残っているか種類がありません')
 
 # ---- Step4：誤答選択肢が必ず「結びつかない形式」であること ----
 for w in WORDS:

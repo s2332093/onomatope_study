@@ -21,7 +21,7 @@ def submit(k, choice, review_for=None, attempt_id=None):
     return client.post(f'{base}/f1/{k}/check', data=data)
 
 
-# No answer reveal after any number of errors. Only the selected figure is shown.
+# Repeated errors retain the selected diagram and show all generic reference diagrams, without marking the correct option.
 for word in main.WORDS:
     fresh=TestClient(main.app)
     for k in range(1,6):
@@ -36,7 +36,8 @@ for word in main.WORDS:
             assert r.context['failures']==attempt+1
             assert all(text not in r.text for text in ['正解：','知識を確認','回で知識を表示','選んだ答えの捉え方','場面と合わない点','確かめること'])
             if fkey:
-                assert main.FEATURE_FIGS[fkey][wrong] in r.text and main.FEATURE_FIGS[fkey][correct] not in r.text
+                assert all(fig in r.text for fig in main.FEATURE_FIGS[fkey].values())
+                assert len(r.context["feedback_feature_options"]) == 3
                 if k == 5:
                     assert f'href="/a/word/{word["id"]}/f1/5"' in r.text
                     assert '動作性から見直す' not in r.text
@@ -45,7 +46,8 @@ for word in main.WORDS:
                     assert f'href="/a/word/{word["id"]}/f1/{k-1}?review_for={k}"' in r.text
             elif k==1: assert '近いオノマトペは「'+main.WORD_BY_ID[wrong]['word']+'」' in r.text
             else:
-                assert main.PHON_FIGS[wrong] in r.text and main.PHON_FIGS[correct] not in r.text
+                assert main.PHON_FIGS[wrong] in r.text
+                assert all(fig in r.text for fig in main.PHON_FIGS.values())
                 assert main.PHON_BY_KEY[wrong]['label']+'の並びと「'+word['word']+'」の並びは一致しません。' in r.text
             repeat=fresh.post(f'/a/word/{word["id"]}/f1/{k}/check',data=data)
             assert repeat.context['failures']==attempt+1
@@ -54,7 +56,7 @@ assert '「突然のことに驚く」に近いオノマトペは「びっくり
 r=submit(2,'nri')
 assert '「ん＋り」型の並びと「いらいら」の並びは一致しません。' in r.text
 assert client.post(f'{base}/f1/4/continue',follow_redirects=False).headers['location']==f'{base}/f1/4'
-r=submit(4,'高');assert 'act_high.svg' in r.text and 'act_mid.svg' not in r.text
+r=submit(4,'高');assert 'act_high.svg' in r.text and 'act_mid.svg' in r.text
 r=submit(3,'ー',review_for=4);assert f'href="{base}/f1/2?review_for=4"' in r.text
 r=submit(2,'repeat',review_for=4);assert f'href="{base}/f1/3?review_for=4"' in r.text
 r=submit(3,'＋',review_for=4);assert f'href="{base}/f1/4"' in r.text
@@ -66,6 +68,42 @@ for suffix in ['f1/1','f1/2','f1/3','f1/4','f1/5','f1/done']:
 assert 'class="hint-toggle"' not in client.get('/a/drill/features').text
 b=client.post('/b/word/iraira/meaning/check',data={'choice':'bikkuri'})
 assert '近いオノマトペは「びっくり」' in b.text and '正しい意味' not in b.text and '/b/word/iraira/f3' not in b.text
+
+
+# Five choices, target-free feedback tables, and omission of the feature being retried.
+for word in main.WORDS:
+    phon_page = client.get(f'/a/word/{word["id"]}/f1/2')
+    options = phon_page.context['q']['phon_opts']
+    assert len(options) == 5 and {o['value'] for o in options} == set(main.PHON_BY_KEY)
+    assert all(word['word'] not in o['example'].split('・') for o in options)
+    for k, hidden in [(2, None), (3, 'continuity'), (4, 'action')]:
+        correct = word['phon'] if k == 2 else main.get_category(word)[hidden]
+        choices = main.PHON_BY_KEY if k == 2 else main.FEATURE_FIGS[hidden]
+        wrong = next(v for v in choices if v != correct)
+        response = client.post(f'/a/word/{word["id"]}/f1/{k}/check', data={'choice':wrong})
+        table = re.search(r'<table class="dtable phon-reference-table".*?</table>', response.text, re.S)[0]
+        assert word['word'] not in table
+        assert all('/static/' + fig in table for fig in main.PHON_FIGS.values())
+        assert ('<th>継続性の予測</th>' in table) == (hidden != 'continuity')
+        assert ('<th>動作性の予測</th>' in table) == (hidden != 'action')
+        for row in response.context['feedback_phon_table']:
+            if hidden:
+                assert all(main.FEATURE_NAME[hidden] not in e for e in row['exceptions'])
+
+# Home cards provide no meaning/scene answers. Only A groups words by the two broad kinds.
+for prefix in ('/a', '/b'):
+    home = client.get(prefix + '/').text
+    assert all(word['scene'] not in home and word['meaning'] not in home for word in main.WORDS)
+    assert all(cat['name'] not in home for cat in main.CATEGORIES)
+assert [g['kind'] for g in main.word_groups()] == ['感情・感覚', '動作']
+intro_page = client.get('/a/reference').text
+assert intro_page.index('<summary>素性の一覧') < intro_page.index('<summary>音の形') < intro_page.index('<summary>文法形式')
+assert '素性の組み合わせと8つのカテゴリー' not in intro_page
+assert 'この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．' in intro_page
+assert '結びつく形式を，理由を考えて選ぶ練習です．' in client.get('/a/word/iraira/f2').text
+assert 'learning-scene' in client.get('/a/word/iraira/f1/1').text
+assert 'learning-scene' in client.get('/b/word/iraira').text
+assert not any(q['spec'].startswith('C:') for q in client.get('/a/drill/features').context['questions'])
 
 # Grammar knowledge is introductory content; phase 2 starts directly with matching.
 intro = client.get('/a/reference')
@@ -225,4 +263,4 @@ for w in main.WORDS:
 bikkuri=client.post('/a/word/bikkuri/f2/check',data={'shidasu':'○'},headers=json_headers).json()
 assert bikkuri['invalid_conditions']=={'shidasu':'＋継続性・動作性（中・高）・意志的でないこと'}
 
-print('OK: no reveal at any count, all 16 words and selected diagrams, concise feedback, no phase-1 hints, invalid-card-only conditions, accurate three-feature comparisons, preserved review flow and group isolation')
+print('OK: all 16 words, five phonology choices, generic feature diagrams, target-free tables with omitted forecast columns, two-kind navigation, review flow, matching conditions and group isolation')

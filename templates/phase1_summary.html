@@ -3,11 +3,11 @@
 <div class="card">
   <h1>学習前の知識：素性と文法形式</h1>
   <p style="margin-top:12px;line-height:1.8;font-weight:500;">組み合わせを一つずつ覚えると，語や文法形式が増えるほど，覚える負担も大きくなります．</p>
-  <p style="margin-top:12px;line-height:1.8;font-weight:500;">このシステムでは，語の特徴（素性）と文法形式の条件を照合する方法を学びます．「いらいら」と「ぶらぶら」を例に，判断の流れを見てみましょう．</p>
+  <p style="margin-top:12px;line-height:1.8;font-weight:500;">このシステムでは，語の特徴（素性）と文法形式の条件を照合する方法を学びます．</p>
+<p style="margin-top:12px;line-height:1.8;font-weight:500;">この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．それぞれの例で，素性の判断から文法形式との組み合わせまでを見てみましょう．</p>
 </div>
 
 {% include "_intro_example.html" %}
-{% include "_grammar_knowledge.html" %}
 
 <details class="card knowledge-index">
   <summary>素性の一覧（図）</summary>
@@ -31,22 +31,11 @@
 
 <details class="card knowledge-index">
   <summary>音の形と素性の対応・例外</summary>
-  <p class="small" style="margin-bottom:12px;">音の形からの予測は傾向です。意味・場面でも確かめます。</p>
-  <div class="tscroll"><table class="dtable" style="min-width:600px;">
-    <thead><tr><th>音韻形態</th><th>継続性の予測</th><th>動作性の予測</th><th>例語</th><th>例外</th></tr></thead>
-    <tbody>{% for r in phon_table %}<tr>
-      <th scope="row">{{ r.form.label }}</th><td>{{ r.pred_cont_label }}</td><td>{{ r.pred_act_label }}</td><td>{{ r.form.example }}</td><td>{% if r.exceptions %}{{ r.exceptions|join('・') }}{% else %}—{% endif %}</td>
-    </tr>{% endfor %}</tbody>
-  </table></div>
+  <p class="lesson-instruction" style="margin-bottom:12px;">音の形からの予測は傾向です．意味や場面も確かめます．</p>
+  {% include "_phon_table.html" %}
 </details>
 
-<details class="card knowledge-index">
-  <summary>素性の組み合わせと8つのカテゴリー</summary>
-  <div class="tscroll"><table class="dtable" style="min-width:500px;">
-    <thead><tr><th>種類</th><th>カテゴリー</th><th>素性</th></tr></thead>
-    <tbody>{% for c in categories %}<tr><td>{{ c.kind }}</td><th scope="row">{{ c.name }}</th><td>{{ c.profile_text }}</td></tr>{% endfor %}</tbody>
-  </table></div>
-</details>
+{% include "_grammar_knowledge.html" %}
 
 <div class="card" style="text-align:center;background:var(--blue-soft);">
   <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-primary">語を選んで学習する →</a>

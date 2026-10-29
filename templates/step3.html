@@ -19,7 +19,7 @@
   {% for r in context_review %}
   <div class="result-item ng">
     <p class="feedback-check is-incorrect">問{{ r.no }}：× 不正解</p>
-    <p class="small" style="margin-top:6px;">{{ r.frame }}</p>
+    <p class="learning-scene">{{ r.frame }}</p>
     <p class="small" style="margin-top:6px;">あなたの選択：<strong>{{ r.choice }}</strong></p>
     <p class="small" style="margin-top:5px;">{{ r.reason }}</p>
   </div>
@@ -27,6 +27,11 @@
   <p class="small muted">線を見直して判定したら、文脈問題に戻ります。</p>
 </div>
 {% endif %}
+
+<div class="card">
+  <h1>素性を使って，結びつく文法形式を選ぶ</h1>
+  <p class="lesson-instruction">「{{ word.word }}」の素性と文法形式の前接条件を比べ，条件がすべて合う形式に線を引いてください．結びつく形式を，理由を考えて選ぶ練習です．</p>
+</div>
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
   <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">

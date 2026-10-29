@@ -443,8 +443,8 @@ def meaning_options(word, n=4):
 #  トップページ
 # =====================================================================
 def word_groups():
-    return [{"category": c, "words": [w for w in WORDS if w["category_id"] == c["id"]]}
-            for c in CATEGORIES]
+    return [{"kind": kind, "words": [w for w in WORDS if get_category(w)["kind"] == kind]}
+            for kind in ("感情・感覚", "動作")]
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -457,23 +457,27 @@ async def index(request: Request):
 # =====================================================================
 #  フェーズ1：素性の学習
 # =====================================================================
-def build_phon_table():
-    """音韻形態 × 素性の対応表（予測できない素性は「—」、予測と違う語は例外として列挙）"""
+def build_phon_table(exclude_word=None, hide_feature=None):
+    """音の形の参照表。誤答時は対象語と見直す素性の例外表示を除外する。"""
     table = []
     for p in PHON_DEFS:
         # 語ごとにまとめる（「ゆっくり（継続性）・ゆっくり（動作性）」と重複させない）
         by_word = {}
         for w in WORDS:
-            if w["phon"] != p["key"]:
+            if w["phon"] != p["key"] or w["word"] == exclude_word:
                 continue
             cat = CAT_BY_ID[w["category_id"]]
             for fkey in ("continuity", "action"):
+                if fkey == hide_feature:
+                    continue
                 pred = p[PRED_COL[fkey]]
                 if pred and cat[fkey] != pred:
                     by_word.setdefault(w["word"], []).append(FEATURE_NAME[fkey])
         exceptions = [f'{word}（{"・".join(feats)}）' for word, feats in by_word.items()]
         table.append({
             "form": p,
+            "fig": PHON_FIGS[p["key"]],
+            "examples": "・".join(e for e in p["example"].split("・") if e != exclude_word),
             "pred_cont_label": val_label("continuity", p["pred_cont"]) if p["pred_cont"] else "—（語による）",
             "pred_act_label": val_label("action", p["pred_act"]) if p["pred_act"] else "—（語による）",
             "exceptions": exceptions,
@@ -550,11 +554,9 @@ def feature_options(fkey):
              "note": FEATURE_OPTION_NOTES[fkey][v]} for v in fdef["options"]]
 
 
-def phon_options(word, n_distractors=2):
-    """音韻形態の選択肢（正解＋紛らわしい形）。例から学習中の語は外す。"""
-    correct = PHON_BY_KEY[word["phon"]]
-    others = [p for p in PHON_DEFS if p["key"] != correct["key"]]
-    opts = [correct] + random.sample(others, min(n_distractors, len(others)))
+def phon_options(word):
+    """全5種類の音韻形態。例語から学習中の語は外す。"""
+    opts = list(PHON_DEFS)
     random.shuffle(opts)
     out = []
     for p in opts:
@@ -872,7 +874,7 @@ def _q_cat():
 
 
 # 総合ドリルの出題構成（タイプ, 問数）
-DRILL_PLAN = [("feat", 3), ("phon", 1), ("same", 1), ("cat", 1)]
+DRILL_PLAN = [("feat", 4), ("phon", 1), ("same", 1)]
 
 
 
@@ -911,6 +913,9 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
         "step": CHAIN_BY_K[k],
         "fb": fb if fb["ok"] else {"ok": False, "user": fb["user"]},
         "retry_feedback": chain_retry_feedback(w, k, choice),
+        "feedback_feature_options": feature_options({3: "continuity", 4: "action", 5: "volition"}[k]) if k >= 3 and not fb["ok"] else [],
+        "feedback_phon_table": build_phon_table(w["word"], {3: "continuity", 4: "action"}.get(k)) if k in (2, 3, 4) and not fb["ok"] else [],
+        "hide_phon_feature": {3: "continuity", 4: "action"}.get(k),
         "failures": outcome["failures"], "review_for": review_for,
         "retry_url": retry_url, "review_url": review_url,
         "review_title": CHAIN_BY_K[review_k]["title"] if k > 1 else "場面",

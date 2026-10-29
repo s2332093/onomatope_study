@@ -20,6 +20,25 @@
     <p style="margin-top:20px;line-height:1.8;">{{ retry_feedback.message }}</p>
   {% endif %}
 </div>
+{% if not fb.ok and feedback_feature_options %}
+<section class="card" aria-label="素性の図の比較">
+  <h2>{{ step.title }}の図を見比べる</h2>
+  <div class="feature-reference-grid">
+    {% for option in feedback_feature_options %}
+    <figure>
+      <img src="/static/{{ option.fig }}" alt="{{ option.label }}" width="190">
+      <figcaption><strong>{{ option.label }}</strong><p>{{ option.note }}</p></figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% if not fb.ok and feedback_phon_table %}
+<section class="card" aria-label="音の形の参照表">
+  <h2>音の形と素性の対応</h2>
+  {% with phon_table=feedback_phon_table %}{% include "_phon_table.html" %}{% endwith %}
+</section>
+{% endif %}
 <div class="feedback-actions">
   {% if fb.ok %}
   <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
