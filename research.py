@@ -115,7 +115,7 @@ def page_label(path):
         if len(parts)>2:
             stage=parts[2]
             if stage=='f1' and len(parts)>3:
-                suffix = 'オノマトペの種類' if parts[3:5]==['2','kind'] else '素性学習のまとめ' if parts[3]=='done' else {'1':'意味','2':'音の形','3':'継続性','4':'動作性','5':'意志性'}.get(parts[3],'素性学習')
+                suffix = 'オノマトペの種類' if parts[3:5] in (['2','kind'], ['4','kind']) else '素性学習のまとめ' if parts[3]=='done' else {'1':'意味','2':'音の形','3':'継続性','4':'動作性','5':'意志性'}.get(parts[3],'素性学習')
             else:
                 suffix={'meaning':'意味','f2':'線結び','f3':'文脈練習','complete':'学習完了'}.get(stage,stage)
         return word+'：'+suffix+('：フィードバック' if parts[-1]=='check' else '')

@@ -188,6 +188,18 @@
     .feedback-banner.is-incorrect { background:var(--red-soft);border-color:#b72c2c; }
     .feedback-missing { margin-top:14px;padding:12px 16px;background:#fff3cd;border:2px solid #d49a16;border-left-width:6px;border-radius:8px;color:#7c4700;font-size:1.05rem;font-weight:700;line-height:1.7; }
     .feedback-answer { margin-top:12px;line-height:1.8; }
+    .feedback-guidance {
+      margin-top:20px;padding:18px 20px;border-left:5px solid #c26912;border-radius:8px;
+      background:#fff3df;color:#843b09;font-size:1.25rem;font-weight:700;line-height:1.9;
+      white-space:pre-line;overflow-wrap:anywhere;
+    }
+    .feedback-guidance.is-correct { color:#166337;background:#e3f7ec;border-left-color:#16723c; }
+    .feedback-answer { font-size:1.125rem;font-weight:500; }
+    .comparison-choices { display:flex;gap:10px;flex-wrap:wrap;min-width:155px;border:0;padding:0; }
+    .comparison-choices label { display:flex;align-items:center;gap:6px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);font-size:.95rem;font-weight:700;cursor:pointer; }
+    .comparison-choices label:has(input:checked) { border-color:var(--blue);background:var(--blue-soft); }
+    .comparison-choices input { accent-color:var(--blue); }
+    @media (max-width:560px) { .feedback-guidance { padding:15px;font-size:1.125rem; } }
     .feedback-check { font-weight:700; }
 
     /* 素性照合の箇条書き */

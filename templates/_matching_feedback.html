@@ -1,18 +1,28 @@
 {% set prefix = request.scope.get('study_prefix', '') %}
+{% if not inline_feedback %}
 <div class="card feedback-panel {% if all_correct %}is-correct{% else %}is-incorrect{% endif %}" aria-live="polite">
   <h1 class="feedback-verdict {% if all_correct %}is-correct{% else %}is-incorrect{% endif %}">{% if all_correct %}○ 正解です！{% else %}× 不正解です{% endif %}</h1>
   {% if all_correct %}<p style="margin-top:12px;"><strong>{{ n_expr_correct }} / {{ total_expr }} 正解</strong></p>
   {% elif has_missing %}<p class="feedback-missing">！ まだ結べていない形式があります。</p>{% endif %}
 </div>
+{% endif %}
+{% if selected_results %}<p class="feedback-guidance">それぞれの素性が条件に合うか，
+自分で選んでみましょう．</p>{% endif %}
 {% for r in selected_results %}
-<section class="card">
+<section class="card matching-comparison">
   <h2>「{{ word.word }}」と「〜{{ r.label }}」の比較</h2>
   <div class="tscroll"><table class="dtable" style="min-width:520px;">
-    <thead><tr><th scope="col">素性</th><th scope="col">「{{ word.word }}」の素性</th><th scope="col">{{ r.label }}の条件</th><th scope="col">照合</th></tr></thead>
+    <thead><tr><th scope="col">素性</th><th scope="col">「{{ word.word }}」の素性</th><th scope="col">{{ r.label }}の条件</th><th scope="col">照合（自分で選ぶ）</th></tr></thead>
     <tbody>{% for c in r.comparison %}
-      <tr{% if not c.ok %} style="background:var(--red-soft);color:var(--red);font-weight:700;"{% endif %}>
+      <tr>
         <th scope="row">{{ c.name }}</th><td>{{ c.actual }}</td><td>{{ c.req }}</td>
-        <td class="feedback-check {% if not c.unrestricted %}{% if c.ok %}is-correct{% else %}is-incorrect{% endif %}{% endif %}" style="white-space:nowrap;">{% if c.unrestricted %}―{% elif c.ok %}○ 合う{% else %}× 合わない{% endif %}</td>
+        <td>
+          <fieldset class="comparison-choices" aria-label="{{ r.label }}：{{ c.name }}の照合">
+            {% for value in ['合う', '合わない'] %}
+            <label><input type="radio" name="compare_{{ r.key }}_{{ c.key }}" value="{{ value }}">{{ value }}</label>
+            {% endfor %}
+          </fieldset>
+        </td>
       </tr>
     {% endfor %}</tbody>
   </table></div>

@@ -8,7 +8,7 @@
 {% for r in results %}
 <div class="card">
   <h2 class="feedback-check is-correct">問{{ r.no }}：○ 正解</h2>
-  <div class="infobox" style="font-weight:700;">{{ r.completed }}</div>
+  <div class="feedback-guidance is-correct">{{ r.completed }}</div>
   <p class="small" style="margin-top:12px;">「〜{{ r.label }}」の局面：{{ r.phase }}</p>
 </div>
 {% endfor %}

@@ -10,7 +10,7 @@
     <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3">フェーズ2：文脈練習へ →</a>
     {% else %}
     <h2 class="feedback-verdict is-incorrect" style="margin-top:20px;">× 不正解です</h2>
-    <p class="feedback-answer">{{ retry_feedback.message }}</p>
+    <p class="feedback-guidance">{{ retry_feedback.message|feedback_lines }}</p>
     <a class="btn btn-primary" style="margin-top:20px;" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}">もう一度選ぶ</a>
     {% endif %}
   {% else %}

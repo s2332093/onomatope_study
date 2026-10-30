@@ -27,11 +27,11 @@
     あなた：<strong>{{ r.user }}</strong>
     ／ 正解：<strong style="color:var(--green);">{{ r.correct_value }}</strong>
     {% if r.explain %}
-    <div class="small" style="color:var(--blue); margin-top:6px;">{{ r.explain }}</div>
+    <div class="feedback-guidance{% if r.ok %} is-correct{% endif %}">{{ r.explain|feedback_lines }}</div>
     {% endif %}
     {% if r.lines %}
-    <ul class="checklines">
-      {% for line in r.lines %}<li>{{ line }}</li>{% endfor %}
+    <ul class="checklines feedback-guidance{% if r.ok %} is-correct{% endif %}">
+      {% for line in r.lines %}<li style="font:inherit;color:inherit;">{{ line|feedback_lines }}</li>{% endfor %}
     </ul>
     {% endif %}
     <div class="small muted" style="margin-top:4px;">{{ r.examples }}</div>

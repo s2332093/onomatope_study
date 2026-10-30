@@ -28,9 +28,9 @@
   <div class="result-item {% if not r.ok %}ng{% endif %}">
     あなた：<strong>{{ r.user }}</strong>
     ／ 正解：<strong style="color:var(--green);">{{ r.correct_value }}</strong>
-    <div class="small" style="color:var(--blue); margin-top:6px;">{{ r.explain }}</div>
+    <div class="feedback-guidance{% if r.ok %} is-correct{% endif %}">{{ r.explain|feedback_lines }}</div>
     {% if r.extra %}
-    <div class="small muted" style="margin-top:4px;">{{ r.extra }}</div>
+    <div class="feedback-guidance{% if r.ok %} is-correct{% endif %}">{{ r.extra|feedback_lines }}</div>
     {% endif %}
   </div>
 </div>

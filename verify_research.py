@@ -28,7 +28,7 @@ with patch.object(study_logging,'connect',side_effect=AssertionError('analytics 
     capture(client.post('/a/word/iraira/f1/1/check',data=dict(meta,choice='iraira',attempt_id='right-1')))
     cat=main.get_category(main.WORD_BY_ID['iraira'])
     connections={key:'○' for key in main.CAT_EXPRS[cat['id']]}
-    r=capture(client.post('/a/word/iraira/f2/check',data=dict(connections,_study_participant=pid,attempt_id='matching-right',_study_path='/a/word/iraira/f2'),headers={'Accept':'application/json'}));assert '○ 正解です！' in r.json()['feedback_html']
+    r=capture(client.post('/a/word/iraira/f2/check',data=dict(connections,_study_participant=pid,attempt_id='matching-right',_study_path='/a/word/iraira/f2'),headers={'Accept':'application/json'}));assert r.json()['all_correct']
     choices={f'choice_{q["ord"]}':q['correct_key'] for q in main.PRACTICE['iraira']};choices['choice_1']='wrong'
     r=capture(client.post('/a/word/iraira/f3/check',data=dict(choices,_study_participant=pid,attempt_id='context-wrong'),follow_redirects=False));assert r.status_code==303
     assert f'data-study-receipt="{receipts[-1]}"' in client.get(r.headers['location']).text
@@ -70,10 +70,12 @@ kind_pid = research.identity(type('R', (), {'cookies': kind_client.cookies})())
 kind_receipts = []
 with patch.object(study_logging, 'connect', side_effect=AssertionError('analytics write before finish')):
     for choice in ('動作', '感情・感覚'):
-        r = kind_client.post('/a/word/iraira/f1/2/kind/check', data={'choice': choice, 'attempt_id': choice, '_study_participant': kind_pid})
+        r = kind_client.post('/a/word/iraira/f1/4/kind/check', data={'choice': choice, 'attempt_id': choice, '_study_participant': kind_pid})
         kind_receipts.append(r.headers['x-study-receipt'])
-assert kind_client.post('/a/api/finish', json={'participant_id': kind_pid, 'receipts': kind_receipts}).status_code == 200
+comparison_event = {'event_id': 'comparison-answer', 'page_id': 'matching-visit', 'event_type': 'answer_change', 'elapsed_ms': 5000, 'detail': {'path': '/a/word/iraira/f2', 'name': 'compare_shitsuzukeru_action', 'value': '合わない'}}
+assert kind_client.post('/a/api/finish', json={'participant_id': kind_pid, 'receipts': kind_receipts, 'events': [comparison_event]}).status_code == 200
 kind_report = research.report(kind_pid)
+assert any(row[7] == 'answer_change' and 'compare_shitsuzukeru_action' in row[9] for row in kind_report['events'])
 assert [r['correct'] for r in kind_report['attempts']] == [False, True]
 assert all(r['page_label'] == 'いらいら：オノマトペの種類' for r in kind_report['attempts'])
 assert [r['answer_label'] for r in kind_report['attempts']] == ['解答：動作', '解答：感情・感覚']

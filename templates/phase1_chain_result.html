@@ -7,7 +7,7 @@
   {% if fb.ok %}
     <h2 class="feedback-verdict is-correct" style="margin-top:16px;">○ 正解です！</h2>
     <p class="feedback-answer"><strong>{{ fb.user }}</strong></p>
-    {% if k >= 3 %}<p class="feedback-answer">{{ fb.why }}</p>{% endif %}
+    {% if k >= 3 %}<p class="feedback-guidance is-correct">{{ fb.why|feedback_lines }}</p>{% endif %}
     {% if fb.fig %}<div style="text-align:center;margin:16px 0;"><img src="/static/{{ fb.fig }}" alt="{{ fb.user }}" style="width:100%;max-width:240px;"></div>{% endif %}
   {% else %}
     <h2 class="feedback-verdict is-incorrect" style="margin-top:16px;">× 不正解です</h2>
@@ -17,7 +17,7 @@
       <img src="/static/{{ retry_feedback.fig }}" alt="選んだ答え：{{ fb.user }}" style="width:100%;max-width:240px;">
     </figure>
     {% endif %}
-    <p style="margin-top:20px;line-height:1.8;">{{ retry_feedback.message }}</p>
+    <p class="feedback-guidance">{{ retry_feedback.message|feedback_lines }}</p>
   {% endif %}
 </div>
 {% if not fb.ok and feedback_feature_options %}
@@ -44,7 +44,7 @@
 {% endif %}
 <div class="feedback-actions">
   {% if fb.ok %}
-  <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ 'オノマトペの種類' if k == 1 else chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
+  <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ 'オノマトペの種類' if k == 3 else chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
   {% elif k <= 2 or k == 5 %}
   <a href="{{ prefix }}{{ retry_url }}" class="btn btn-primary">もう一度選ぶ</a>
   {% else %}

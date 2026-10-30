@@ -21,7 +21,7 @@
     <p class="feedback-check is-incorrect">問{{ r.no }}：× 不正解</p>
     <p class="learning-scene">{{ r.frame }}</p>
     <p class="small" style="margin-top:6px;">あなたの選択：<strong>{{ r.choice }}</strong></p>
-    <p class="small" style="margin-top:5px;">{{ r.reason }}</p>
+    <p class="feedback-guidance">{{ r.reason|feedback_lines }}</p>
   </div>
   {% endfor %}
   <p class="small muted">線を見直して判定したら、文脈問題に戻ります。</p>
@@ -361,7 +361,13 @@ document.addEventListener("DOMContentLoaded", () => {
         showMatchingStatus("回答が変わりました。もう一度判定してください。");
         return;
       }
-      showMatchingStatus("回答を受け付けました．フィードバックを確認してください．");
+      showMatchingStatus(result.all_correct ? "○ 正解です！" : "× 不正解です", result.all_correct ? "correct" : "incorrect");
+      if (result.has_missing) {
+        const missing = document.createElement("p");
+        missing.className = "feedback-missing";
+        missing.textContent = "！ まだ結べていない形式があります．";
+        status.appendChild(missing);
+      }
       feedback.innerHTML = result.feedback_html;
       actions.hidden = false;
       status.scrollIntoView({behavior:"smooth", block:"center"});
@@ -374,7 +380,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("showMatchingFeedback").addEventListener("click", () => {
     feedback.hidden = !feedback.hidden;
-    status.hidden = !feedback.hidden;
     if (!feedback.hidden) feedback.scrollIntoView({behavior:"smooth", block:"start"});
   });
 

@@ -34,6 +34,14 @@ from database import load_all
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+
+
+def feedback_lines(value):
+    """Keep feedback readable with short, escaped text lines."""
+    return str(value).replace("、", "，").replace("。", "．").replace("，", "，\n").replace("．", "．\n").strip()
+
+
+templates.env.filters["feedback_lines"] = feedback_lines
 app.mount("/static", StaticFiles(directory="static"), name="static")
 research.install(app, templates)
 deferred_logging.install(app, templates)
@@ -110,7 +118,7 @@ async def study_context(request: Request, call_next):
             cat = get_category(word)
             if parts[2] == "meaning":
                 result["correct"] = choices.get("choice") == word["id"]
-            elif parts[2:5] == ["f1", "2", "kind"] and len(parts) == 6:
+            elif parts[2] == "f1" and parts[3:5] in (["2", "kind"], ["4", "kind"]) and len(parts) == 6:
                 result["correct"] = choices.get("choice") == cat["kind"]
             elif parts[2] == "f1" and len(parts) == 5 and parts[3].isdigit() and 1 <= int(parts[3]) <= 5:
                 result["correct"] = chain_feedback(word, int(parts[3]), choices.get("choice", ""))["ok"]
@@ -689,7 +697,7 @@ def chain_next_url(word_id, k, review_for=None):
     if k == len(CHAIN):
         return f"/word/{word_id}/f1/done"
     url = f"/word/{word_id}/f1/{k + 1}"
-    if k == 1:
+    if k == 3:
         url += "/kind"
     if review_for and k + 1 < review_for:
         url += f"?review_for={review_for}"
@@ -879,18 +887,20 @@ DRILL_PLAN = [("feat", 4), ("phon", 1), ("same", 1)]
 
 
 
-@app.get("/word/{word_id}/f1/2/kind", response_class=HTMLResponse)
+@app.get("/word/{word_id}/f1/2/kind", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/word/{word_id}/f1/4/kind", response_class=HTMLResponse)
 async def phase1_kind(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/", status_code=303)
     return templates.TemplateResponse(request, "phase1_kind.html", {
         "word": w, "feedback": None, "attempt_id": str(uuid.uuid4()),
-        "review_for": review_target(request.query_params.get("review_for"), 2),
+        "review_for": review_target(request.query_params.get("review_for"), 4),
     })
 
 
-@app.post("/word/{word_id}/f1/2/kind/check", response_class=HTMLResponse)
+@app.post("/word/{word_id}/f1/2/kind/check", response_class=HTMLResponse, include_in_schema=False)
+@app.post("/word/{word_id}/f1/4/kind/check", response_class=HTMLResponse)
 async def phase1_kind_check(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
@@ -902,7 +912,7 @@ async def phase1_kind_check(request: Request, word_id: str):
         word_id, "kind", ok, str(form.get("attempt_id") or uuid.uuid4())[:80] + ":" + str(choice)[:80])
     return templates.TemplateResponse(request, "phase1_kind.html", {
         "word": w, "feedback": {"ok": ok, "user": choice if choice in ("感情・感覚", "動作") else "未選択"},
-        "review_for": review_target(form.get("review_for"), 2),
+        "review_for": review_target(form.get("review_for"), 4),
     })
 
 
@@ -1264,10 +1274,10 @@ async def f2_check(request: Request, word_id: str):
             "key": e["key"],
             "label": e["label"], "phase": e["phase"], "cond_text": e["cond_text"],
             "checks": fb["checks"],
-            "comparison": [next((c for c in fb["checks"] if c["key"] == fkey), {
-                "name": FEATURE_NAME[fkey], "actual": val_label(fkey, cat[fkey]),
-                "req": "制限なし", "ok": True, "unrestricted": True,
-            }) for fkey in ("continuity", "action", "volition")],
+            "comparison": [{"key": fkey, "name": FEATURE_NAME[fkey],
+                "actual": val_label(fkey, cat[fkey]),
+                "req": next((c["req"] for c in fb["checks"] if c["key"] == fkey), "制限なし"),
+            } for fkey in ("continuity", "action", "volition")],
             "should": can_combine, "connected": user_connected, "ok": ok,
             "headline": fb["headline"], "lines": fb["lines"],
             "no_cond": fb["no_cond"],
@@ -1305,6 +1315,7 @@ async def f2_check(request: Request, word_id: str):
     if "application/json" in request.headers.get("accept", ""):
         from fastapi.responses import JSONResponse
         return JSONResponse({
+            "all_correct": all_correct, "has_missing": feedback_context["has_missing"],
             "feedback_html": templates.env.get_template("_matching_feedback.html").render(
                 {**feedback_context, "inline_feedback": True}),
         })

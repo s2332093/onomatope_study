@@ -108,7 +108,7 @@
 
   <button type="submit" class="btn btn-primary">答え合わせ →</button>
   {% if k > 1 %}
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/{{ '2/kind' if k == 2 else k - 1 }}{% if review_for %}?review_for={{ review_for }}{% endif %}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/{{ '4/kind' if k == 4 else k - 1 }}{% if review_for %}?review_for={{ review_for }}{% endif %}" class="btn btn-secondary" style="margin-left:12px;">← 前の問いに戻る</a>
   {% else %}
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}" class="btn btn-secondary" style="margin-left:12px;">学習マップに戻る</a>
   {% endif %}
