@@ -4,7 +4,7 @@
   {% if all_correct %}<p style="margin-top:12px;"><strong>{{ n_expr_correct }} / {{ total_expr }} 正解</strong></p>
   {% elif has_missing %}<p class="feedback-missing">！ まだ結べていない形式があります。</p>{% endif %}
 </div>
-{% for r in extra_results %}
+{% for r in selected_results %}
 <section class="card">
   <h2>「{{ word.word }}」と「〜{{ r.label }}」の比較</h2>
   <div class="tscroll"><table class="dtable" style="min-width:520px;">

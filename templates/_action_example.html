@@ -1,0 +1,59 @@
+{% include "_intro_styles.html" %}
+<section class="card" id="example-action" style="scroll-margin-top:20px;">
+  <span class="badge badge-orange">動作の例</span>
+  <h2 style="margin-top:10px;">例題：「ぶらぶら」の素性を考える</h2>
+  <p class="intro-scene learning-scene">予定のない休日に，街を気ままに歩き回っている．</p>
+  <ol class="intro-steps">
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">1</span> 音の形</h3>
+        <div class="intro-sound"><span>ぶら<small>AB</small></span><span>ぶら<small>AB</small></span><strong>→ ABAB型</strong></div>
+        <p>同じ2モーラを繰り返す形．続く様子の手がかり．</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">2</span> 継続性</h3>
+        <p>歩き回る動きは，一瞬で終わる？ 続く？</p>
+        <p class="intro-answer">歩き回る動きが続く → 継続性「＋」</p>
+      </div>
+      <img src="/static/{{ figs.continuity['＋'] }}" alt="歩き回る動きが続く：継続性＋">
+    </li>
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">3</span> 動作性</h3>
+        <p>続いているのは，気持ち？ 具体的な身体の動き？</p>
+        <p class="intro-answer">歩き回る具体的な動き → 動作性「高」</p>
+      </div>
+      <img src="/static/{{ figs.action['高'] }}" alt="歩き回る具体的な動き：動作性高">
+    </li>
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">4</span> 意志性</h3>
+        <p>自分の意志で「街をぶらぶらしようとする」と言える？</p>
+        <p class="intro-answer">自分で歩き始めたりやめたりできる → 意志性「＋」</p>
+      </div>
+      <img src="/static/{{ figs.volition['＋'] }}" alt="自分で歩き始めたりやめたりできる：意志性＋">
+    </li>
+    <li>
+      <div>
+        <h3><span class="badge badge-blue">5</span> 文法形式の条件と照合する</h3>
+      <div class="infobox" style="margin-top:16px;">
+        <strong>「ぶらぶら」</strong>
+        <span class="fbadge fb-continuity">＋継続性</span>
+        <span class="fbadge fb-action">動作性（高）</span>
+        <span class="fbadge fb-volition">＋意志性</span>
+      </div>
+      <p class="intro-note">前接条件は，文法形式の前に来る語が満たす条件です．</p>
+      <div class="tscroll"><table class="dtable" style="min-width:520px;">
+        <thead><tr><th>文法形式</th><th>前接条件</th><th>「ぶらぶら」との照合</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">〜しはじめる</th><td>＋継続性・動作性（中・高）</td><td class="feedback-check is-correct">○ 継続性＋・動作性高で条件を満たす</td></tr>
+          <tr><th scope="row">〜するところだ</th><td>動作性（高）・＋意志性</td><td class="feedback-check is-correct">○ 動作性高・意志性＋で条件を満たす</td></tr>
+        </tbody>
+      </table></div>
+      </div>
+    </li>
+  </ol>
+  {% if not feedback_action_example %}<p class="intro-note">この2語は継続性が同じ「＋」でも，続く内容が違うため，動作性が異なります．</p>{% endif %}
+</section>

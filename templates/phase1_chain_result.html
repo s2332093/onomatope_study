@@ -27,7 +27,7 @@
     {% for option in feedback_feature_options %}
     <figure>
       <img src="/static/{{ option.fig }}" alt="{{ option.label }}" width="190">
-      <figcaption><strong>{{ option.label }}</strong><p>{{ option.note }}</p></figcaption>
+      <figcaption><strong>{{ option.label }}</strong><p>{{ option.note }}</p>{% if k == 3 %}<p style="margin-top:10px;font-weight:700;">音の形：{{ option.phon_label }}</p>{% endif %}</figcaption>
     </figure>
     {% endfor %}
   </div>
@@ -39,9 +39,12 @@
   {% with phon_table=feedback_phon_table %}{% include "_phon_table.html" %}{% endwith %}
 </section>
 {% endif %}
+{% if not fb.ok and feedback_action_example %}
+{% include "_action_example.html" %}
+{% endif %}
 <div class="feedback-actions">
   {% if fb.ok %}
-  <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
+  <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ 'オノマトペの種類' if k == 1 else chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
   {% elif k <= 2 or k == 5 %}
   <a href="{{ prefix }}{{ retry_url }}" class="btn btn-primary">もう一度選ぶ</a>
   {% else %}

@@ -110,6 +110,8 @@ async def study_context(request: Request, call_next):
             cat = get_category(word)
             if parts[2] == "meaning":
                 result["correct"] = choices.get("choice") == word["id"]
+            elif parts[2:5] == ["f1", "2", "kind"] and len(parts) == 6:
+                result["correct"] = choices.get("choice") == cat["kind"]
             elif parts[2] == "f1" and len(parts) == 5 and parts[3].isdigit() and 1 <= int(parts[3]) <= 5:
                 result["correct"] = chain_feedback(word, int(parts[3]), choices.get("choice", ""))["ok"]
             elif parts[2] == "f2":
@@ -551,19 +553,17 @@ def feature_options(fkey):
     return [{"value": v,
              "label": val_label(fkey, v),
              "fig": FEATURE_FIGS[fkey][v],
-             "note": FEATURE_OPTION_NOTES[fkey][v]} for v in fdef["options"]]
+             "note": FEATURE_OPTION_NOTES[fkey][v],
+             "phon_label": {"＋": "2モーラ反復形", "変化結果の＋": "「っ＋り」型", "ー": "「っ」でおわる型"}.get(v) if fkey == "continuity" else None}
+            for v in fdef["options"]]
 
 
 def phon_options(word):
-    """全5種類の音韻形態。例語から学習中の語は外す。"""
+    """全5種類の音の形。選択肢には語例を付けない。"""
     opts = list(PHON_DEFS)
     random.shuffle(opts)
-    out = []
-    for p in opts:
-        ex = [e for e in p["example"].split("・") if e != word["word"]][:3]
-        out.append({"value": p["key"], "label": p["label"], "term": p["term"],
-                    "fig": PHON_FIGS.get(p["key"]), "example": "・".join(ex)})
-    return out
+    return [{"value": p["key"], "label": p["label"], "term": p["term"],
+             "fig": PHON_FIGS.get(p["key"])} for p in opts]
 
 
 def _chip(cap, val, sub=None, fig=None):
@@ -603,7 +603,7 @@ def chain_question(w, k):
         return {"step": step, "kind": "feature", "fkey": "continuity",
                 "flow": {"known": [_chip("音の形", phon["label"], phon["term"],
                                          fig=PHON_FIGS.get(phon["key"]))],
-                         "why": phon["hint"],
+                         "why": None,
                          "ask": {"cap": "継続性"}},
                 "prompt": f'「{w["word"]}」の継続性は？',
                 "options": feature_options("continuity")}
@@ -689,6 +689,8 @@ def chain_next_url(word_id, k, review_for=None):
     if k == len(CHAIN):
         return f"/word/{word_id}/f1/done"
     url = f"/word/{word_id}/f1/{k + 1}"
+    if k == 1:
+        url += "/kind"
     if review_for and k + 1 < review_for:
         url += f"?review_for={review_for}"
     return url
@@ -719,7 +721,7 @@ def chain_retry_feedback(w, k, choice):
         if get_category(w)["kind"] == "感情・感覚":
             message = f'{word}の意味をもう一度確かめ，感情・感覚を表すオノマトペかどうか考えてみましょう．'
         else:
-            message = feature_reason(w, "volition").replace("、", "，").replace("。", "．") + "もう一度選んでみましょう．"
+            message = f'{word}は，自分でその動作・過ごし方を選べるのか，状況に反応して起こるのかを，もう一度考えてみましょう．'
         return {"message": message, "fig": FEATURE_FIGS["volition"].get(choice)}
     fkey = {3: "continuity", 4: "action", 5: "volition"}[k]
     if get_category(w)["kind"] == "感情・感覚":
@@ -877,6 +879,33 @@ DRILL_PLAN = [("feat", 4), ("phon", 1), ("same", 1)]
 
 
 
+@app.get("/word/{word_id}/f1/2/kind", response_class=HTMLResponse)
+async def phase1_kind(request: Request, word_id: str):
+    w = get_word(word_id)
+    if not w:
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(request, "phase1_kind.html", {
+        "word": w, "feedback": None, "attempt_id": str(uuid.uuid4()),
+        "review_for": review_target(request.query_params.get("review_for"), 2),
+    })
+
+
+@app.post("/word/{word_id}/f1/2/kind/check", response_class=HTMLResponse)
+async def phase1_kind_check(request: Request, word_id: str):
+    w = get_word(word_id)
+    if not w:
+        return RedirectResponse("/", status_code=303)
+    form = await request.form()
+    choice = form.get("choice", "")
+    ok = choice == get_category(w)["kind"]
+    learning_state.feature_attempt(request.state.participant, request.state.study_group,
+        word_id, "kind", ok, str(form.get("attempt_id") or uuid.uuid4())[:80] + ":" + str(choice)[:80])
+    return templates.TemplateResponse(request, "phase1_kind.html", {
+        "word": w, "feedback": {"ok": ok, "user": choice if choice in ("感情・感覚", "動作") else "未選択"},
+        "review_for": review_target(form.get("review_for"), 2),
+    })
+
+
 @app.get("/word/{word_id}/f1/{k}", response_class=HTMLResponse)
 async def phase1_chain(request: Request, word_id: str, k: int):
     w = get_word(word_id)
@@ -907,14 +936,18 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
     retry_url = f"/word/{word_id}/f1/{k}" + (f"?review_for={review_for}" if review_for else "")
     review_k = max(1, k - 1)
     review_url = chain_review_url(word_id, k, review_for)
+    emotion_action = k == 4 and get_category(w)["kind"] == "感情・感覚"
+    action_example = k == 4 and not emotion_action and not fb["ok"]
+    phon_table = (build_phon_table() if emotion_action else build_phon_table(w["word"], "both")) if not fb["ok"] and (k in (2, 3) or emotion_action) else []
     return templates.TemplateResponse(request, "phase1_chain_result.html", {
         "word": w, "chain": CHAIN, "k": k,
         "step": CHAIN_BY_K[k],
         "fb": fb if fb["ok"] else {"ok": False, "user": fb["user"]},
         "retry_feedback": chain_retry_feedback(w, k, choice),
         "feedback_feature_options": feature_options({3: "continuity", 4: "action", 5: "volition"}[k]) if k >= 3 and not fb["ok"] else [],
-        "feedback_phon_table": build_phon_table(w["word"], {2: "both", 3: "both", 4: "action"}.get(k)) if k in (2, 3, 4) and not fb["ok"] else [],
-        "hide_phon_feature": {2: "both", 3: "both", 4: "action"}.get(k),
+        "feedback_phon_table": phon_table,
+        "hide_phon_feature": None if emotion_action else "both",
+        "feedback_action_example": action_example, "figs": FEATURE_FIGS,
         "failures": outcome["failures"], "review_for": review_for,
         "retry_url": retry_url, "review_url": review_url,
         "review_title": CHAIN_BY_K[review_k]["title"] if k > 1 else "場面",
@@ -1263,7 +1296,7 @@ async def f2_check(request: Request, word_id: str):
         "n_expr_correct": n_expr_correct, "total_expr": len(EXPRESSIONS),
         "expr_explain": cat["expr_explain"],
         "all_correct": all_correct,
-        "extra_results": [r for r in expr_results if r["connected"] and not r["should"]],
+        "selected_results": [r for r in expr_results if r["connected"]],
         "has_missing": any(r["should"] and not r["connected"] for r in expr_results),
         "context_review": state.get("context_review", []) if reviewing else [],
         "retry_url": f"/word/{word_id}/f2{retry_query}",
@@ -1272,13 +1305,8 @@ async def f2_check(request: Request, word_id: str):
     if "application/json" in request.headers.get("accept", ""):
         from fastapi.responses import JSONResponse
         return JSONResponse({
-            "all_correct": all_correct,
-            "invalid_keys": [r["key"] for r in feedback_context["extra_results"]],
-            "invalid_conditions": {r["key"]: r["cond_text"] for r in feedback_context["extra_results"]},
-            "has_missing": feedback_context["has_missing"],
             "feedback_html": templates.env.get_template("_matching_feedback.html").render(
                 {**feedback_context, "inline_feedback": True}),
-            "context_url": request.scope.get("study_prefix", "") + feedback_context["context_url"],
         })
     return templates.TemplateResponse(request, "step3_result.html", feedback_context)
 

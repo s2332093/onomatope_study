@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+{% set prefix = request.scope.get('study_prefix', '') %}
+{% set review_query = '?review_for=' ~ review_for if review_for else '' %}
+<div class="card">
+  <span class="badge badge-blue">音の形を選ぶ前に</span>
+  <h1 style="margin-top:12px;">「{{ word.word }}」</h1>
+  <p class="learning-scene">{{ word.scene }}</p>
+</div>
+{% if feedback %}
+<div class="card feedback-panel {% if feedback.ok %}is-correct{% else %}is-incorrect{% endif %}" aria-live="polite">
+  <h2 class="feedback-verdict {% if feedback.ok %}is-correct{% else %}is-incorrect{% endif %}">{% if feedback.ok %}○ 正解です！{% else %}× 不正解です{% endif %}</h2>
+  <p class="feedback-answer">選んだ答え：{{ feedback.user }}を表すオノマトペ</p>
+  {% if not feedback.ok %}<p class="lesson-instruction">「{{ word.word }}」の意味をもう一度確認し，気持ち・感覚なのか，動作なのかを考えてみましょう．</p>{% endif %}
+</div>
+<div class="feedback-actions">
+  {% if feedback.ok %}<a href="{{ prefix }}/word/{{ word.id }}/f1/2{{ review_query }}" class="btn btn-primary">次へ：音の形 →</a>
+  {% else %}<a href="{{ prefix }}/word/{{ word.id }}/f1/2/kind{{ review_query }}" class="btn btn-primary">もう一度選ぶ</a>{% endif %}
+</div>
+{% else %}
+<form method="post" action="{{ prefix }}/word/{{ word.id }}/f1/2/kind/check">
+  <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
+  <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
+  {% if review_for %}<input type="hidden" name="review_for" value="{{ review_for }}">{% endif %}
+  <div class="card">
+    <h2>「{{ word.word }}」は何を表すオノマトペですか？</h2>
+    {% for value in ['感情・感覚', '動作'] %}
+    <label style="display:block;margin-bottom:12px;">
+      <input type="radio" name="choice" value="{{ value }}" required style="display:none;">
+      <div class="opt-card">{{ value }}を表すオノマトペ</div>
+    </label>
+    {% endfor %}
+  </div>
+  <button type="submit" class="btn btn-primary">答え合わせ →</button>
+  <a href="{{ prefix }}/word/{{ word.id }}/f1/1{{ review_query }}" class="btn btn-secondary" style="margin-left:12px;">← 意味に戻る</a>
+</form>
+{% endif %}
+{% endblock %}

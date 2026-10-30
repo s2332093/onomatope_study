@@ -47,7 +47,9 @@ for word in main.WORDS:
                         assert '感情・感覚を表すオノマトペかどうか' in message
                         assert not any(v in message for v in ('「ー」', 'ー意志性', '意志性は', 'ため'))
                     else:
-                        assert main.feature_reason(word, 'volition').replace('、','，').replace('。','．') in r.text
+                        message = r.context['retry_feedback']['message']
+                        assert '自分でその動作・過ごし方を選べるのか' in message
+                        assert not any(v in message for v in ('意志性は', '「＋」', '「ー」', 'ため'))
                 else:
                     assert f'href="/a/word/{word["id"]}/f1/{k-1}?review_for={k}"' in r.text
             elif k==1: assert '近いオノマトペは「'+main.WORD_BY_ID[wrong]['word']+'」' in r.text
@@ -81,8 +83,9 @@ for word in main.WORDS:
     phon_page = client.get(f'/a/word/{word["id"]}/f1/2')
     options = phon_page.context['q']['phon_opts']
     assert len(options) == 5 and {o['value'] for o in options} == set(main.PHON_BY_KEY)
-    assert all(word['word'] not in o['example'].split('・') for o in options)
-    for k, hidden in [(2, 'both'), (3, 'both'), (4, 'action')]:
+    assert '例：' not in phon_page.text and all('example' not in o for o in options)
+    assert f'href="/a/word/{word["id"]}/f1/2/kind"' in phon_page.text
+    for k, hidden in [(2, 'both'), (3, 'both')]:
         feature = {3: 'continuity', 4: 'action'}.get(k)
         correct = word['phon'] if k == 2 else main.get_category(word)[feature]
         choices = main.PHON_BY_KEY if k == 2 else main.FEATURE_FIGS[feature]
@@ -102,6 +105,47 @@ for word in main.WORDS:
     assert '音の形にも手がかりがある' not in phon_page.text
     assert 'class="flow"' not in phon_page.text
     assert f'「{word["word"]}」の音の形は？' in phon_page.text
+
+# Continuity never displays the answer-bearing phonology hint. Its feedback links the three diagrams to sound shapes.
+for word in main.WORDS:
+    base_word = f'/a/word/{word["id"]}'
+    continuity = client.get(base_word + '/f1/3')
+    assert not continuity.context['q']['flow']['why']
+    assert main.PHON_BY_KEY[word['phon']]['hint'] not in continuity.text
+    wrong = next(v for v in main.FEATURE_FIGS['continuity'] if v != main.get_category(word)['continuity'])
+    response = client.post(base_word + '/f1/3/check', data={'choice': wrong})
+    for label in ('2モーラ反復形', '「っ＋り」型', '「っ」でおわる型'):
+        assert '音の形：' + label in response.text
+    cat = main.get_category(word)
+    wrong = next(v for v in main.FEATURE_FIGS['action'] if v != cat['action'])
+    response = client.post(base_word + '/f1/4/check', data={'choice': wrong})
+    if cat['kind'] == '感情・感覚':
+        assert response.context['feedback_phon_table'] == main.build_phon_table()
+        assert '<th>継続性の予測</th>' in response.text and '<th>動作性の予測</th>' in response.text
+        assert 'id="example-action"' not in response.text
+    else:
+        assert not response.context['feedback_phon_table']
+        assert 'id="example-action"' in response.text
+        assert '例題：「ぶらぶら」の素性を考える' in response.text
+        assert 'id="example"' not in response.text and 'id="example-transfer"' not in response.text
+
+# Meaning now leads through a separately graded two-choice kind question, before choosing sound shape.
+for word in main.WORDS:
+    base_word = f'/a/word/{word["id"]}'
+    meaning = client.post(base_word + '/f1/1/check', data={'choice': word['id']})
+    assert f'href="{base_word}/f1/2/kind"' in meaning.text
+    page = client.get(base_word + '/f1/2/kind?review_for=4')
+    assert page.text.count('<input type="radio"') == 2
+    assert f'「{word["word"]}」は何を表すオノマトペですか？' in page.text
+    kind = main.get_category(word)['kind']
+    wrong = '動作' if kind == '感情・感覚' else '感情・感覚'
+    response = client.post(base_word + '/f1/2/kind/check', data={'choice': wrong, 'review_for': '4'})
+    assert not response.context['feedback']['ok'] and '× 不正解です' in response.text
+    assert f'href="{base_word}/f1/2?review_for=4"' not in response.text
+    response = client.post(base_word + '/f1/2/kind/check', data={'choice': kind, 'review_for': '4'})
+    assert response.context['feedback']['ok'] and f'href="{base_word}/f1/2?review_for=4"' in response.text
+    assert client.get('/b' + base_word[2:] + '/f1/2/kind').status_code == 404
+    assert client.post('/b' + base_word[2:] + '/f1/2/kind/check', data={'choice': kind}).status_code == 404
 
 # Home cards provide no meaning/scene answers. Only A groups words by the two broad kinds.
 for prefix in ('/a', '/b'):
@@ -154,19 +198,19 @@ word = main.WORD_BY_ID['iraira']
 correct = {k: '○' for k in main.CAT_EXPRS[word['category_id']]}
 r = client.post(f'{base}/f2/check', data={})
 assert 'まだ結べていない形式があります' in r.text
-assert not r.context['extra_results'] and '<table' not in r.text
+assert not r.context['selected_results'] and '<table' not in r.text
 assert '正解の線結び' not in r.text and '/f3"' not in r.text
 
 # Invalid selected links show only their prerequisites; correct forms stay undisclosed.
 invalid = next(e for e in main.EXPRESSIONS if e['key'] not in correct)
 submitted = {invalid['key']: '○'}
 r = client.post(f'{base}/f2/check', data=submitted)
-assert [e['key'] for e in r.context['extra_results']] == [invalid['key']]
+assert [e['key'] for e in r.context['selected_results']] == [invalid['key']]
 assert r.text.count('<table') == 1
 assert 'が合わない理由' not in r.text
 assert '<th scope="col">「いらいら」の素性</th>' in r.text
 assert '× 合わない' in r.text and 'var(--red-soft)' in r.text
-for c in r.context['extra_results'][0]['checks']: assert c['req'] in r.text
+for c in r.context['selected_results'][0]['checks']: assert c['req'] in r.text
 for e in main.EXPRESSIONS:
     if e['key']!=invalid['key']: assert '「〜'+e['label']+'」の比較' not in r.text
 assert 'まだ結べていない形式があります' in r.text
@@ -189,7 +233,7 @@ assert not client.get(retry_url).context['saved_connections']
 
 r = client.post(f'{base}/f2/check', data=correct)
 assert '10 / 10 正解' in r.text and f'href="{base}/f3"' in r.text
-assert '<table' not in r.text and '正解の線結び' not in r.text
+assert r.text.count('<table') == len(correct) and '正解の線結び' not in r.text
 fresh_match = client.get(f'{base}/f2')
 assert not fresh_match.context['saved_connections']
 assert re.findall(r'id="input-[^"]+" value="([^"]+)"', fresh_match.text) == ['×'] * len(main.EXPRESSIONS)
@@ -242,45 +286,35 @@ assert notice in client.get(old_return).text
 assert notice not in client.get(f'{base}/f2').text
 assert notice not in client.get(old_return).text
 
-# In-place judging returns only invalid submitted links; it never returns missing identities.
+# Judging stays neutral in the answer area. Every selected form, correct or incorrect, has a comparison in feedback.
 json_headers = {'Accept': 'application/json'}
 one_valid = next(iter(correct))
 response = client.post(f'{base}/f2/check', data={invalid['key']: '○', one_valid: '○'}, headers=json_headers)
 assert response.status_code == 200
 judgment = response.json()
-assert judgment['invalid_keys'] == [invalid['key']]
-assert judgment['invalid_conditions'] == {invalid['key']:invalid['cond_text']}
-assert judgment['has_missing'] and not judgment['all_correct']
-assert set(judgment) == {'all_correct', 'invalid_keys', 'invalid_conditions', 'has_missing', 'feedback_html', 'context_url'}
+assert set(judgment) == {'feedback_html'}
 assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in judgment['feedback_html']
-assert 'invalid-expression' not in judgment['feedback_html']
+assert '<th scope="col">' + main.EXPR_BY_KEY[one_valid]['label'] + 'の条件</th>' in judgment['feedback_html']
+assert judgment['feedback_html'].count('<table') == 2
 assert 'href="#step3Form"' in judgment['feedback_html']
 missing_only = client.post(f'{base}/f2/check', data={}, headers=json_headers).json()
-assert missing_only['invalid_keys'] == [] and missing_only['invalid_conditions'] == {} and missing_only['has_missing']
-assert '<table' not in missing_only['feedback_html']
+assert 'まだ結べていない形式があります' in missing_only['feedback_html'] and '<table' not in missing_only['feedback_html']
 right = client.post(f'{base}/f2/check', data=correct, headers=json_headers).json()
-assert right['all_correct'] and not right['has_missing'] and right['invalid_keys'] == [] and right['invalid_conditions'] == {}
-assert right['context_url'] == f'{base}/f3'
+assert '○ 正解です！' in right['feedback_html'] and right['feedback_html'].count('<table') == len(correct)
+assert f'href="{base}/f3"' in right['feedback_html']
 assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
-
-# Conditions are sent only for invalid connected forms; comparison matches all 3 features.
-initial=client.get('/a/word/bikkuri/f2').text
-assert 'id="btnCond"' not in initial and 'hint-cond' not in initial
-assert initial.count('class="answer-condition small" hidden></div>')==len(main.EXPRESSIONS)
+initial = client.get('/a/word/bikkuri/f2').text
+assert 'markInvalid' not in initial and 'invalid-answer' not in initial and 'answer-condition' not in initial
+assert 'showMatchingStatus(result.all_correct' not in initial and 'matchingNext' not in initial
+assert '回答を受け付けました．フィードバックを確認してください．' in initial
 for w in main.WORDS:
-    cat=main.get_category(w)
-    good=next(e for e in main.EXPRESSIONS if main.expr_combines(cat,e))
-    for e in main.EXPRESSIONS:
-        if main.expr_combines(cat,e): continue
-        r=client.post(f'/a/word/{w["id"]}/f2/check',data={e['key']:'○',good['key']:'○'},headers=json_headers).json()
-        assert r['invalid_conditions']=={e['key']:e['cond_text']}
-        assert r['feedback_html'].count('<table')==1
-        assert f'「{w["word"]}」と「〜{e["label"]}」の比較' in r['feedback_html']
-        assert '× 合わない' in r['feedback_html']
-        for fkey in ['continuity','action','volition']:
-            assert main.val_label(fkey,cat[fkey]) in r['feedback_html']
-        assert '「〜'+good['label']+'」の比較' not in r['feedback_html']
-bikkuri=client.post('/a/word/bikkuri/f2/check',data={'shidasu':'○'},headers=json_headers).json()
-assert bikkuri['invalid_conditions']=={'shidasu':'＋継続性・動作性（中・高）・意志的でないこと'}
+    cat = main.get_category(w)
+    for connected in ([e for e in main.EXPRESSIONS], [next(e for e in main.EXPRESSIONS if main.expr_combines(cat, e))]):
+        r = client.post(f'/a/word/{w["id"]}/f2/check', data={e['key']: '○' for e in connected}, headers=json_headers).json()
+        assert r['feedback_html'].count('<table') == len(connected)
+        for e in connected:
+            assert f'「{w["word"]}」と「〜{e["label"]}」の比較' in r['feedback_html']
+        for fkey in ['continuity', 'action', 'volition']:
+            assert main.val_label(fkey, cat[fkey]) in r['feedback_html']
 
-print('OK: all 16 words, five phonology choices, generic feature diagrams, target-free tables with omitted forecast columns, two-kind navigation, review flow, matching conditions and group isolation')
+print('OK: 16 words, separately graded kind question, five example-free sound choices, continuity diagrams, kind-specific action/volition feedback, all-selected matching tables, neutral answers and group isolation')

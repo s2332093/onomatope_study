@@ -28,7 +28,7 @@ with patch.object(study_logging,'connect',side_effect=AssertionError('analytics 
     capture(client.post('/a/word/iraira/f1/1/check',data=dict(meta,choice='iraira',attempt_id='right-1')))
     cat=main.get_category(main.WORD_BY_ID['iraira'])
     connections={key:'○' for key in main.CAT_EXPRS[cat['id']]}
-    r=capture(client.post('/a/word/iraira/f2/check',data=dict(connections,_study_participant=pid,attempt_id='matching-right',_study_path='/a/word/iraira/f2'),headers={'Accept':'application/json'}));assert r.json()['all_correct']
+    r=capture(client.post('/a/word/iraira/f2/check',data=dict(connections,_study_participant=pid,attempt_id='matching-right',_study_path='/a/word/iraira/f2'),headers={'Accept':'application/json'}));assert '○ 正解です！' in r.json()['feedback_html']
     choices={f'choice_{q["ord"]}':q['correct_key'] for q in main.PRACTICE['iraira']};choices['choice_1']='wrong'
     r=capture(client.post('/a/word/iraira/f3/check',data=dict(choices,_study_participant=pid,attempt_id='context-wrong'),follow_redirects=False));assert r.status_code==303
     assert f'data-study-receipt="{receipts[-1]}"' in client.get(r.headers['location']).text
@@ -64,4 +64,17 @@ assert admin.get('/a/research').status_code==200
 assert admin.post('/a/research/logout').status_code==200
 assert admin.get('/a/research').status_code==401
 with study_logging.connect() as db:assert db.execute("SELECT COUNT(*) FROM events WHERE event_type='answer_submission'").fetchone()[0]==4
+kind_client = TestClient(main.app)
+kind_client.post('/a/registration', data={'name': '種類の回答確認_除外'})
+kind_pid = research.identity(type('R', (), {'cookies': kind_client.cookies})())
+kind_receipts = []
+with patch.object(study_logging, 'connect', side_effect=AssertionError('analytics write before finish')):
+    for choice in ('動作', '感情・感覚'):
+        r = kind_client.post('/a/word/iraira/f1/2/kind/check', data={'choice': choice, 'attempt_id': choice, '_study_participant': kind_pid})
+        kind_receipts.append(r.headers['x-study-receipt'])
+assert kind_client.post('/a/api/finish', json={'participant_id': kind_pid, 'receipts': kind_receipts}).status_code == 200
+kind_report = research.report(kind_pid)
+assert [r['correct'] for r in kind_report['attempts']] == [False, True]
+assert all(r['page_label'] == 'いらいら：オノマトペの種類' for r in kind_report['attempts'])
+assert [r['answer_label'] for r in kind_report['attempts']] == ['解答：動作', '解答：感情・感覚']
 print('OK: zero analytics DB access during lessons, encrypted receipts, JSON/redirect delivery, finish-only persistence, safe retry, A/B isolation and private reports')
