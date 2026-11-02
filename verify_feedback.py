@@ -73,7 +73,6 @@ assert submit(4,'高').context['failures']==1
 for suffix in ['f1/1','f1/2','f1/3','f1/4','f1/5','f1/done']:
     page=client.get(base+'/'+suffix).text
     assert all(label not in page for label in ['迷ったら','判断の手順','似た語との違い','別の語で練習'])
-assert 'class="hint-toggle"' not in client.get('/a/drill/features').text
 b=client.post('/b/word/iraira/meaning/check',data={'choice':'bikkuri'})
 assert '近いオノマトペは「びっくり」' in b.text and '正しい意味' not in b.text and '/b/word/iraira/f3' not in b.text
 
@@ -188,7 +187,6 @@ assert 'この研究では，感情・感覚を表すオノマトペと，動作
 assert '結びつく形式を，理由を考えて選ぶ練習です．' not in client.get('/a/word/iraira/f2').text
 assert 'learning-scene' in client.get('/a/word/iraira/f1/1').text
 assert 'learning-scene' in client.get('/b/word/iraira').text
-assert not any(q['spec'].startswith('C:') for q in client.get('/a/drill/features').context['questions'])
 
 # Grammar knowledge is introductory content; phase 2 starts directly with matching.
 intro = client.get('/a/reference')

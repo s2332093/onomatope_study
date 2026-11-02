@@ -44,10 +44,6 @@
   {% endfor %}
 </div>
 
-<div class="card" style="text-align:center; background:var(--blue-soft); margin-top:28px;">
-  <h2 style="margin-bottom:14px;">🎯 復習用ドリル（任意）</h2>
-  <a href="{{ request.scope.get('study_prefix', '') }}/drill/features" class="btn btn-primary">素性ドリル →</a>
-  <a href="{{ request.scope.get('study_prefix', '') }}/drill/expressions" class="btn btn-primary" style="background:var(--purple); margin-left:12px;">前接条件ドリル →</a>
-</div>
+
 
 {% endblock %}

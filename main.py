@@ -9,7 +9,7 @@
 #     /word/{id}/f2           フェーズ2：線結び
 #     /word/{id}/f3           フェーズ3：例文の練習
 #     /word/{id}/complete     この語の学習完了
-#   語に紐づかない補助：/drill/features・/drill/expressions・/reference
+#   語に紐づかない補助：/reference
 #
 # 2026-09 改修の中心：
 #   表現形式の前接条件を素性の集合として持ち、○×の判定と誤答フィードバックを
@@ -68,6 +68,13 @@ async def study_context(request: Request, call_next):
     if prefix:
         request.scope["path"] = path[len(prefix):] or "/"
         request.scope["raw_path"] = request.scope["path"].encode()
+    # Retired supplementary exercises return home, including submissions from old tabs.
+    current_path = request.scope["path"]
+    if prefix == "/a" and (current_path == "/drill" or current_path.startswith("/drill/")
+                           or current_path in ("/phase1/drill", "/phase2/drill")):
+        response = RedirectResponse(prefix + "/", status_code=303)
+        response.headers["Cache-Control"] = "no-store"
+        return response
     cookie_name = "study_participant"
     participant = request.cookies.get(cookie_name, "")
     try:

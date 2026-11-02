@@ -73,11 +73,6 @@
   </a>
   {% else %}
   <h2>🏁 {{ total }}語すべてを終えました</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    仕上げに、語をまたいで出題されるドリルで確認しましょう。
-  </p>
-  <a href="{{ request.scope.get('study_prefix', '') }}/drill/features" class="btn btn-primary">素性ドリル →</a>
-  <a href="{{ request.scope.get('study_prefix', '') }}/drill/expressions" class="btn btn-primary" style="background:var(--purple); margin-left:12px;">前接条件ドリル →</a>
   {% endif %}
 </div>
 

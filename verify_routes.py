@@ -31,7 +31,7 @@ def post(path, data):
 
 
 # ---- 静的ページ ----
-for p in ["/a/", "/a/reference", "/a/drill/features", "/a/drill/expressions"]:
+for p in ["/a/", "/a/reference"]:
     get(p)
 
 # ---- 出題語が16語・各カテゴリー2語であること ----
@@ -102,8 +102,6 @@ for suffix in [*(f'f1/{k}' for k in range(1,6)), 'f1/done']:
     r=get('/a/word/iraira/'+suffix)
     for removed in ['迷ったら','判断の手順','似た語との違い','別の語で練習','done-guides']:
         if removed in r.text: fails.append(f'{suffix}: 削除したヒントが残っています：{removed}')
-r=get('/a/drill/features')
-if '迷ったら' in r.text or 'class="hint-toggle"' in r.text: fails.append('素性ドリルにヒントが残っています')
 
 # ---- 連鎖の導入が「文章」ではなく「図」になっていること ----
 for k in (3, 4, 5):
@@ -157,67 +155,27 @@ for fkey, m in CHAIN_FIGS.items():
 # ---- 廃止したルートが残っていないこと ----
 # ---- 旧URLがリダイレクトで生きていること ----
 for old, new in [("/a/phase1", "/a/"), ("/a/phase1/summary", "/a/reference"),
-                 ("/a/phase1/drill", "/a/drill/features"), ("/a/phase2/drill", "/a/drill/expressions"),
                  ("/a/step3/iraira", "/a/word/iraira/f2"), ("/a/step4/iraira", "/a/word/iraira/f3"),
                  ("/a/phase1/word/iraira/2", "/a/word/iraira/f1/2")]:
     r = client.get(old, follow_redirects=False)
     if r.status_code not in (301, 302, 307, 308) or r.headers.get("location") != new:
         fails.append(f"旧URL {old} が {new} に転送されません（{r.status_code} / {r.headers.get('location')}）")
 
-# ---- 「予測できない素性」が phon 問題に出ないこと ----
-for _ in range(80):
-    q = main._q_phon()
-    pkey, fkey = q["spec"].split(":")[1], q["spec"].split(":")[2]
-    if not main.PHON_BY_KEY[pkey][main.PRED_COL[fkey]]:
-        fails.append(f"総合ドリルで予測できない素性が出題されました：{q['spec']}")
-
-# ---- 素性ドリル：出題→採点（全タイプを踏むまで繰り返す） ----
-seen = set()
-
-
-def extract(html, name_prefix):
-    import re
-    return re.findall(r'name="' + name_prefix + r'(\d+)" value="([^"]+)"', html)
-
-
-for attempt in range(60):
-    r = client.get("/a/drill/features")
-    specs = extract(r.text, "spec_")
-    data = {}
-    for idx, spec in specs:
-        data[f"spec_{idx}"] = spec
-        seen.add(spec[0])
-        if spec[0] in ("f", "p"):
-            # 素性値の選択肢から適当に1つ
-            fkey = spec.split(":")[-1]
-            opts = {"continuity": "＋", "action": "中", "volition": "ー"}[fkey]
-            data[f"choice_{idx}"] = opts
-        else:
-            data[f"choice_{idx}"] = random.choice(WORDS)["id"]
-    post("/a/drill/features/check", data)
-    if seen >= {"f", "p", "S"}:
-        break
-if seen < {"f", "p", "S"}:
-    fails.append(f"素性ドリルの全タイプが出題されませんでした：{seen}")
-
-# ---- 前接条件ドリル ----
-seen2 = set()
-for attempt in range(60):
-    r = client.get("/a/drill/expressions")
-    specs = extract(r.text, "spec_")
-    data = {}
-    for idx, spec in specs:
-        data[f"spec_{idx}"] = spec
-        seen2.add(spec[0])
-        if spec[0] == "x":
-            data[f"choice_{idx}"] = EXPRESSIONS[0]["cond_text"]
-        else:
-            data[f"choice_{idx}"] = random.choice(WORDS)["id"]
-    post("/a/drill/expressions/check", data)
-    if seen2 >= {"x", "y"}:
-        break
-if seen2 < {"x", "y"}:
-    fails.append(f"前接条件ドリルの全タイプが出題されませんでした：{seen2}")
+# Retired supplementary exercise URLs never show questions or grade an old submission.
+for suffix in ('drill', 'drill/features', 'drill/features/check', 'drill/expressions', 'drill/expressions/check', 'phase1/drill', 'phase2/drill'):
+    for method in ('get', 'post'):
+        r = getattr(client, method)('/a/' + suffix, follow_redirects=False)
+        if r.status_code != 303 or r.headers.get('location') != '/a/' or 'x-study-receipt' in r.headers:
+            fails.append(f'廃止したドリル {method} {suffix} がホームへ戻りません')
+for prefix in ('/a', '/b'):
+    for suffix in ['/', '/reference'] if prefix == '/a' else ['/']:
+        body = client.get(prefix + suffix).text
+        if 'ドリル' in body or '/drill/' in body:
+            fails.append(f'{prefix}{suffix} にドリルの案内が残っています')
+last = main.WORDS[-1]['id']
+body = get(f'/a/word/{last}/complete').text
+if 'ドリル' in body or '/drill/' in body or '学習を終了して記録を保存' not in body:
+    fails.append('全語の学習完了画面にドリルが残っているか終了時保存の案内がありません')
 
 # ---- 全語 × 学習マップ・フェーズ2・フェーズ3・完了 ----
 for w in WORDS:
@@ -292,5 +250,5 @@ if fails:
     for f in fails[:25]:
         print("  - " + f)
     sys.exit(1)
-print(f"OK：全{len(WORDS)}語について、フェーズ1（5問）→フェーズ2（線結び）→フェーズ3（例文）→完了 の通し学習と、両ドリルが正常に動作しました。")
+print(f"OK：全{len(WORDS)}語について、フェーズ1（5問）→フェーズ2（線結び）→フェーズ3（例文）→完了 の通し学習と、ドリルの廃止が正常に動作しました。")
 print(f"    素性フィードバックは {len(WORDS) * len(EXPRESSIONS)} 通りすべて研究資料の正解表と一致。")
