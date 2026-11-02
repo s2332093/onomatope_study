@@ -29,12 +29,8 @@
 <!-- 語の一覧 -->
 <h2 style="margin:28px 0 14px;">✏️ 学習する語を選ぶ（全{{ total }}語）</h2>
 
-{% for g in groups %}
-<h2 style="margin:24px 0 10px; font-size:1rem;">
-  <span class="badge {% if g.kind == '感情・感覚' %}badge-purple{% else %}badge-orange{% endif %}">{{ g.kind }}</span>
-</h2>
 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px;">
-  {% for w in g.words %}
+  {% for w in words %}
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ w.id }}" style="text-decoration:none; color:inherit; flex:1; min-width:290px;">
     <div class="card" style="display:flex; align-items:center; gap:16px; margin-bottom:0; padding:14px 18px;"
          onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">
@@ -47,7 +43,6 @@
   </a>
   {% endfor %}
 </div>
-{% endfor %}
 
 <div class="card" style="text-align:center; background:var(--blue-soft); margin-top:28px;">
   <h2 style="margin-bottom:14px;">🎯 復習用ドリル（任意）</h2>

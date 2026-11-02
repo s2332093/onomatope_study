@@ -235,7 +235,7 @@ def req_label(fkey: str, allowed) -> str:
     if fkey == "action":
         return "動作性（" + "・".join(allowed) + "）"
     if set(allowed) == {"ー", "関与しない"}:
-        return "意志的でないこと（ー意志性／関与しない）"
+        return '意志性「−」または「関与しない」'
     return " または ".join(VOL_LABEL.get(v, v) for v in allowed)
 
 
@@ -452,15 +452,10 @@ def meaning_options(word, n=4):
 # =====================================================================
 #  トップページ
 # =====================================================================
-def word_groups():
-    return [{"kind": kind, "words": [w for w in WORDS if get_category(w)["kind"] == kind]}
-            for kind in ("感情・感覚", "動作")]
-
-
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(request, "control_index.html" if request.state.study_group == "control" else "index.html", {
-        "total": len(WORDS), "groups": word_groups(), "chain": CHAIN, "words": WORDS,
+        "total": len(WORDS), "chain": CHAIN, "words": WORDS,
     })
 
 
@@ -948,7 +943,8 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
     review_url = chain_review_url(word_id, k, review_for)
     emotion_action = k == 4 and get_category(w)["kind"] == "感情・感覚"
     action_example = k == 4 and not emotion_action and not fb["ok"]
-    phon_table = (build_phon_table() if emotion_action else build_phon_table(w["word"], "both")) if not fb["ok"] and (k in (2, 3) or emotion_action) else []
+    hide_phon_feature = None if emotion_action else "action" if k == 3 else "both"
+    phon_table = (build_phon_table() if emotion_action else build_phon_table(w["word"], hide_phon_feature)) if not fb["ok"] and (k in (2, 3) or emotion_action) else []
     return templates.TemplateResponse(request, "phase1_chain_result.html", {
         "word": w, "chain": CHAIN, "k": k,
         "step": CHAIN_BY_K[k],
@@ -956,7 +952,7 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
         "retry_feedback": chain_retry_feedback(w, k, choice),
         "feedback_feature_options": feature_options({3: "continuity", 4: "action", 5: "volition"}[k]) if k >= 3 and not fb["ok"] else [],
         "feedback_phon_table": phon_table,
-        "hide_phon_feature": None if emotion_action else "both",
+        "hide_phon_feature": hide_phon_feature,
         "feedback_action_example": action_example, "figs": FEATURE_FIGS,
         "failures": outcome["failures"], "review_for": review_for,
         "retry_url": retry_url, "review_url": review_url,
@@ -1316,6 +1312,7 @@ async def f2_check(request: Request, word_id: str):
         from fastapi.responses import JSONResponse
         return JSONResponse({
             "all_correct": all_correct, "has_missing": feedback_context["has_missing"],
+            "context_url": request.scope.get("study_prefix", "") + feedback_context["context_url"] if all_correct else None,
             "feedback_html": templates.env.get_template("_matching_feedback.html").render(
                 {**feedback_context, "inline_feedback": True}),
         })

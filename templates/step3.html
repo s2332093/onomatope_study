@@ -98,11 +98,12 @@
 <div id="matchingStatus" class="feedback-banner" role="status" hidden style="margin-top:18px;"></div>
 <div id="matchingActions" class="feedback-actions" hidden style="margin:14px 0;">
   <button type="button" class="btn btn-secondary" id="showMatchingFeedback">フィードバックを見る</button>
+  <a class="btn btn-primary" id="matchingNext" hidden>{% if context_review %}文脈問題に戻る{% else %}場面・文脈の問題へ進む{% endif %} →</a>
 </div>
 <section id="matchingFeedback" aria-label="線結びのフィードバック" hidden style="margin-top:20px;scroll-margin-top:20px;"></section>
 
 <style>
-  #matchingActions[hidden] { display:none; }
+  #matchingActions[hidden], #matchingNext[hidden], #showMatchingFeedback[hidden] { display:none; }
   #matchingContainer {
     position: relative; display: flex; justify-content: space-between;
     gap: 110px; margin: 18px 0 6px; user-select: none; min-height: 480px;
@@ -181,6 +182,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const status = document.getElementById("matchingStatus");
   const actions = document.getElementById("matchingActions");
   const feedback = document.getElementById("matchingFeedback");
+  const nextLink = document.getElementById("matchingNext");
+  const feedbackButton = document.getElementById("showMatchingFeedback");
   let answerRevision = 0;
 
   let isDragging = false;
@@ -202,6 +205,8 @@ document.addEventListener("DOMContentLoaded", () => {
     actions.hidden = true;
     feedback.hidden = true;
     feedback.replaceChildren();
+    nextLink.hidden = true;
+    nextLink.removeAttribute("href");
   }
 
   function updateCount() {
@@ -368,7 +373,11 @@ document.addEventListener("DOMContentLoaded", () => {
         missing.textContent = "！ まだ結べていない形式があります．";
         status.appendChild(missing);
       }
-      feedback.innerHTML = result.feedback_html;
+      feedback.innerHTML = result.all_correct ? "" : result.feedback_html;
+      feedbackButton.hidden = result.all_correct;
+      nextLink.hidden = !result.all_correct;
+      if (result.all_correct) nextLink.href = result.context_url;
+      else nextLink.removeAttribute("href");
       actions.hidden = false;
       status.scrollIntoView({behavior:"smooth", block:"center"});
     } catch (error) {

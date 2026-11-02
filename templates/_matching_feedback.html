@@ -6,9 +6,9 @@
   {% elif has_missing %}<p class="feedback-missing">！ まだ結べていない形式があります。</p>{% endif %}
 </div>
 {% endif %}
-{% if selected_results %}<p class="feedback-guidance">それぞれの素性が条件に合うか，
+{% if not all_correct and selected_results %}<p class="feedback-guidance">それぞれの素性が条件に合うか，
 自分で選んでみましょう．</p>{% endif %}
-{% for r in selected_results %}
+{% for r in selected_results if not all_correct %}
 <section class="card matching-comparison">
   <h2>「{{ word.word }}」と「〜{{ r.label }}」の比較</h2>
   <div class="tscroll"><table class="dtable" style="min-width:520px;">

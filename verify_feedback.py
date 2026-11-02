@@ -86,7 +86,7 @@ for word in main.WORDS:
     assert '例：' not in phon_page.text and all('example' not in o for o in options)
     assert f'href="/a/word/{word["id"]}/f1/1"' in phon_page.text
     assert '/f1/2/kind' not in phon_page.text
-    for k, hidden in [(2, 'both'), (3, 'both')]:
+    for k, hidden in [(2, 'both'), (3, 'action')]:
         feature = {3: 'continuity', 4: 'action'}.get(k)
         correct = word['phon'] if k == 2 else main.get_category(word)[feature]
         choices = main.PHON_BY_KEY if k == 2 else main.FEATURE_FIGS[feature]
@@ -166,12 +166,14 @@ response = client.post('/b/word/iraira/meaning/check', data={'choice': 'bikkuri'
 assert 'class="feedback-guidance"' in response.text
 assert main.feedback_lines('意味を確かめ，もう一度考えましょう．') == '意味を確かめ，\nもう一度考えましょう．'
 
-# Home cards provide no meaning/scene answers. Only A groups words by the two broad kinds.
+# Neither home reveals the meaning, scene or kind being asked in the lessons.
 for prefix in ('/a', '/b'):
     home = client.get(prefix + '/').text
     assert all(word['scene'] not in home and word['meaning'] not in home for word in main.WORDS)
     assert all(cat['name'] not in home for cat in main.CATEGORIES)
-assert [g['kind'] for g in main.word_groups()] == ['感情・感覚', '動作']
+assert '感情・感覚' not in client.get('/a/').text
+assert 'groups' not in client.get('/a/').context
+assert set(re.findall(r'href="/a/word/([^"/]+)"', client.get('/a/').text)) == set(main.WORD_BY_ID)
 intro_page = client.get('/a/reference').text
 assert intro_page.index('<summary>素性の一覧') < intro_page.index('<summary>音の形') < intro_page.index('<summary>文法形式')
 assert '素性の組み合わせと8つのカテゴリー' not in intro_page
@@ -254,7 +256,7 @@ assert not client.get(retry_url).context['saved_connections']
 
 r = client.post(f'{base}/f2/check', data=correct)
 assert '10 / 10 正解' in r.text and f'href="{base}/f3"' in r.text
-assert r.text.count('<table') == len(correct) and '正解の線結び' not in r.text
+assert '<table' not in r.text and 'class="comparison-choices"' not in r.text and '正解の線結び' not in r.text
 fresh_match = client.get(f'{base}/f2')
 assert not fresh_match.context['saved_connections']
 assert re.findall(r'id="input-[^"]+" value="([^"]+)"', fresh_match.text) == ['×'] * len(main.EXPRESSIONS)
@@ -313,7 +315,8 @@ one_valid = next(iter(correct))
 response = client.post(f'{base}/f2/check', data={invalid['key']: '○', one_valid: '○'}, headers=json_headers)
 assert response.status_code == 200
 judgment = response.json()
-assert set(judgment) == {'feedback_html', 'all_correct', 'has_missing'}
+assert set(judgment) == {'feedback_html', 'all_correct', 'has_missing', 'context_url'}
+assert judgment['context_url'] is None
 assert not judgment['all_correct'] and judgment['has_missing']
 assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in judgment['feedback_html']
 assert '<th scope="col">' + main.EXPR_BY_KEY[one_valid]['label'] + 'の条件</th>' in judgment['feedback_html']
@@ -322,18 +325,28 @@ assert 'href="#step3Form"' in judgment['feedback_html']
 missing_only = client.post(f'{base}/f2/check', data={}, headers=json_headers).json()
 assert missing_only['has_missing'] and not missing_only['all_correct'] and '<table' not in missing_only['feedback_html']
 right = client.post(f'{base}/f2/check', data=correct, headers=json_headers).json()
-assert right['all_correct'] and not right['has_missing'] and right['feedback_html'].count('<table') == len(correct)
+assert right['all_correct'] and not right['has_missing']
+assert '<table' not in right['feedback_html'] and 'comparison-choices' not in right['feedback_html']
+assert right['context_url'] == f'{base}/f3'
 assert f'href="{base}/f3"' in right['feedback_html']
 assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
 initial = client.get('/a/word/bikkuri/f2').text
 assert 'markInvalid' not in initial and 'invalid-answer' not in initial and 'answer-condition' not in initial
-assert 'showMatchingStatus(result.all_correct' in initial and 'matchingNext' not in initial
+assert 'showMatchingStatus(result.all_correct' in initial and 'id="matchingNext" hidden' in initial
+assert 'feedbackButton.hidden = result.all_correct' in initial
+assert 'nextLink.hidden = !result.all_correct' in initial
+assert 'nextLink.removeAttribute("href")' in initial
 assert 'まだ結べていない形式があります' in initial
 assert 'status.hidden = !feedback.hidden' not in initial
 for w in main.WORDS:
     cat = main.get_category(w)
     for connected in ([e for e in main.EXPRESSIONS], [next(e for e in main.EXPRESSIONS if main.expr_combines(cat, e))]):
         r = client.post(f'/a/word/{w["id"]}/f2/check', data={e['key']: '○' for e in connected}, headers=json_headers).json()
+        if r['all_correct']:
+            assert '<table' not in r['feedback_html'] and 'comparison-choices' not in r['feedback_html']
+            assert r['context_url'] == f'/a/word/{w["id"]}/f3'
+            continue
+        assert r['context_url'] is None
         assert r['feedback_html'].count('<table') == len(connected)
         assert r['feedback_html'].count('class="comparison-choices"') == 3 * len(connected)
         assert '○ 合う' not in r['feedback_html'] and '× 合わない' not in r['feedback_html']
@@ -344,5 +357,20 @@ for w in main.WORDS:
                 assert f'name="compare_{e["key"]}_{fkey}"' in r['feedback_html']
         for fkey in ['continuity', 'action', 'volition']:
             assert main.val_label(fkey, cat[fkey]) in r['feedback_html']
+
+# All five sound-shape rows now include a continuity forecast in continuity feedback.
+r = client.post('/a/word/iraira/f1/3/check', data={'choice':'ー'})
+table = re.search(r'<table class="dtable phon-reference-table".*?</table>', r.text, re.S)[0]
+assert table.count('<tr>') == 6
+assert '<th>継続性の予測</th>' in table and '<th>動作性の予測</th>' not in table
+assert set(row['form']['key'] for row in r.context['feedback_phon_table']) == set(main.PHON_BY_KEY)
+assert 'いらいら' not in table
+# Labels list the actual permitted volition values, without merging two concepts.
+assert main.req_label('volition', ['ー','関与しない']) == '意志性「−」または「関与しない」'
+assert main.EXPR_BY_KEY['shidasu']['req_vol'] == 'ー|関与しない'
+assert '意志的でないこと' not in client.get('/a/reference').text
+r = client.post('/a/word/bikkuri/f2/check', data={'shidasu':'○'}, headers=json_headers).json()
+assert '意志性「−」または「関与しない」' in r['feedback_html']
+assert '意志的でないこと' not in r['feedback_html']
 
 print('OK: 16 words, separately graded kind question, five example-free sound choices, continuity diagrams, kind-specific action/volition feedback, all-selected matching tables, learner-selected comparisons, persistent overall results and group isolation')
