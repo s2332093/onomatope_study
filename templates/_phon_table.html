@@ -15,34 +15,15 @@
     </tr>{% endfor %}</tbody>
   </table>
 </div>
-{% if hide_phon_feature != 'both' %}
+{% if hide_phon_feature != 'both' and phon_table|selectattr('exceptions')|list %}
 <h3 style="margin-top:24px;">音の形からの予測と異なる語</h3>
 <p style="margin:10px 0 14px;line-height:1.8;">上の表は音の形からの予測です。同じ音の形でも、意味や場面によって予測と異なる語があります。下の表では学習する語の例を比較し、どの素性がどう異なるかと、その理由を確かめます。</p>
-<div class="tscroll">
-  <table class="dtable phon-exception-table" style="min-width:520px;">
-    <thead><tr><th scope="col">確認する素性</th><th scope="col">音の形からの予測</th><th scope="col">意味・場面からの判断</th></tr></thead>
-    <tbody>
-    {% for row in phon_table %}{% for exception in row.exceptions %}
-    <tr class="phon-exception-word"><th colspan="3" scope="colgroup">「{{ exception.word }}」：{{ row.form.label }}</th></tr>
-    {% for difference in exception.differences %}
-    <tr class="phon-exception-values">
-      <th scope="row">{{ difference.feature_name }}</th>
-      <td>{{ difference.predicted }}</td>
-      <td><strong>{{ difference.actual }}</strong></td>
-    </tr>
-    <tr><td colspan="3"><strong>例外となる理由：</strong>{{ difference.reason }}</td></tr>
-    {% endfor %}{% endfor %}{% endfor %}
-    </tbody>
-  </table>
-</div>
+{% include "_phon_exception_table.html" %}
 <p class="muted small" style="margin-top:10px;">音の形だけで決めず、最後は語の意味と場面を優先して判断します。</p>
 {% endif %}
 <style>
 .phon-rule-reason { margin-top:8px;line-height:1.7; }
-table.phon-reference-table,table.phon-exception-table { font-size:.95rem;line-height:1.8; }
-table.phon-reference-table th,table.phon-exception-table th { font-size:.9rem; }
-table.phon-reference-table th,table.phon-reference-table td,table.phon-exception-table th,table.phon-exception-table td { padding:12px; }
-table.phon-exception-table .phon-exception-word th { background:var(--purple-soft);color:var(--text);font-size:1.05rem; }
-.phon-exception-values th { width:20%; }
-.phon-exception-values td { width:40%; }
+table.phon-reference-table { font-size:.95rem;line-height:1.8; }
+table.phon-reference-table th { font-size:.9rem; }
+table.phon-reference-table th,table.phon-reference-table td { padding:12px; }
 </style>

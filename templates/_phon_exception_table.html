@@ -1,0 +1,28 @@
+<p class="small" style="margin:10px 0;"><span class="phon-predicted">赤字：音の形からの予測</span> ／ <span class="phon-actual">緑字：意味・場面からの判断</span></p>
+<div class="tscroll">
+  <table class="dtable phon-exception-table" style="min-width:520px;">
+    <thead><tr><th scope="col">確認する素性</th><th scope="col">音の形からの予測</th><th scope="col">意味・場面からの判断</th></tr></thead>
+    <tbody>
+    {% for row in phon_table %}{% for exception in row.exceptions %}
+    <tr class="phon-exception-word"><th colspan="3" scope="colgroup">「{{ exception.word }}」：{{ row.form.label }}</th></tr>
+    {% for difference in exception.differences %}
+    <tr class="phon-exception-values">
+      <th scope="row">{{ difference.feature_name }}</th>
+      <td class="phon-predicted">{{ difference.predicted }}</td>
+      <td class="phon-actual"><strong>{{ difference.actual }}</strong></td>
+    </tr>
+    <tr><td colspan="3"><strong>例外となる理由：</strong>{{ difference.reason }}</td></tr>
+    {% endfor %}{% endfor %}{% endfor %}
+    </tbody>
+  </table>
+</div>
+<style>
+table.phon-exception-table { font-size:.95rem;line-height:1.8; }
+table.phon-exception-table th { font-size:.9rem; }
+table.phon-exception-table th,table.phon-exception-table td { padding:12px; }
+table.phon-exception-table .phon-exception-word th { background:var(--purple-soft);color:var(--text);font-size:1.05rem; }
+.phon-exception-values th { width:20%; }
+.phon-exception-values td { width:40%; }
+.phon-predicted { color:#b72c2c;font-weight:700; }
+.phon-actual { color:#16723c;font-weight:700; }
+</style>

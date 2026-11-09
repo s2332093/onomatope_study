@@ -555,6 +555,19 @@ def build_phon_table(exclude_word=None, hide_feature=None):
     return table
 
 
+def word_exception_table(word, feature):
+    """Only the current word's mismatch for the feature being reconsidered."""
+    result = []
+    for row in build_phon_table():
+        for exception in row["exceptions"]:
+            if exception["word"] != word["word"]:
+                continue
+            differences = [d for d in exception["differences"] if d["feature"] == feature]
+            if differences:
+                result.append({**row, "exceptions": [{"word": word["word"], "differences": differences}]})
+    return result
+
+
 # その形からの予測と実際の素性が食い違う語（段階4の出題に使う）
 EXCEPTION_WORDS = []
 for _w in WORDS:
@@ -1010,13 +1023,24 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
     action_example = k == 4 and not emotion_action and not fb["ok"]
     hide_phon_feature = None if emotion_action else "action" if k == 3 else "both"
     phon_table = build_phon_table(w["word"], hide_phon_feature) if not fb["ok"] and (k in (2, 3) or emotion_action) else []
+    exception_table = word_exception_table(w, {3: "continuity", 4: "action"}[k]) if not fb["ok"] and k in (3, 4) else []
+    retry_feedback = chain_retry_feedback(w, k, choice)
+    # General reference tables must not show unrelated words' exception reasons.
+    phon_table = [{**row, "exceptions": []} for row in phon_table]
+    if exception_table:
+        phon_table = []
+        action_example = False
+        retry_feedback["message"] = (
+            f'「{w["word"]}」は、音の形からの予測と意味・場面からの判断が異なる語です。'
+            f'下の表で、{CHAIN_BY_K[k]["title"]}の違いと例外となる理由を確認しましょう。')
     return templates.TemplateResponse(request, "phase1_chain_result.html", {
         "word": w, "chain": CHAIN, "k": k,
         "step": CHAIN_BY_K[k],
         "fb": fb if fb["ok"] else {"ok": False, "user": fb["user"]},
-        "retry_feedback": chain_retry_feedback(w, k, choice),
+        "retry_feedback": retry_feedback,
         "feedback_feature_options": feature_options({3: "continuity", 4: "action", 5: "volition"}[k]) if k >= 3 and not fb["ok"] else [],
         "feedback_phon_table": phon_table,
+        "feedback_phon_exceptions": exception_table,
         "hide_phon_feature": hide_phon_feature,
         "feedback_action_example": action_example, "figs": FEATURE_FIGS,
         "failures": outcome["failures"], "review_for": review_for,
