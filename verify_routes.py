@@ -141,7 +141,7 @@ if "wide" not in r.text:
 
 # ---- 対応表の例外欄が語ごとにまとまっていること ----
 for row in main.build_phon_table():
-    seen_words = [e.split("（")[0] for e in row["exceptions"]]
+    seen_words = [e["word"] for e in row["exceptions"]]
     if len(seen_words) != len(set(seen_words)):
         fails.append(f'対応表の例外欄に同じ語が重複しています：{row["form"]["label"]} / {row["exceptions"]}')
 

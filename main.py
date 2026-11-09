@@ -488,11 +488,43 @@ async def control_knowledge(request: Request):
 # =====================================================================
 #  フェーズ1：素性の学習
 # =====================================================================
+PHON_PREDICTION_REASONS = {
+    "repeat": {
+        "continuity": "同じ音のくり返しが、動きや状態の持続を表す手がかりになります。",
+        "action": "この音の形だけでは決まりません。語の意味や場面から判断します。",
+    },
+    "repeat_var": {
+        "continuity": "不規則なくり返しが、動きや状態の持続を表す手がかりになります。",
+        "action": "不規則なくり返しから、乱れた大きな動きを予測します。",
+    },
+    "qri": {
+        "continuity": "「っ」の区切れと「り」の余韻から、変化のあとに結果の状態が残ることを予測します。",
+        "action": "変化と、そのあとに残る気持ち・状態を表すものが多い形です。",
+    },
+    "nri": {
+        "continuity": "「ん」のゆるやかな響きから、状態の持続を予測します。",
+        "action": "ゆったりした、動きの少ない状態を予測します。",
+    },
+    "q": {
+        "continuity": "「っ」で短く切れる形から、一瞬で成立する変化を予測します。",
+        "action": "一瞬で成立する変化・刺激を予測します。",
+    },
+}
+
+PHON_EXCEPTION_REASONS = {
+    ("hotto", "continuity"): "緊張がとける変化のあと、安心した状態が残ります。一瞬の変化だけで終わらず、結果の状態が残るため、予測と異なります。",
+    ("hotto", "action"): "安心への変化と、そのあとに残る気持ちを表し、時間の幅があります。一瞬の変化・刺激として扱う予測とは異なります。",
+    ("yukkuri", "continuity"): "この場面では、急がず食事を楽しむ過ごし方が続きます。一度の変化の結果が残る意味ではなく、過ごし方そのものが続くため、予測と異なります。",
+    ("yukkuri", "action"): "急がない、ゆるやかな動き・過ごし方を表します。動きが少なく、状態に近い意味のため、予測の「中」より低く判断します。",
+    ("gikushaku", "action"): "この場面では、けんかのあとで会話がかみ合わない状態が続きます。外から見える激しい動きが中心ではないため、予測の「高」と異なります。",
+}
+
+
 def build_phon_table(exclude_word=None, hide_feature=None):
     """音の形の参照表。誤答時は対象語と見直す素性の例外表示を除外する。"""
     table = []
     for p in PHON_DEFS:
-        # 語ごとにまとめる（「ゆっくり（継続性）・ゆっくり（動作性）」と重複させない）
+        # Compare each mismatching feature, keeping each word in one group.
         by_word = {}
         for w in WORDS:
             if w["phon"] != p["key"] or w["word"] == exclude_word:
@@ -503,14 +535,21 @@ def build_phon_table(exclude_word=None, hide_feature=None):
                     continue
                 pred = p[PRED_COL[fkey]]
                 if pred and cat[fkey] != pred:
-                    by_word.setdefault(w["word"], []).append(FEATURE_NAME[fkey])
-        exceptions = [f'{word}（{"・".join(feats)}）' for word, feats in by_word.items()]
+                    by_word.setdefault(w["word"], []).append({
+                        "feature": fkey, "feature_name": FEATURE_NAME[fkey],
+                        "predicted": val_label(fkey, pred),
+                        "actual": val_label(fkey, cat[fkey]),
+                        "reason": PHON_EXCEPTION_REASONS.get((w["id"], fkey), feature_reason(w, fkey)),
+                    })
+        exceptions = [{"word": word, "differences": differences} for word, differences in by_word.items()]
         table.append({
             "form": p,
             "fig": PHON_FIGS[p["key"]],
             "examples": "・".join(e for e in p["example"].split("・") if e != exclude_word),
             "pred_cont_label": val_label("continuity", p["pred_cont"]) if p["pred_cont"] else "—（語による）",
             "pred_act_label": val_label("action", p["pred_act"]) if p["pred_act"] else "—（語による）",
+            "pred_cont_reason": PHON_PREDICTION_REASONS[p["key"]]["continuity"],
+            "pred_act_reason": PHON_PREDICTION_REASONS[p["key"]]["action"],
             "exceptions": exceptions,
         })
     return table
@@ -970,7 +1009,7 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
     emotion_action = k == 4 and get_category(w)["kind"] == "感情・感覚"
     action_example = k == 4 and not emotion_action and not fb["ok"]
     hide_phon_feature = None if emotion_action else "action" if k == 3 else "both"
-    phon_table = (build_phon_table() if emotion_action else build_phon_table(w["word"], hide_phon_feature)) if not fb["ok"] and (k in (2, 3) or emotion_action) else []
+    phon_table = build_phon_table(w["word"], hide_phon_feature) if not fb["ok"] and (k in (2, 3) or emotion_action) else []
     return templates.TemplateResponse(request, "phase1_chain_result.html", {
         "word": w, "chain": CHAIN, "k": k,
         "step": CHAIN_BY_K[k],

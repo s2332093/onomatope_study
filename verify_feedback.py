@@ -101,7 +101,13 @@ for word in main.WORDS:
             assert '<h2>音の形</h2>' in response.text
             assert all(not row['exceptions'] for row in response.context['feedback_phon_table'])
         else:
-            assert all(main.FEATURE_NAME[hidden] not in e for row in response.context['feedback_phon_table'] for e in row['exceptions'])
+            assert all(d['feature'] != hidden for row in response.context['feedback_phon_table'] for e in row['exceptions'] for d in e['differences'])
+        assert not any(e['word'] == word['word'] for row in response.context['feedback_phon_table'] for e in row['exceptions'])
+        if hidden == 'both':
+            assert 'phon-exception-table' not in re.sub(r'<style>.*?</style>', '', response.text, flags=re.S)
+        else:
+            exception_table = re.search(r'<table class="dtable phon-exception-table".*?</table>', response.text, re.S)[0]
+            assert word['word'] not in exception_table and '動作性' not in exception_table
     assert '音の形にも手がかりがある' not in phon_page.text
     assert 'class="flow"' not in phon_page.text
     assert f'「{word["word"]}」の音の形は？' in phon_page.text
@@ -120,7 +126,8 @@ for word in main.WORDS:
     wrong = next(v for v in main.FEATURE_FIGS['action'] if v != cat['action'])
     response = client.post(base_word + '/f1/4/check', data={'choice': wrong})
     if cat['kind'] == '感情・感覚':
-        assert response.context['feedback_phon_table'] == main.build_phon_table()
+        assert response.context['feedback_phon_table'] == main.build_phon_table(word['word'])
+        assert not any(e['word'] == word['word'] for row in response.context['feedback_phon_table'] for e in row['exceptions'])
         assert '<th>継続性の予測</th>' in response.text and '<th>動作性の予測</th>' in response.text
         assert 'id="example-action"' not in response.text
     else:
@@ -370,5 +377,32 @@ assert '意志的でないこと' not in client.get('/a/reference').text
 r = client.post('/a/word/bikkuri/f2/check', data={'shidasu':'○'}, headers=json_headers).json()
 assert '意志性「−」または「関与しない」' in r['feedback_html']
 assert '意志的でないこと' not in r['feedback_html']
+
+# Every exception compares the predicted and actual values and explains the mismatch.
+intro = client.get('/a/reference')
+comparison = re.search(r'<table class="dtable phon-exception-table".*?</table>', intro.text, re.S)[0]
+differences = {}
+for row in main.build_phon_table():
+    assert row['pred_cont_reason'] and row['pred_act_reason']
+    for e in row['exceptions']:
+        word = next(w for w in main.WORDS if w['word'] == e['word'])
+        for d in e['differences']:
+            key = (word['id'], d['feature'])
+            differences[key] = d
+            actual = main.get_category(word)[d['feature']]
+            predicted = main.PHON_BY_KEY[word['phon']][main.PRED_COL[d['feature']]]
+            assert actual != predicted
+            assert d['predicted'] == main.val_label(d['feature'], predicted)
+            assert d['actual'] == main.val_label(d['feature'], actual)
+            assert d['reason'] in comparison and e['word'] in comparison
+assert set(differences) == {('hotto', 'continuity'), ('hotto', 'action'), ('yukkuri', 'continuity'), ('yukkuri', 'action'), ('gikushaku', 'action')}
+assert '安心した状態が残' in differences[('hotto', 'continuity')]['reason']
+assert '過ごし方そのものが続く' in differences[('yukkuri', 'continuity')]['reason']
+assert '動きが少なく' in differences[('yukkuri', 'action')]['reason']
+assert '会話がかみ合わない' in differences[('gikushaku', 'action')]['reason']
+assert all(old not in intro.text for old in ['ゆっくり（継続性）', 'ゆっくり（継続性・動作性）', 'ほっ（継続性・動作性）'])
+assert comparison.count('class="phon-exception-values"') == 5
+assert comparison.count('class="phon-exception-word"') == 3
+assert 'phon-exception-table' not in client.get('/b/knowledge').text
 
 print('OK: 16 words, separately graded kind question, five example-free sound choices, continuity diagrams, kind-specific action/volition feedback, all-selected matching tables, learner-selected comparisons, persistent overall results and group isolation')
