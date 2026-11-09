@@ -235,6 +235,8 @@
   <a href="{{ request.scope.get('study_prefix', '') }}/">ホーム（語を選ぶ）</a>
   {% if request.state.study_group != 'control' %}
   <a href="{{ request.scope.get('study_prefix', '') }}/reference">学習前の知識</a>
+  {% else %}
+  <a href="{{ request.scope.get('study_prefix', '') }}/knowledge">学習前の知識</a>
   {% endif %}
   {% if request.state.participant_name %}
   <span style="margin-left:auto">{{ request.state.participant_name }} さん</span>

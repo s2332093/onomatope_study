@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 import main,research,study_logging
 client=TestClient(main.app);auth=('researcher','test-only-secret-password')
 assert client.get('/a/',follow_redirects=False).status_code==303
+assert client.get('/b/knowledge',follow_redirects=False).status_code==303
 assert client.post('/a/api/finish',json={}).status_code==401
 assert client.get('/a/research').status_code==401
 assert client.get('/b/research',auth=auth).status_code==404
@@ -51,6 +52,8 @@ for kind in ['people','pages','attempts','events']:
 client.post('/b/registration',data={'name':'=1+1<script>'})
 pid2=research.identity(type('R',(),{'cookies':client.cookies})())
 assert pid!=pid2 and client.get('/b/finish').status_code==200
+assert client.get('/b/knowledge').status_code == 200
+assert main.research.page_label('/b/knowledge') == '知識学習：意味と文法形式'
 assert client.post('/b/api/finish',json=dict(payload,participant_id=pid2)).status_code==400
 assert client.post('/a/api/finish',json=payload).status_code==409
 assert client.post('/a/word/iraira/f1/1/check',data=wrong).status_code==409

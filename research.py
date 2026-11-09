@@ -107,6 +107,8 @@ def page_label(path):
         return '名前の登録'
     if parts[0]=='reference':
         return '学習前の知識'
+    if parts[0]=='knowledge':
+        return '知識学習：意味と文法形式'
     if parts[0]=='drill':
         return ('素性ドリル' if len(parts)>1 and parts[1]=='features' else '前接条件ドリル') + ('：フィードバック' if parts[-1]=='check' else '')
     if parts[0]=='word' and len(parts)>1:

@@ -29,9 +29,11 @@
 <!-- 語の一覧 -->
 <h2 style="margin:28px 0 14px;">✏️ 学習する語を選ぶ（全{{ total }}語）</h2>
 
-<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px;">
-  {% for w in words %}
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ w.id }}" style="text-decoration:none; color:inherit; flex:1; min-width:290px;">
+<div class="home-word-list">
+  {% for row in word_rows %}
+  <div class="home-word-row">
+  {% for w in row %}
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ w.id }}" style="text-decoration:none; color:inherit; min-width:0;">
     <div class="card" style="display:flex; align-items:center; gap:16px; margin-bottom:0; padding:14px 18px;"
          onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="font-size:1.8rem;">{{ w.emoji }}</div>
@@ -42,8 +44,14 @@
     </div>
   </a>
   {% endfor %}
+  </div>
+  {% endfor %}
 </div>
 
-
+<style>
+.home-word-list { display:grid;gap:10px;margin-bottom:6px; }
+.home-word-row { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+@media (max-width:560px) { .home-word-row { grid-template-columns:minmax(0,1fr); } }
+</style>
 
 {% endblock %}

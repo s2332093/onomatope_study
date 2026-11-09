@@ -100,7 +100,7 @@ async def study_context(request: Request, call_next):
             return research.private(RedirectResponse(prefix + "/registration?" + urlencode({"next":path}),status_code=303))
     if request.state.study_group == "control":
         import re
-        allowed_path = request.scope["path"] in ("/", "/api/events", "/api/finish", "/finish", "/registration") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
+        allowed_path = request.scope["path"] in ("/", "/knowledge", "/api/events", "/api/finish", "/finish", "/registration") or re.fullmatch(r"/word/[^/]+(?:/meaning/check|/f3(?:/check)?|/complete)?", request.scope["path"])
         if not allowed_path:
             return HTMLResponse('このページは今回の学習内容に含まれません。<a href="/b/">ホームへ</a>', status_code=404)
     if prefix and research.REQUIRE_NAME and request.method == "POST" and current_path.startswith(("/word/", "/drill/")):
@@ -459,11 +459,30 @@ def meaning_options(word, n=4):
 # =====================================================================
 #  トップページ
 # =====================================================================
+def home_word_rows():
+    # Keep pairs together without exposing the classification on the home page.
+    first_categories = ["emo_cont", "emo_moment", "emo_result"]
+    category_ids = first_categories + [c["id"] for c in CATEGORIES if c["id"] not in first_categories]
+    return [[w for w in WORDS if w["category_id"] == cid] for cid in category_ids]
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(request, "control_index.html" if request.state.study_group == "control" else "index.html", {
         "total": len(WORDS), "chain": CHAIN, "words": WORDS,
+        "word_rows": home_word_rows() if request.state.study_group == "experiment" else [],
     })
+
+
+@app.get("/knowledge", response_class=HTMLResponse)
+async def control_knowledge(request: Request):
+    if request.state.study_group != "control":
+        return RedirectResponse("/reference", status_code=303)
+    lessons = [{
+        "word": w,
+        "expressions": [e for e in EXPRESSIONS if e["key"] in CAT_EXPRS.get(w["category_id"], set())],
+    } for w in WORDS]
+    return templates.TemplateResponse(request, "control_knowledge.html", {"lessons": lessons})
 
 
 # =====================================================================

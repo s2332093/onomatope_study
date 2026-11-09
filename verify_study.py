@@ -25,8 +25,35 @@ for group in ('a', 'b'):
     assert home.status_code == 200
     assert 'data-study-prefix="/' + group + '"' in home.text
 assert '/a/reference' in client.get('/a/').text
+home_a = client.get('/a/').text
+rows = re.findall(r'<div class="home-word-row">(.*?)\n  </div>', home_a, re.S)
+word_pairs = [re.findall(r'href="/a/word/([^"]+)"', row) for row in rows]
+assert len(word_pairs) == 8 and all(len(pair) == 2 for pair in word_pairs)
+assert word_pairs[:3] == [['iraira', 'zukizuki'], ['iratto', 'zukitto'], ['bikkuri', 'hotto']]
+assert {wid for pair in word_pairs for wid in pair} == set(main.WORD_BY_ID)
+assert all(main.WORD_BY_ID[a]['category_id'] == main.WORD_BY_ID[b]['category_id'] for a, b in word_pairs)
+assert len({main.WORD_BY_ID[a]['category_id'] for a, b in word_pairs}) == 8
+visible_home = re.sub(r'<style>.*?</style>', '', home_a, flags=re.S)
+assert 'カテゴリー' not in visible_home and all(c['name'] not in visible_home for c in main.CATEGORIES)
 control = re.sub(r'<style>.*?</style>', '', client.get('/b/').text, flags=re.S)
 assert '素性' not in control and '前接条件' not in control
+assert 'href="/b/knowledge"' in control
+knowledge = client.get('/b/knowledge')
+assert knowledge.status_code == 200
+assert 'data-study-prefix="/b"' in knowledge.text and 'study_log.js' in knowledge.text
+knowledge_rows = re.findall(r'<tr>\s*<th scope="row">(.*?)</tr>', knowledge.text, re.S)
+assert len(knowledge_rows) == len(main.WORDS) == 16
+for word, row in zip(main.WORDS, knowledge_rows):
+    assert word['word'] in row and word['meaning'] in row
+    shown = re.findall(r'<li>〜(.*?)</li>', row)
+    expected = [e['label'] for e in main.EXPRESSIONS if e['key'] in main.CAT_EXPRS[word['category_id']]]
+    assert shown == expected, (word['id'], shown, expected)
+visible_knowledge = re.sub(r'<style>.*?</style>', '', knowledge.text, flags=re.S)
+for forbidden in ('素性', '前接条件', 'カテゴリー', '継続性', '動作性', '意志性', '/a/'):
+    assert forbidden not in visible_knowledge
+assert 'href="/b/#words"' in knowledge.text
+assert client.get('/a/knowledge', follow_redirects=False).headers['location'] == '/a/reference'
+assert main.research.page_label('/b/knowledge') == '知識学習：意味と文法形式'
 for w in main.WORDS:
     r = client.get('/b/word/' + w['id'])
     assert r.status_code == 200

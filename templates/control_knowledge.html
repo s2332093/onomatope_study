@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <span class="badge badge-blue">知識学習</span>
+  <h1 style="margin-top:12px;">オノマトペの意味と文法形式</h1>
+  <p style="margin-top:12px;">これから学ぶ{{ lessons|length }}語の意味と、それぞれの語と一緒に使える文法形式を確認しましょう。</p>
+  <p style="margin-top:12px;">右の欄は「オノマトペ＋文法形式」で使える形の一覧です。読み終えたら、語の学習に進みましょう。</p>
+  <a class="btn btn-primary" style="margin-top:18px;" href="{{ request.scope.get('study_prefix', '') }}/#words">語の学習を始める →</a>
+</div>
+<div class="card control-knowledge-card">
+  <div class="tscroll">
+    <table class="control-knowledge-table">
+      <caption>学習する{{ lessons|length }}語のまとめ</caption>
+      <thead><tr><th scope="col">オノマトペ</th><th scope="col">意味</th><th scope="col">結びつく文法形式</th></tr></thead>
+      <tbody>
+      {% for lesson in lessons %}
+      <tr>
+        <th scope="row">{{ lesson.word.emoji }} {{ lesson.word.word }}</th>
+        <td>{{ lesson.word.meaning }}</td>
+        <td><ul class="control-expression-list">{% for e in lesson.expressions %}<li>〜{{ e.label }}</li>{% endfor %}</ul></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<a class="btn btn-primary" href="{{ request.scope.get('study_prefix', '') }}/#words">語の学習を始める →</a>
+<style>
+.control-knowledge-table { width:100%;border-collapse:collapse;font-size:1rem;line-height:1.8; }
+.control-knowledge-table caption { text-align:left;font-size:1.2rem;font-weight:700;margin-bottom:16px; }
+.control-knowledge-table th,.control-knowledge-table td { border:1px solid var(--border);padding:16px;vertical-align:top;text-align:left; }
+.control-knowledge-table thead th { background:var(--blue-soft);color:var(--blue); }
+.control-knowledge-table tbody th { min-width:130px;white-space:nowrap;background:#fbfcfe; }
+.control-knowledge-table td:nth-child(2) { min-width:210px; }
+.control-knowledge-table td:last-child { min-width:270px; }
+.control-expression-list { display:flex;flex-wrap:wrap;gap:6px 14px;list-style:none;padding:0;margin:0; }
+.control-expression-list li { white-space:nowrap; }
+@media (max-width:560px) { .control-knowledge-card { padding:14px; } }
+</style>
+{% endblock %}
