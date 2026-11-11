@@ -29,13 +29,14 @@ home_a = client.get('/a/').text
 rows = re.findall(r'<div class="home-word-row">(.*?)\n  </div>', home_a, re.S)
 word_pairs = [re.findall(r'href="/a/word/([^"]+)"', row) for row in rows]
 assert len(word_pairs) == 8 and all(len(pair) == 2 for pair in word_pairs)
-expected_pairs = [
+curriculum_pairs = [
     ['iraira', 'zukizuki'], ['bikkuri', 'gakkari'], ['iratto', 'zukitto'],
     ['burabura', 'urouro'], ['yoroyoro', 'kyorokyoro'], ['nikoniko', 'kirakira'],
     ['gorogoro', 'yukkuri'], ['mesomeso', 'kuyokuyo'],
 ]
+expected_pairs = [['zukizuki', 'iraira'], *curriculum_pairs[1:]]
 assert word_pairs == expected_pairs
-assert [w['id'] for w in main.WORDS] == [wid for pair in expected_pairs for wid in pair]
+assert [w['id'] for w in main.WORDS] == [wid for pair in curriculum_pairs for wid in pair]
 expected_words = ['いらいら','ずきずき','びっくり','がっかり','いらっ','ずきっ','ぶらぶら','うろうろ','よろよろ','きょろきょろ','にこにこ','きらきら','ごろごろ','ゆっくり','めそめそ','くよくよ']
 assert [w['word'] for w in main.WORDS] == expected_words
 assert set(main.PRACTICE) == set(main.WORD_BY_ID)

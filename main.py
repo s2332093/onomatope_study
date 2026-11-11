@@ -438,7 +438,10 @@ def meaning_options(word, n=4):
 # =====================================================================
 def home_word_rows():
     # Keep pairs together without exposing the classification on the home page.
-    return [[w for w in WORDS if w["category_id"] == c["id"]] for c in CATEGORIES]
+    rows = [[w for w in WORDS if w["category_id"] == c["id"]] for c in CATEGORIES]
+    # Show ずきずき on the left and いらいら on the right only on the home page.
+    rows[0].reverse()
+    return rows
 
 
 @app.get("/", response_class=HTMLResponse)
