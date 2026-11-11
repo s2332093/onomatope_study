@@ -2,7 +2,6 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="{{ request.scope.get('study_prefix', '') }}/" class="muted small" style="text-decoration:none;">← 語の一覧</a>
   <div style="margin-left:auto; display:flex; gap:4px;">
     <span class="badge badge-green">フェーズ1</span>
     <span class="badge badge-green">フェーズ2</span>
@@ -13,7 +12,7 @@
 <div class="card">
   <div style="font-size:2rem;">🎉</div>
   <h1 style="color:var(--green); margin-top:4px;">「{{ word.word }}」の学習が完了しました</h1>
-  <p class="muted small">3つのフェーズを通して、素性から文法形式・例文までつながりました（{{ n }} / {{ total }} 語目）。</p>
+  <p class="muted small">3つのフェーズを通して、素性から文法形式・例文までつながりました。</p>
 </div>
 
 <!-- たどった道すじ -->
@@ -62,29 +61,10 @@
   </div>
 </div>
 
-<div class="card" style="text-align:center; background:{% if next_word %}var(--blue-soft){% else %}var(--green-soft){% endif %};">
-  {% if next_word %}
-  <h2>次の語へ</h2>
-  <p class="muted small" style="margin-bottom:14px;">
-    同じ流れで {{ next_word.emoji }} <strong>{{ next_word.word }}</strong> を学びます。
-  </p>
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ next_word.id }}" class="btn btn-primary">
-    {{ next_word.emoji }} {{ next_word.word }} を学ぶ →
-  </a>
-  {% else %}
-  <h2>🏁 {{ total }}語すべてを終えました</h2>
-  {% endif %}
+<div class="card" style="text-align:center;">
+  <p class="muted small" style="margin-bottom:14px;">実施者の案内に従い、ホーム画面で次に学ぶ語を選んでください。</p>
+  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-primary">ホーム画面に戻る</a>
 </div>
 
-<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-secondary">語の一覧に戻る</a>
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/1" class="btn btn-secondary">この語をもう一度</a>
-  <a href="{{ request.scope.get('study_prefix', '') }}/reference" class="btn btn-secondary">素性のまとめ</a>
-</div>
-
-<div class="card" style="margin-top:20px">
-  <h2>全ての学習を終えたら</h2>
-  <p class="muted small">他の語も学ぶ場合は、そのまま次の語へ進んでください。記録は最後にまとめて保存します。</p>
-  <a class="btn btn-primary" href="{{ request.scope.get('study_prefix','') }}/finish">学習を終了して記録を保存 →</a>
-</div>
+<p class="muted small">全ての学習が終わったら、上部の「学習を終了・記録を保存」から記録を保存してください。</p>
 {% endblock %}

@@ -55,10 +55,6 @@
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-secondary">先にフェーズ3を見る</a>
 </div>
 
-{% if next_word %}
-<div class="notebox">
-  この語を終えたら、次は {{ next_word.emoji }} <strong>{{ next_word.word }}</strong> に進みます。
-</div>
-{% endif %}
+<p class="muted small" style="margin-top:14px;">この語を終えたら、ホーム画面に戻って次に学ぶ語を選びましょう。</p>
 
 {% endblock %}

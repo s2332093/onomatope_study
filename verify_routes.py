@@ -168,7 +168,7 @@ for prefix in ('/a', '/b'):
             fails.append(f'{prefix}{suffix} にドリルの案内が残っています')
 last = main.WORDS[-1]['id']
 body = get(f'/a/word/{last}/complete').text
-if 'ドリル' in body or '/drill/' in body or '学習を終了して記録を保存' not in body:
+if 'ドリル' in body or '/drill/' in body or '学習を終了・記録を保存' not in body:
     fails.append('全語の学習完了画面にドリルが残っているか終了時保存の案内がありません')
 
 # ---- 全語 × 学習マップ・フェーズ2・フェーズ3・完了 ----

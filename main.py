@@ -445,7 +445,7 @@ def home_word_rows():
 async def index(request: Request):
     return templates.TemplateResponse(request, "control_index.html" if request.state.study_group == "control" else "index.html", {
         "total": len(WORDS), "chain": CHAIN, "words": WORDS,
-        "word_rows": home_word_rows() if request.state.study_group == "experiment" else [],
+        "word_rows": home_word_rows(),
     })
 
 
