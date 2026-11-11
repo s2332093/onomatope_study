@@ -91,28 +91,14 @@ for word in main.WORDS:
         choices = main.PHON_BY_KEY if k == 2 else main.FEATURE_FIGS[feature]
         wrong = next(v for v in choices if v != correct)
         response = client.post(f'/a/word/{word["id"]}/f1/{k}/check', data={'choice':wrong})
-        target_exceptions = main.word_exception_table(word, feature)
-        if target_exceptions:
-            assert not response.context['feedback_phon_table']
-            assert response.context['feedback_phon_exceptions'] == target_exceptions
-            exception_table = re.search(r'<table class="dtable phon-exception-table".*?</table>', response.text, re.S)[0]
-            assert word['word'] in exception_table
-            assert exception_table.count('class="phon-exception-values"') == 1
-            for other in main.WORDS:
-                if other['id'] != word['id']:
-                    assert other['word'] not in exception_table
-        else:
-            table = re.search(r'<table class="dtable phon-reference-table".*?</table>', response.text, re.S)[0]
-            assert word['word'] not in table
-            assert all('/static/' + fig in table for fig in main.PHON_FIGS.values())
-            assert ('<th>継続性の予測</th>' in table) == (hidden not in ('continuity', 'both'))
-            assert ('<th>動作性の予測</th>' in table) == (hidden not in ('action', 'both'))
-            if hidden == 'both':
-                assert '<th>例外</th>' not in table
-                assert '<h2>音の形</h2>' in response.text
-            assert all(not row['exceptions'] for row in response.context['feedback_phon_table'])
-            assert not response.context['feedback_phon_exceptions']
-            assert '<table class="dtable phon-exception-table"' not in response.text
+        table = re.search(r'<table class="dtable phon-reference-table".*?</table>', response.text, re.S)[0]
+        assert word['word'] not in table
+        assert all('/static/' + fig in table for fig in main.PHON_FIGS.values())
+        assert ('<th>継続性の予測</th>' in table) == (hidden not in ('continuity', 'both'))
+        assert ('<th>動作性の予測</th>' in table) == (hidden not in ('action', 'both'))
+        if hidden == 'both':
+            assert '<h2>音の形</h2>' in response.text
+        assert '例外' not in response.text and 'phon-exception' not in response.text
     assert '音の形にも手がかりがある' not in phon_page.text
     assert 'class="flow"' not in phon_page.text
     assert f'「{word["word"]}」の音の形は？' in phon_page.text
@@ -130,15 +116,8 @@ for word in main.WORDS:
     cat = main.get_category(word)
     wrong = next(v for v in main.FEATURE_FIGS['action'] if v != cat['action'])
     response = client.post(base_word + '/f1/4/check', data={'choice': wrong})
-    target_exceptions = main.word_exception_table(word, 'action')
-    if target_exceptions:
-        assert response.context['feedback_phon_exceptions'] == target_exceptions
-        assert not response.context['feedback_phon_table']
-        assert 'id="example-action"' not in response.text
-        assert '例外となる理由' in response.text
-    elif cat['kind'] == '感情・感覚':
-        expected = [{**row, 'exceptions': []} for row in main.build_phon_table(word['word'])]
-        assert response.context['feedback_phon_table'] == expected
+    if cat['kind'] == '感情・感覚':
+        assert response.context['feedback_phon_table'] == main.build_phon_table(word['word'])
         assert '<th>継続性の予測</th>' in response.text and '<th>動作性の予測</th>' in response.text
         assert 'id="example-action"' not in response.text
     else:
@@ -389,50 +368,26 @@ r = client.post('/a/word/bikkuri/f2/check', data={'shidasu':'○'}, headers=json
 assert '意志性「−」または「関与しない」' in r['feedback_html']
 assert '意志的でないこと' not in r['feedback_html']
 
-# Every exception compares the predicted and actual values and explains the mismatch.
+# The revised curriculum has no exception-specific teaching or feedback.
 intro = client.get('/a/reference')
-comparison = re.search(r'<table class="dtable phon-exception-table".*?</table>', intro.text, re.S)[0]
-differences = {}
-for row in main.build_phon_table():
-    assert row['pred_cont_reason'] and row['pred_act_reason']
-    for e in row['exceptions']:
-        word = next(w for w in main.WORDS if w['word'] == e['word'])
-        for d in e['differences']:
-            key = (word['id'], d['feature'])
-            differences[key] = d
-            actual = main.get_category(word)[d['feature']]
-            predicted = main.PHON_BY_KEY[word['phon']][main.PRED_COL[d['feature']]]
-            assert actual != predicted
-            assert d['predicted'] == main.val_label(d['feature'], predicted)
-            assert d['actual'] == main.val_label(d['feature'], actual)
-            assert d['reason'] in comparison and e['word'] in comparison
-assert set(differences) == {('hotto', 'continuity'), ('hotto', 'action'), ('yukkuri', 'continuity'), ('yukkuri', 'action'), ('gikushaku', 'action')}
-assert '安心した状態が残' in differences[('hotto', 'continuity')]['reason']
-assert '過ごし方そのものが続く' in differences[('yukkuri', 'continuity')]['reason']
-assert '動きが少なく' in differences[('yukkuri', 'action')]['reason']
-assert '会話がかみ合わない' in differences[('gikushaku', 'action')]['reason']
-assert all(old not in intro.text for old in ['ゆっくり（継続性）', 'ゆっくり（継続性・動作性）', 'ほっ（継続性・動作性）'])
-assert comparison.count('class="phon-exception-values"') == 5
-assert comparison.count('class="phon-exception-word"') == 3
-assert comparison.count('class="phon-predicted"') == 5
-assert comparison.count('class="phon-actual"') == 5
-for word_id, feature in differences:
-    word = main.WORD_BY_ID[word_id]
-    k = {'continuity': 3, 'action': 4}[feature]
-    for wrong in main.FEATURE_FIGS[feature]:
-        if wrong == main.get_category(word)[feature]:
-            continue
-        r = client.post(f'/a/word/{word_id}/f1/{k}/check', data={'choice': wrong})
-        target = r.context['feedback_phon_exceptions']
-        assert len(target) == 1 and target[0]['exceptions'][0]['word'] == word['word']
-        assert target[0]['exceptions'][0]['differences'] == [differences[(word_id, feature)]]
-        section = re.search(r'<section class="card" aria-label="学習中の語の例外理由">(.*?)</section>', r.text, re.S)[1]
-        assert 'class="phon-predicted"' in section and 'class="phon-actual"' in section
-        assert differences[(word_id, feature)]['reason'] in section
-        assert all(d['reason'] not in section for key, d in differences.items() if key != (word_id, feature))
-        assert '例題：「ぶらぶら」' not in r.text
-    right = client.post(f'/a/word/{word_id}/f1/{k}/check', data={'choice': main.get_category(word)[feature]})
-    assert '学習中の語の例外理由' not in right.text and not right.context['feedback_phon_exceptions']
-assert 'phon-exception-table' not in client.get('/b/knowledge').text
+assert '音の形と素性の対応' in intro.text
+assert '例外' not in intro.text and 'phon-exception' not in intro.text
+for prefix in ('/a', '/b'):
+    for word in main.WORDS:
+        base_word = f'{prefix}/word/{word["id"]}'
+        if prefix == '/a':
+            for k, feature in ((3, 'continuity'), (4, 'action'), (5, 'volition')):
+                wrong = next(v for v in main.FEATURE_FIGS[feature] if v != main.get_category(word)[feature])
+                response = client.post(f'{base_word}/f1/{k}/check', data={'choice': wrong})
+                assert response.status_code == 200
+                assert '例外' not in response.text and 'phon-exception' not in response.text
+                assert response.context['retry_feedback']['message'] == main.chain_retry_feedback(word, k, wrong)['message']
+        else:
+            assert '例外' not in client.get(base_word).text
+            assert '例外' not in client.get(base_word + '/f3').text
+assert '例外' not in client.get('/b/knowledge').text
+# Removing the special feedback does not change the retained word's feature values.
+yukkuri = main.get_category(main.WORD_BY_ID['yukkuri'])
+assert (yukkuri['continuity'], yukkuri['action'], yukkuri['volition']) == ('＋', '低', '＋')
 
 print('OK: 16 words, separately graded kind question, five example-free sound choices, continuity diagrams, kind-specific action/volition feedback, all-selected matching tables, learner-selected comparisons, persistent overall results and group isolation')

@@ -6,6 +6,11 @@ os.environ.update(STUDY_REQUIRE_NAME='1',STUDY_ADMIN_PASSWORD='test-only-secret-
 from fastapi.testclient import TestClient
 import main,research,study_logging
 client=TestClient(main.app);auth=('researcher','test-only-secret-password')
+for word_id, word in [('hotto','ほっ'), ('orooro','おろおろ'), ('gikushaku','ぎくしゃく'), ('daradara','だらだら'), ('bonyari','ぼんやり')]:
+    assert word_id not in main.WORD_BY_ID
+    assert research.page_label(f'/a/word/{word_id}/f1/3') == word + '：継続性'
+    assert research.answer_label({'choice': word_id}, f'/a/word/{word_id}/f1/1/check') == '解答：' + research.report_word(word_id)['meaning']
+    assert research.answer_label({'choice': word_id}, '/a/drill/features/check') == '解答：' + word
 assert client.get('/a/',follow_redirects=False).status_code==303
 assert client.get('/b/knowledge',follow_redirects=False).status_code==303
 assert client.post('/a/api/finish',json={}).status_code==401

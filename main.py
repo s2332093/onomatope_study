@@ -347,28 +347,6 @@ def expr_feedback(word, cat, e):
             "headline": headline, "lines": lines}
 
 
-def phon_note(word, fkey):
-    """音韻形態からの予測と実際の素性を比べたコメント（continuity / action のみ）"""
-    if fkey not in PRED_COL:
-        return None
-    phon = PHON_BY_KEY[word["phon"]]
-    cat = CAT_BY_ID[word["category_id"]]
-    pred = phon[PRED_COL[fkey]]
-    if not pred:
-        # この形からは予測できない素性
-        return {"match": None,
-                "text": f'{phon["label"]}からは{FEATURE_NAME[fkey]}を予測できません。'
-                        f'{phon["pred_note"]}'}
-    if pred == cat[fkey]:
-        return {"match": True,
-                "text": f'音の形（{phon["label"]}）からの予測どおりです。'
-                        f'この形は〈{val_label(fkey, pred)}〉になりやすい形です。'}
-    return {"match": False,
-            "text": f'{phon["label"]}は〈{val_label(fkey, pred)}〉になりやすい形ですが、'
-                    f'「{word["word"]}」は〈{val_label(fkey, cat[fkey])}〉です。'
-                    f'{phon["pred_note"]}'}
-
-
 def feature_reason(word, fkey):
     """Explain the target feature using its kind; continuity alone does not fix action."""
     cat = get_category(word)
@@ -411,7 +389,6 @@ def feature_feedback(word, fkey):
         "correct_label": val_label(fkey, cat[fkey]),
         "why": feature_reason(word, fkey),
         "general": FEATURE_EXPLAINS[fkey],
-        "phon": phon_note(word, fkey),
     }
 
 
@@ -461,9 +438,7 @@ def meaning_options(word, n=4):
 # =====================================================================
 def home_word_rows():
     # Keep pairs together without exposing the classification on the home page.
-    first_categories = ["emo_cont", "emo_moment", "emo_result"]
-    category_ids = first_categories + [c["id"] for c in CATEGORIES if c["id"] not in first_categories]
-    return [[w for w in WORDS if w["category_id"] == cid] for cid in category_ids]
+    return [[w for w in WORDS if w["category_id"] == c["id"]] for c in CATEGORIES]
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -511,37 +486,10 @@ PHON_PREDICTION_REASONS = {
     },
 }
 
-PHON_EXCEPTION_REASONS = {
-    ("hotto", "continuity"): "緊張がとける変化のあと、安心した状態が残ります。一瞬の変化だけで終わらず、結果の状態が残るため、予測と異なります。",
-    ("hotto", "action"): "安心への変化と、そのあとに残る気持ちを表し、時間の幅があります。一瞬の変化・刺激として扱う予測とは異なります。",
-    ("yukkuri", "continuity"): "この場面では、急がず食事を楽しむ過ごし方が続きます。一度の変化の結果が残る意味ではなく、過ごし方そのものが続くため、予測と異なります。",
-    ("yukkuri", "action"): "急がない、ゆるやかな動き・過ごし方を表します。動きが少なく、状態に近い意味のため、予測の「中」より低く判断します。",
-    ("gikushaku", "action"): "この場面では、けんかのあとで会話がかみ合わない状態が続きます。外から見える激しい動きが中心ではないため、予測の「高」と異なります。",
-}
-
-
 def build_phon_table(exclude_word=None, hide_feature=None):
-    """音の形の参照表。誤答時は対象語と見直す素性の例外表示を除外する。"""
+    """Sound-shape reference; keep the current word out of review examples."""
     table = []
     for p in PHON_DEFS:
-        # Compare each mismatching feature, keeping each word in one group.
-        by_word = {}
-        for w in WORDS:
-            if w["phon"] != p["key"] or w["word"] == exclude_word:
-                continue
-            cat = CAT_BY_ID[w["category_id"]]
-            for fkey in ("continuity", "action"):
-                if hide_feature in (fkey, "both"):
-                    continue
-                pred = p[PRED_COL[fkey]]
-                if pred and cat[fkey] != pred:
-                    by_word.setdefault(w["word"], []).append({
-                        "feature": fkey, "feature_name": FEATURE_NAME[fkey],
-                        "predicted": val_label(fkey, pred),
-                        "actual": val_label(fkey, cat[fkey]),
-                        "reason": PHON_EXCEPTION_REASONS.get((w["id"], fkey), feature_reason(w, fkey)),
-                    })
-        exceptions = [{"word": word, "differences": differences} for word, differences in by_word.items()]
         table.append({
             "form": p,
             "fig": PHON_FIGS[p["key"]],
@@ -550,32 +498,8 @@ def build_phon_table(exclude_word=None, hide_feature=None):
             "pred_act_label": val_label("action", p["pred_act"]) if p["pred_act"] else "—（語による）",
             "pred_cont_reason": PHON_PREDICTION_REASONS[p["key"]]["continuity"],
             "pred_act_reason": PHON_PREDICTION_REASONS[p["key"]]["action"],
-            "exceptions": exceptions,
         })
     return table
-
-
-def word_exception_table(word, feature):
-    """Only the current word's mismatch for the feature being reconsidered."""
-    result = []
-    for row in build_phon_table():
-        for exception in row["exceptions"]:
-            if exception["word"] != word["word"]:
-                continue
-            differences = [d for d in exception["differences"] if d["feature"] == feature]
-            if differences:
-                result.append({**row, "exceptions": [{"word": word["word"], "differences": differences}]})
-    return result
-
-
-# その形からの予測と実際の素性が食い違う語（段階4の出題に使う）
-EXCEPTION_WORDS = []
-for _w in WORDS:
-    _p = PHON_BY_KEY[_w["phon"]]
-    _c = CAT_BY_ID[_w["category_id"]]
-    for _f in ("continuity", "action"):
-        if _p[PRED_COL[_f]] and _c[_f] != _p[PRED_COL[_f]]:
-            EXCEPTION_WORDS.append((_w, _f))
 
 
 # =====================================================================
@@ -735,8 +659,7 @@ def chain_feedback(w, k, choice):
             "user": val_label(fkey, choice) if choice else "(未選択)",
             "correct": fb["correct_label"],
             "why": fb["why"],
-            "extra": fb["phon"]["text"] if fb["phon"] else fb["general"],
-            "phon_match": fb["phon"]["match"] if fb["phon"] else None,
+            "extra": fb["general"],
             "fig": FEATURE_FIGS[fkey].get(fb["correct_value"])}
 
 
@@ -1023,16 +946,7 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
     action_example = k == 4 and not emotion_action and not fb["ok"]
     hide_phon_feature = None if emotion_action else "action" if k == 3 else "both"
     phon_table = build_phon_table(w["word"], hide_phon_feature) if not fb["ok"] and (k in (2, 3) or emotion_action) else []
-    exception_table = word_exception_table(w, {3: "continuity", 4: "action"}[k]) if not fb["ok"] and k in (3, 4) else []
     retry_feedback = chain_retry_feedback(w, k, choice)
-    # General reference tables must not show unrelated words' exception reasons.
-    phon_table = [{**row, "exceptions": []} for row in phon_table]
-    if exception_table:
-        phon_table = []
-        action_example = False
-        retry_feedback["message"] = (
-            f'「{w["word"]}」は、音の形からの予測と意味・場面からの判断が異なる語です。'
-            f'下の表で、{CHAIN_BY_K[k]["title"]}の違いと例外となる理由を確認しましょう。')
     return templates.TemplateResponse(request, "phase1_chain_result.html", {
         "word": w, "chain": CHAIN, "k": k,
         "step": CHAIN_BY_K[k],
@@ -1040,7 +954,6 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
         "retry_feedback": retry_feedback,
         "feedback_feature_options": feature_options({3: "continuity", 4: "action", 5: "volition"}[k]) if k >= 3 and not fb["ok"] else [],
         "feedback_phon_table": phon_table,
-        "feedback_phon_exceptions": exception_table,
         "hide_phon_feature": hide_phon_feature,
         "feedback_action_example": action_example, "figs": FEATURE_FIGS,
         "failures": outcome["failures"], "review_for": review_for,
@@ -1098,7 +1011,7 @@ def grade_feature_questions(form):
                      "user": choice, "correct_value": fb["correct_value"],
                      "ok": ok,
                      "explain": fb["why"],
-                     "extra": fb["phon"]["text"] if fb["phon"] else fb["general"]}
+                     "extra": fb["general"]}
 
         elif spec.startswith("p:"):
             _, pkey, fkey = spec.split(":", 2)
@@ -1106,11 +1019,7 @@ def grade_feature_questions(form):
             if p:
                 correct = p[PRED_COL[fkey]]
                 ok = (choice == correct)
-                exceptions = [w["word"] for w in WORDS
-                              if w["phon"] == pkey
-                              and CAT_BY_ID[w["category_id"]][fkey] != correct]
-                extra = (f'ただし例外もあります：{"・".join(exceptions)}。{p["pred_note"]}'
-                         if exceptions else p["pred_note"])
+                extra = p["pred_note"]
                 r = {"type": "phon", "word": None,
                      "title": f'「{p["label"]}」の{FEATURE_NAME[fkey]}の予測',
                      "user": choice, "correct_value": correct, "ok": ok,

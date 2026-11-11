@@ -95,6 +95,17 @@ def score(detail):
     return []
 
 
+def report_word(word_id):
+    """Keep labels readable for records from earlier curriculum versions."""
+    import main
+    if word_id in main.WORD_BY_ID:
+        return main.WORD_BY_ID[word_id]
+    for item in main.init_db.WORDS_ALL:
+        if item[0] == word_id:
+            return {"id": item[0], "word": item[1], "meaning": item[6]}
+    return None
+
+
 def page_label(path):
     # Resolve teaching labels only while serving reports, after main has loaded.
     import main
@@ -112,7 +123,7 @@ def page_label(path):
     if parts[0]=='drill':
         return ('素性ドリル' if len(parts)>1 and parts[1]=='features' else '前接条件ドリル') + ('：フィードバック' if parts[-1]=='check' else '')
     if parts[0]=='word' and len(parts)>1:
-        word=main.WORD_BY_ID.get(parts[1],{}).get('word',parts[1])
+        word=(report_word(parts[1]) or {}).get('word',parts[1])
         suffix='学習マップ'
         if len(parts)>2:
             stage=parts[2]
@@ -131,8 +142,8 @@ def answer_label(answers,path):
         if key.startswith(('opt_keys_','spec_')):
             continue
         label = '解答' if key=='choice' else ('問'+key[7:] if key.startswith('choice_') else main.EXPR_BY_KEY.get(key,{}).get('label',key))
-        if value in main.WORD_BY_ID:
-            item=main.WORD_BY_ID[value]
+        item=report_word(value)
+        if item:
             value=item['meaning'] if '/f1/1' in path or '/meaning' in path else item['word']
         elif value in main.EXPR_BY_KEY:
             value=main.EXPR_BY_KEY[value]['label']

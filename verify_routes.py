@@ -74,7 +74,7 @@ for w in WORDS:
         if "正解です" not in res.text:
             fails.append(f'フェーズ1：{w["word"]} の第{k}問で、正解を入れても正解になりません')
         # 誤答でも落ちないこと
-        wrong = {1: "iraira" if w["id"] != "iraira" else "hotto",
+        wrong = {1: "iraira" if w["id"] != "iraira" else "gakkari",
                  2: "qri" if w["phon"] != "qri" else "repeat"}.get(k)
         if wrong is None:
             wrong = [v for v in CHAIN_FIGS[FKEY_BY_K[k]] if v != cat[FKEY_BY_K[k]]][0]
@@ -138,12 +138,6 @@ for needle, what in [("hit-line", "線のクリック削除"), ("del-x", "行ご
         fails.append(f'線結びに{what}がありません')
 if "wide" not in r.text:
     fails.append("線結び画面が広いレイアウト（container wide）になっていません")
-
-# ---- 対応表の例外欄が語ごとにまとまっていること ----
-for row in main.build_phon_table():
-    seen_words = [e["word"] for e in row["exceptions"]]
-    if len(seen_words) != len(set(seen_words)):
-        fails.append(f'対応表の例外欄に同じ語が重複しています：{row["form"]["label"]} / {row["exceptions"]}')
 
 # ---- 図のファイルが実在すること ----
 import os

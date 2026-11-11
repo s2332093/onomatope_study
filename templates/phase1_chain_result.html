@@ -39,13 +39,6 @@
   {% with phon_table=feedback_phon_table %}{% include "_phon_table.html" %}{% endwith %}
 </section>
 {% endif %}
-{% if not fb.ok and feedback_phon_exceptions %}
-<section class="card" aria-label="学習中の語の例外理由">
-  <h2>「{{ word.word }}」の例外を確かめる</h2>
-  <p style="margin:10px 0;">いま見直している{{ step.title }}について、予測と意味・場面からの判断を比較しましょう。</p>
-  {% with phon_table=feedback_phon_exceptions %}{% include "_phon_exception_table.html" %}{% endwith %}
-</section>
-{% endif %}
 {% if not fb.ok and feedback_action_example %}
 {% include "_action_example.html" %}
 {% endif %}

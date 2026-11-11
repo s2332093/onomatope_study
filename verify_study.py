@@ -29,7 +29,22 @@ home_a = client.get('/a/').text
 rows = re.findall(r'<div class="home-word-row">(.*?)\n  </div>', home_a, re.S)
 word_pairs = [re.findall(r'href="/a/word/([^"]+)"', row) for row in rows]
 assert len(word_pairs) == 8 and all(len(pair) == 2 for pair in word_pairs)
-assert word_pairs[:3] == [['iraira', 'zukizuki'], ['iratto', 'zukitto'], ['bikkuri', 'hotto']]
+expected_pairs = [
+    ['iraira', 'zukizuki'], ['bikkuri', 'gakkari'], ['iratto', 'zukitto'],
+    ['burabura', 'urouro'], ['yoroyoro', 'kyorokyoro'], ['nikoniko', 'kirakira'],
+    ['gorogoro', 'yukkuri'], ['mesomeso', 'kuyokuyo'],
+]
+assert word_pairs == expected_pairs
+assert [w['id'] for w in main.WORDS] == [wid for pair in expected_pairs for wid in pair]
+expected_words = ['いらいら','ずきずき','びっくり','がっかり','いらっ','ずきっ','ぶらぶら','うろうろ','よろよろ','きょろきょろ','にこにこ','きらきら','ごろごろ','ゆっくり','めそめそ','くよくよ']
+assert [w['word'] for w in main.WORDS] == expected_words
+assert set(main.PRACTICE) == set(main.WORD_BY_ID)
+for removed in ['hotto', 'orooro', 'gikushaku', 'daradara', 'bonyari']:
+    for prefix in ('/a', '/b'):
+        for suffix in ('', '/f3', '/complete'):
+            response = client.get(f'{prefix}/word/{removed}{suffix}', follow_redirects=False)
+            assert response.status_code == 307 and response.headers['location'] == prefix + '/'
+assert '例外' not in client.get('/a/reference').text
 assert {wid for pair in word_pairs for wid in pair} == set(main.WORD_BY_ID)
 assert all(main.WORD_BY_ID[a]['category_id'] == main.WORD_BY_ID[b]['category_id'] for a, b in word_pairs)
 assert len({main.WORD_BY_ID[a]['category_id'] for a, b in word_pairs}) == 8

@@ -4,7 +4,7 @@
       <th>音の形</th><th>図</th>
       {% if hide_phon_feature not in ('continuity', 'both') %}<th>継続性の予測</th>{% endif %}
       {% if hide_phon_feature not in ('action', 'both') %}<th>動作性の予測</th>{% endif %}
-      <th>同じ音の形の例<br>（例外を含む）</th>
+      <th>同じ音の形の例</th>
     </tr></thead>
     <tbody>{% for row in phon_table %}<tr>
       <th scope="row">{{ row.form.label }}</th>
@@ -15,12 +15,6 @@
     </tr>{% endfor %}</tbody>
   </table>
 </div>
-{% if hide_phon_feature != 'both' and phon_table|selectattr('exceptions')|list %}
-<h3 style="margin-top:24px;">音の形からの予測と異なる語</h3>
-<p style="margin:10px 0 14px;line-height:1.8;">上の表は音の形からの予測です。同じ音の形でも、意味や場面によって予測と異なる語があります。下の表では学習する語の例を比較し、どの素性がどう異なるかと、その理由を確かめます。</p>
-{% include "_phon_exception_table.html" %}
-<p class="muted small" style="margin-top:10px;">音の形だけで決めず、最後は語の意味と場面を優先して判断します。</p>
-{% endif %}
 <style>
 .phon-rule-reason { margin-top:8px;line-height:1.7; }
 table.phon-reference-table { font-size:.95rem;line-height:1.8; }
