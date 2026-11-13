@@ -31,7 +31,7 @@
 <div class="card">
   <h1>素性を使って，結びつく文法形式を選ぶ</h1>
   <p class="lesson-instruction">「{{ word.word }}」の素性と文法形式の前接条件を比べ，条件がすべて合う形式に線を引いてください．</p>
-  <p class="lesson-instruction">「継続性」「動作性」「意志性」を開いて前接条件を選び，各文法形式の「判定」で確かめましょう．複数当てはまるときはすべて選び，条件がない素性では「制限なし」を選びます．</p>
+  <p class="lesson-instruction">横に並んだ「継続性」「動作性」「意志性」のプルダウンから前接条件を選び，各文法形式の「判定」で確かめましょう．複数当てはまるときはすべて選んで「決定」を押し，条件がない素性では「制限なし」を選びます．</p>
   <p class="muted small">間違った素性だけ選択が消え，赤く表示されます．選び直したら，もう一度「判定」を押してください．線を結び終えたら，下の「線結びを判定する」を押します．</p>
 </div>
 
@@ -82,18 +82,19 @@
         {% for e in g.exprs %}
         <div class="right-node" id="node-{{ e.key }}" data-key="{{ e.key }}">
           <button type="button" class="dot right-dot" aria-label="〜{{ e.label }}への線を切り替える" aria-pressed="false"></button>
-          <div style="flex:1;">
+          <div class="expression-body">
             <div style="font-weight:700; font-size:0.92rem;">〜{{ e.label }}</div>
             <div class="condition-toggles">
               {% for feature, options in condition_options.items() %}
               {% set condition_id = e.key ~ '_' ~ feature %}
               <details class="condition-picker" data-feature="{{ feature }}">
-                <summary aria-label="〜{{ e.label }}の{{ feature_names[feature] }}を選ぶ"><span>{{ feature_names[feature] }}：</span><span class="condition-value">未選択</span><span class="condition-mark"></span></summary>
+                <summary aria-label="〜{{ e.label }}の{{ feature_names[feature] }}を選ぶ"><span class="condition-name">{{ feature_names[feature] }}<span class="condition-mark"></span></span><span class="condition-selection"><span class="condition-value">未選択</span><span class="condition-arrow" aria-hidden="true">▾</span></span></summary>
                 <fieldset class="condition-choice" data-condition="{{ condition_id }}">
                 <legend class="sr-only">〜{{ e.label }}の{{ feature_names[feature] }}の前接条件</legend>
                 {% for code, value in options %}
                 <label><input type="checkbox" name="condition_{{ condition_id }}_{{ code }}" value="{{ value }}" {% if value in saved_conditions.get(condition_id, []) %}checked{% endif %}>{{ '変化結果＋' if value == '変化結果の＋' else value }}</label>
                 {% endfor %}
+                <button type="button" class="condition-close">決定</button>
                 </fieldset>
               </details>
               {% endfor %}
@@ -139,21 +140,31 @@
     width: 100%;
   }
   #rightCol { display: flex; flex-direction: column; gap: 7px; z-index: 2; flex: 1 1 auto; max-width: 650px; }
-  .condition-toggles { margin-top:10px; }
+  .expression-body { flex:1;min-width:0; }
+  .condition-toggles { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px; }
   .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
-  .condition-picker { margin-top:7px;border:1px solid var(--border);border-radius:8px;background:white; }
-  .condition-picker summary { display:flex;align-items:center;flex-wrap:wrap;gap:5px;list-style:none;cursor:pointer;padding:9px;font-size:.85rem;font-weight:700; }
+  .condition-picker { position:relative;min-width:0; }
+  .condition-picker summary { list-style:none;cursor:pointer;font-size:.85rem;font-weight:700;border-radius:7px; }
   .condition-picker summary::-webkit-details-marker { display:none; }
-  .condition-picker summary::after { content:'▾';margin-left:auto; }
-  .condition-picker[open] summary::after { content:'▴'; }
-  .condition-picker.is-incorrect { border:2px solid #b72c2c;background:#fff0f0; }
-  .condition-picker.is-incorrect summary { color:#b72c2c; }
+  .condition-picker summary:focus-visible { outline:3px solid var(--blue);outline-offset:3px; }
+  .condition-name { display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:5px; }
+  .condition-selection { display:flex;align-items:center;gap:5px;min-height:42px;padding:8px;border:1px solid var(--border);border-radius:7px;background:white; }
+  .condition-value { overflow-wrap:anywhere; }
+  .condition-arrow { margin-left:auto;flex-shrink:0;color:var(--muted); }
+  .condition-picker[open] .condition-selection { border-color:var(--blue);box-shadow:0 0 0 1px var(--blue); }
+  .condition-picker[open] .condition-arrow { transform:rotate(180deg); }
+  .condition-picker summary[aria-disabled="true"] { opacity:.6;cursor:not-allowed; }
+  .condition-picker.is-incorrect .condition-selection { border:2px solid #b72c2c;background:#fff0f0; }
+  .condition-picker.is-incorrect .condition-name { color:#b72c2c; }
   .condition-picker.is-correct .condition-mark { color:#16723c; }
-  .condition-mark { font-size:.75rem; }
-  .condition-choice { display:flex;flex-wrap:wrap;gap:5px;border:0;padding:0 9px 9px;margin:0; }
-  .condition-choice label { display:flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;padding:6px;font-size:.8rem;cursor:pointer;background:white; }
+  .condition-mark { font-size:.7rem; }
+  .condition-choice { position:absolute;top:calc(100% + 5px);left:0;z-index:10;display:flex;flex-direction:column;gap:5px;width:max-content;min-width:170px;max-width:240px;border:1px solid var(--border);border-radius:9px;padding:8px;margin:0;background:white;box-shadow:0 8px 24px rgba(43,58,85,.18); }
+  .condition-picker:last-child .condition-choice { left:auto;right:0; }
+  .condition-choice label { display:flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:6px;padding:8px;font-size:.85rem;cursor:pointer;background:white; }
   .condition-choice label:has(input:checked) { border-color:var(--blue);background:#dce9ff;color:#1d4e9a; }
   .condition-choice input { accent-color:var(--blue); }
+  .condition-close { padding:7px;border:1px solid var(--blue);border-radius:6px;background:var(--blue-soft);color:var(--blue);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer; }
+  .right-node:has(.condition-picker[open]) { z-index:5; }
   .condition-check { margin-top:10px;padding:7px 18px;font-size:.85rem; }
   .condition-check:disabled { opacity:.5;cursor:not-allowed; }
   .condition-status { margin-top:7px;line-height:1.6; }
@@ -193,15 +204,19 @@
     #leftCol { flex: 0 0 150px; }
   }
   @media (max-width: 560px) {
-    #matchingContainer { gap:30px; }
-    #leftCol { flex:0 0 90px; }
-    #leftNode { padding:12px 6px; }
+    #matchingContainer { flex-direction:column;gap:24px;padding-left:12px; }
+    #leftCol { flex:0 0 auto;width:180px;align-self:flex-start; }
+    #leftNode { position:relative;top:auto;padding:12px 6px; }
     #leftNode > div:nth-child(2) { font-size:.9rem !important; }
     #leftNode .small { font-size:.65rem; }
-    #rightCol { min-width:0; }
+    #rightCol { min-width:0;width:100%; }
     .right-node { padding:10px 5px 10px 13px;gap:3px; }
     .right-node > div > div:first-child { font-size:.76rem !important;overflow-wrap:anywhere; }
     .del-x { padding:3px; }
+    .right-node.active-connection .del-x { position:absolute;top:8px;right:5px; }
+    .condition-toggles { gap:5px; }
+    .condition-picker summary { font-size:.75rem; }
+    .condition-selection { padding:6px; }
   }
 </style>
 
@@ -385,6 +400,25 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const featureNames = {{ feature_names|tojson }};
+  function closeConditionPickers(except = null) {
+    form.querySelectorAll('.condition-picker[open]').forEach(picker => {
+      if (picker !== except) picker.open = false;
+    });
+  }
+  document.addEventListener('click', ev => {
+    form.querySelectorAll('.condition-picker[open]').forEach(picker => {
+      if (!picker.contains(ev.target)) picker.open = false;
+    });
+  });
+  form.addEventListener('keydown', ev => {
+    if (ev.key !== 'Escape') return;
+    const picker = ev.target.closest('.condition-picker[open]');
+    if (picker) {
+      ev.preventDefault();
+      picker.open = false;
+      picker.querySelector('summary').focus();
+    }
+  });
   function conditionReady(node) {
     return [...node.querySelectorAll('.condition-choice')].every(field => field.querySelector('input:checked'));
   }
@@ -395,6 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
       picker.querySelector('.condition-value').textContent = value;
       picker.querySelector('.condition-mark').textContent = picker.classList.contains('is-incorrect') ? '× 選び直す' : picker.classList.contains('is-correct') ? '○' : '';
       picker.querySelector('summary').setAttribute('aria-label', picker.querySelector('legend').textContent.replace('の前接条件', 'を選ぶ') + '：' + value);
+      picker.querySelector('summary').setAttribute('aria-disabled', String(answerLocked || wholeCheckPending || node.dataset.checking === '1'));
     });
     node.querySelector('.condition-check').disabled = answerLocked || wholeCheckPending || node.dataset.checking === '1' || !conditionReady(node);
   }
@@ -407,7 +442,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const key = node.dataset.key;
     node.querySelectorAll('.condition-picker').forEach(picker => {
       const field = picker.querySelector('.condition-choice');
+      picker.querySelector('summary').addEventListener('click', ev => {
+        if (answerLocked || wholeCheckPending || node.dataset.checking === '1') ev.preventDefault();
+        else closeConditionPickers(picker);
+      });
+      picker.querySelector('.condition-close').addEventListener('click', () => {
+        picker.open = false;
+        picker.querySelector('summary').focus();
+      });
       picker.addEventListener('toggle', () => {
+        if (picker.open) closeConditionPickers(picker);
         window.studyEvent?.('conditions_toggle', {key:field.dataset.condition, open:picker.open});
         redrawLines();
       });
@@ -428,6 +472,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (answerLocked || wholeCheckPending || node.dataset.checking === '1' || !conditionReady(node)) return;
       if (window.studyPrepareSubmission && !window.studyPrepareSubmission(form, 'conditions:' + key)) return;
       const data = new FormData(form);
+      closeConditionPickers();
       for (const name of [...data.keys()]) {
         if (!name.startsWith('condition_' + key + '_') && !name.startsWith('_study_') && name !== 'attempt_id') data.delete(name);
       }
@@ -435,6 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
       pendingConditionChecks += 1;
       submitButton.disabled = true;
       node.querySelectorAll('input, .condition-check').forEach(el => el.disabled = true);
+      refreshCondition(node);
       conditionMessage(node, '判定しています…');
       try {
         const response = await fetch(node.querySelector('.condition-check').dataset.checkUrl, {
@@ -489,7 +535,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const submittedRevision = answerRevision;
     const submittedData = new FormData(form);
+    closeConditionPickers();
     wholeCheckPending = true;
+    rightNodes.forEach(refreshCondition);
     form.querySelectorAll('button, input[type=checkbox]').forEach(el => el.disabled = true);
     showMatchingStatus("判定しています…");
     actions.hidden = true;
