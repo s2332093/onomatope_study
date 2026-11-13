@@ -46,4 +46,42 @@ assert report['people'][0]['items'] == 33
 for group in ('a','b'):
     home = c.get('/'+group+'/').text
     assert 'home-word-list::before' not in home and 'outline:3px' not in home
+
+# The requested prerequisite matrix is shared by the knowledge table and grading.
+from verify_support import CONDITIONS
+display_values = {'none':'制限なし','plus':'＋','result':'変化結果＋',
+                  'minus':'ー','mid':'中','high':'高','low':'低'}
+knowledge = c.get('/a/reference')
+assert '関与しない' not in knowledge.text and 'vol_na.svg' not in knowledge.text
+assert set(dict(main.CONDITION_OPTIONS['volition'])) == {'plus','minus','none'}
+assert [o['value'] for o in main.feature_options('volition')] == ['＋','ー']
+assert len(main.KNOWLEDGE['volition']) == 2
+for card in knowledge.context['expr_cards']:
+    expected = CONDITIONS[card['expr']['key']]
+    assert list(card['conditions'].values()) == [
+        '・'.join(display_values[v] for v in codes.split()) for codes in expected]
+    row = '<th scope="row">〜'+card['expr']['label']
+    assert row in knowledge.text
+    for value in card['conditions'].values():
+        assert '<td>'+value+'</td>' in knowledge.text
+for word in main.WORDS:
+    for suffix in ('f1/5','f1/done','f2'):
+        page = c.get(f'/a/word/{word["id"]}/{suffix}').text
+        assert '関与しない' not in page and 'vol_na.svg' not in page
+
+# A former answer is now wrong, and an intentional word can match shidasu.
+old = {k:v for k,v in answers.items() if k != 'condition_shidasu_volition_none'}
+old.update(condition_shidasu_volition_minus='ー',condition_shidasu_volition_unrelated='関与しない')
+response = c.post('/a/word/burabura/f2/conditions/shidasu/check',data=old).json()
+assert response == {'all_correct':False,'correct_by_feature':{'continuity':True,'action':True,'volition':False}}
+right_lines = {key:'○' for key in ('surutokoroda','shiyoutosuru','shihajimeru','shidasu',
+                                 'shitsuzukeru','shiteirutokoroda','shiteshimau')}
+assert set(main.CAT_EXPRS['act_high_vol']) == set(right_lines)
+result = c.post('/a/word/burabura/f2/check',data={**answers,**right_lines},headers={'Accept':'application/json'}).json()
+assert result['all_correct'] and not result['has_missing']
+del right_lines['shidasu']
+result = c.post('/a/word/burabura/f2/check',data={**answers,**right_lines},headers={'Accept':'application/json'}).json()
+assert not result['all_correct'] and result['has_missing'] and not result['has_condition_errors']
+lesson = next(x for x in c.get('/b/knowledge').context['lessons'] if x['word']['id'] == 'burabura')
+assert 'shidasu' in {e['key'] for e in lesson['expressions']}
 print('OK: ten individual grammar drills, three-feature grading, wrong-only result, A/B isolation, private receipts and finish-only saving')

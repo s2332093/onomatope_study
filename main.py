@@ -118,7 +118,7 @@ async def study_context(request: Request, call_next):
         form = await request.form()
         choices = {k: str(v)[:200] for k, v in form.multi_items()
                    if k == "choice" or k.startswith(("choice_", "opt_keys_", "spec_", "q_", "condition_")) or k in EXPR_BY_KEY}
-        result = {"answers": choices, "curriculum_version": "2026-11-13-condition-drills"}
+        result = {"answers": choices, "curriculum_version": "2026-11-13-unrestricted-shidasu"}
         parts = request.scope["path"].strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "word" and parts[1] in WORD_BY_ID:
             word = WORD_BY_ID[parts[1]]
@@ -229,7 +229,7 @@ FEATURE_NAME = {"continuity": "継続性", "action": "動作性", "volition": "�
 CONDITION_OPTIONS = {
     "continuity": [("plus", "＋"), ("result", "変化結果の＋"), ("minus", "ー"), ("none", "制限なし")],
     "action": [("high", "高"), ("mid", "中"), ("low", "低"), ("none", "制限なし")],
-    "volition": [("plus", "＋"), ("minus", "ー"), ("unrelated", "関与しない"), ("none", "制限なし")],
+    "volition": [("plus", "＋"), ("minus", "ー"), ("none", "制限なし")],
 }
 CONDITION_FIELDS = {"continuity": "req_cont", "action": "req_act", "volition": "req_vol"}
 
@@ -267,8 +267,6 @@ def req_label(fkey: str, allowed) -> str:
         return " または ".join(CONT_LABEL.get(v, v) for v in allowed)
     if fkey == "action":
         return "動作性（" + "・".join(allowed) + "）"
-    if set(allowed) == {"ー", "関与しない"}:
-        return '意志性「−」または「関与しない」'
     return " または ".join(VOL_LABEL.get(v, v) for v in allowed)
 
 
@@ -276,7 +274,7 @@ def req_label(fkey: str, allowed) -> str:
 FEATURE_EXPLAINS = {
     "continuity": "継続性は図のイメージで判断します（＋：続く／変化結果の＋：変化後の結果が残る／ー：一瞬）。",
     "action": "感情・感覚では、一瞬の変化か続く状態かを区別します。動作では、具体的な動きや力の抜け方も手がかりにします。",
-    "volition": "自分の意志で行える動き・行為なら「＋」、感情・感覚など自然に起こるものは「ー」、状況に反応して起こる動きは「関与しない」です。",
+    "volition": "自分の意志で行える動き・行為なら「＋」、自分の意志で起こすものではない気持ち・感覚・状態は「ー」です。",
 }
 
 WHY_COL = {"continuity": "why_cont", "action": "why_act", "volition": "why_vol"}
@@ -293,7 +291,7 @@ FEATURE_DEFS = [
      "options": ["高", "中", "低"]},
     {"key": "volition", "name": "意志性",
      "desc": "自分の意志で行えるか",
-     "options": ["＋", "ー", "関与しない"]},
+     "options": ["＋", "ー"]},
 ]
 
 
@@ -549,7 +547,7 @@ CHAIN_BY_K = {c["k"]: c for c in CHAIN}
 FEATURE_FIGS = {
     "continuity": {"＋": "cont_plus.svg", "変化結果の＋": "result_plus.svg", "ー": "cont_minus.svg"},
     "action":     {"高": "act_high.svg", "中": "act_mid.svg", "低": "act_low.svg"},
-    "volition":   {"＋": "vol_plus.svg", "ー": "vol_minus.svg", "関与しない": "vol_na.svg"},
+    "volition":   {"＋": "vol_plus.svg", "ー": "vol_minus.svg"},
 }
 
 # 音韻形態 → その「音のかたち」を示す図
@@ -575,8 +573,7 @@ FEATURE_OPTION_NOTES = {
     },
     "volition": {
         "＋": "「今から〜しよう」と言える",
-        "ー": "意志では起こせない感情・感覚",
-        "関与しない": "動きはあるが、状況に反応して起こる",
+        "ー": "自分の意志で起こすものではない",
     },
 }
 
@@ -1114,13 +1111,15 @@ def expression_cards():
     expr_cards = []
     for e in EXPRESSIONS:
         reqs = []
+        conditions = {}
         for fkey in ("continuity", "action", "volition"):
             allowed = [v for v in e[REQ_COL[fkey]].split("|") if v]
+            conditions[fkey] = "・".join("変化結果＋" if v == "変化結果の＋" else v for v in allowed) if allowed else "制限なし"
             if allowed:
                 reqs.append({"key": fkey, "name": FEATURE_NAME[fkey],
                              "text": req_label(fkey, allowed),
                              "why": e[WHY_COL[fkey]]})
-        expr_cards.append({"expr": e, "reqs": reqs})
+        expr_cards.append({"expr": e, "reqs": reqs, "conditions": conditions})
 
     return expr_cards
 

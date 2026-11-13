@@ -54,7 +54,7 @@ for path in ["/a/word/iraira/f2/learn", "/a/word/iraira/f3"]:
 CHAIN_FIGS = {
     "continuity": {"＋": "cont_plus.svg", "変化結果の＋": "result_plus.svg", "ー": "cont_minus.svg"},
     "action": {"高": "act_high.svg", "中": "act_mid.svg", "低": "act_low.svg"},
-    "volition": {"＋": "vol_plus.svg", "ー": "vol_minus.svg", "関与しない": "vol_na.svg"},
+    "volition": {"＋": "vol_plus.svg", "ー": "vol_minus.svg"},
 }
 FKEY_BY_K = {3: "continuity", 4: "action", 5: "volition"}
 

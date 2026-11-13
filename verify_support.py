@@ -4,7 +4,7 @@ CONDITIONS = {
     'surutokoroda': ('none', 'high', 'plus'),
     'shiyoutosuru': ('none', 'high', 'plus'),
     'shihajimeru': ('plus', 'mid high', 'none'),
-    'shidasu': ('plus', 'mid high', 'minus unrelated'),
+    'shidasu': ('plus', 'mid high', 'none'),
     'shitekuru': ('plus', 'mid', 'none'),
     'shiteiku': ('plus', 'low', 'minus'),
     'shitsuzukeru': ('plus', 'high', 'none'),
@@ -16,7 +16,7 @@ CONDITIONS = {
 
 def condition_answers():
     values = {'none': '制限なし', 'plus': '＋', 'result': '変化結果の＋', 'minus': 'ー',
-              'high': '高', 'mid': '中', 'low': '低', 'unrelated': '関与しない'}
+              'high': '高', 'mid': '中', 'low': '低'}
     return {f'condition_{expression}_{feature}_{code}': values[code]
             for expression, requirements in CONDITIONS.items()
             for feature, codes in zip(('continuity', 'action', 'volition'), requirements)

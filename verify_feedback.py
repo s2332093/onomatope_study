@@ -38,7 +38,7 @@ for word in main.WORDS:
             assert all(text not in r.text for text in ['正解：','知識を確認','回で知識を表示','選んだ答えの捉え方','場面と合わない点','確かめること'])
             if fkey:
                 assert all(fig in r.text for fig in main.FEATURE_FIGS[fkey].values())
-                assert len(r.context["feedback_feature_options"]) == 3
+                assert len(r.context["feedback_feature_options"]) == (2 if fkey == 'volition' else 3)
                 if k == 5:
                     assert f'href="/a/word/{word["id"]}/f1/5"' in r.text
                     assert '動作性から見直す' not in r.text
@@ -345,12 +345,15 @@ assert table.count('<tr>') == 6
 assert '<th>継続性の予測</th>' in table and '<th>動作性の予測</th>' not in table
 assert set(row['form']['key'] for row in r.context['feedback_phon_table']) == set(main.PHON_BY_KEY)
 assert 'いらいら' not in table
-# Labels list the actual permitted volition values, without merging two concepts.
-assert main.req_label('volition', ['ー','関与しない']) == '意志性「−」または「関与しない」'
-assert main.EXPR_BY_KEY['shidasu']['req_vol'] == 'ー|関与しない'
+# Shidasu no longer restricts volition in either grading or feedback.
+assert main.EXPR_BY_KEY['shidasu']['req_vol'] == ''
+assert '関与しない' not in client.get('/a/reference').text
 assert '意志的でないこと' not in client.get('/a/reference').text
 r = client.post('/a/word/bikkuri/f2/check', data={'shidasu':'○'}, headers=json_headers).json()
-assert '意志性「−」または「関与しない」' in client.get(r['feedback_url']).text
+shidasu_feedback = client.get(r['feedback_url'])
+shidasu_row = next(row for row in shidasu_feedback.context['selected_results'] if row['key'] == 'shidasu')
+assert next(row['req'] for row in shidasu_row['comparison'] if row['key'] == 'volition') == '制限なし'
+assert '関与しない' not in shidasu_feedback.text
 assert '意志的でないこと' not in client.get(r['feedback_url']).text
 
 # The revised curriculum has no exception-specific teaching or feedback.
