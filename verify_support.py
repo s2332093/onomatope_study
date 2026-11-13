@@ -6,7 +6,7 @@ CONDITIONS = {
     'shihajimeru': ('plus', 'mid high', 'none'),
     'shidasu': ('plus', 'mid high', 'none'),
     'shitekuru': ('plus', 'mid', 'none'),
-    'shiteiku': ('plus', 'low', 'minus'),
+    'shiteiku': ('plus', 'low', 'none'),
     'shitsuzukeru': ('plus', 'high', 'none'),
     'shiteirutokoroda': ('plus result', 'none', 'none'),
     'shitatokoroda': ('result', 'mid', 'none'),

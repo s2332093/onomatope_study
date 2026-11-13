@@ -84,4 +84,14 @@ result = c.post('/a/word/burabura/f2/check',data={**answers,**right_lines},heade
 assert not result['all_correct'] and result['has_missing'] and not result['has_condition_errors']
 lesson = next(x for x in c.get('/b/knowledge').context['lessons'] if x['word']['id'] == 'burabura')
 assert 'shidasu' in {e['key'] for e in lesson['expressions']}
+
+# Shiteiku accepts unrestricted volition, rather than requiring non-volitional words.
+old_shiteiku = {k:v for k,v in answers.items() if k != 'condition_shiteiku_volition_none'}
+old_shiteiku['condition_shiteiku_volition_minus'] = 'ー'
+response = c.post('/a/word/ukauka/f2/conditions/shiteiku/check', data=old_shiteiku).json()
+assert response == {'all_correct':False,'correct_by_feature':{'continuity':True,'action':True,'volition':False}}
+assert main.EXPR_BY_KEY['shiteiku']['req_vol'] == ''
+assert '意志的な行為（＋意志性）とは結びつきません' not in knowledge.text
+assert 'shiteiku' in main.CAT_EXPRS['act_low_vol']
+assert set(main.CAT_EXPRS['act_low_vol']) == set(main.CAT_EXPRS['act_low_novol'])
 print('OK: ten individual grammar drills, three-feature grading, wrong-only result, A/B isolation, private receipts and finish-only saving')

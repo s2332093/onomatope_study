@@ -118,7 +118,7 @@ async def study_context(request: Request, call_next):
         form = await request.form()
         choices = {k: str(v)[:200] for k, v in form.multi_items()
                    if k == "choice" or k.startswith(("choice_", "opt_keys_", "spec_", "q_", "condition_")) or k in EXPR_BY_KEY}
-        result = {"answers": choices, "curriculum_version": "2026-11-13-unrestricted-shidasu"}
+        result = {"answers": choices, "curriculum_version": "2026-11-13-unrestricted-shiteiku"}
         parts = request.scope["path"].strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "word" and parts[1] in WORD_BY_ID:
             word = WORD_BY_ID[parts[1]]
