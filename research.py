@@ -201,7 +201,7 @@ def report(participant=None, group=None):
             attempts.append(dict(event_id=eid,participant_id=pid,name=person['name'],group=grp,
                 time=jst(server),path=source,page_label=page_label(source),answer_label=answer_label(data.get('answers',{}),source),correct=all(values),correct_items=sum(values),
                 wrong_items=len(values)-sum(values),answers=json.dumps(data.get('answers',{}),ensure_ascii=False),
-                details=json.dumps({k:v for k,v in data.items() if k.startswith('correct')},ensure_ascii=False)))
+                details=json.dumps({k:v for k,v in data.items() if k.startswith('correct') or k in ('grading_scope','curriculum_version')},ensure_ascii=False)))
     for (pid,grp,page_id,path), value in visits.items():
         for target in (people[(pid,grp)],pages[(pid,grp,path)]):
             target['visits'] += 1

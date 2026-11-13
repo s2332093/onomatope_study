@@ -118,7 +118,7 @@ async def study_context(request: Request, call_next):
         form = await request.form()
         choices = {k: str(v)[:200] for k, v in form.multi_items()
                    if k == "choice" or k.startswith(("choice_", "opt_keys_", "spec_", "q_", "condition_")) or k in EXPR_BY_KEY}
-        result = {"answers": choices, "curriculum_version": "2026-11-13-six-words"}
+        result = {"answers": choices, "curriculum_version": "2026-11-13-condition-drills"}
         parts = request.scope["path"].strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "word" and parts[1] in WORD_BY_ID:
             word = WORD_BY_ID[parts[1]]
@@ -130,8 +130,12 @@ async def study_context(request: Request, call_next):
             elif parts[2] == "f1" and len(parts) == 5 and parts[3].isdigit() and 1 <= int(parts[3]) <= 5:
                 result["correct"] = chain_feedback(word, int(parts[3]), choices.get("choice", ""))["ok"]
             elif parts[2] == "f2":
-                result["correct_by_expression"] = {e["key"]: (choices.get(e["key"]) == "○") == expr_combines(cat, e) for e in EXPRESSIONS}
-                result["correct_by_condition"] = {r["id"]: r["ok"] for r in grade_conditions(form)[1]}
+                condition_drill = len(parts) == 6 and parts[3] == "conditions"
+                if not condition_drill:
+                    result["correct_by_expression"] = {e["key"]: (choices.get(e["key"]) == "○") == expr_combines(cat, e) for e in EXPRESSIONS}
+                result["correct_by_condition"] = {r["id"]: r["ok"] for r in grade_conditions(form, parts[4] if condition_drill else None)[1]}
+                if condition_drill:
+                    result["grading_scope"] = "conditions:" + parts[4]
             elif parts[2] == "f3":
                 result["correct_by_question"] = {str(q["ord"]): choices.get(f'choice_{q["ord"]}') == q["correct_key"] for q in PRACTICE.get(word["id"], [])}
         elif request.scope["path"] == "/drill/features/check":
@@ -230,15 +234,17 @@ CONDITION_OPTIONS = {
 CONDITION_FIELDS = {"continuity": "req_cont", "action": "req_act", "volition": "req_vol"}
 
 
-def grade_conditions(form):
+def grade_conditions(form, expression_key=None):
     answers, results = {}, []
     for e in EXPRESSIONS:
+        if expression_key is not None and e["key"] != expression_key:
+            continue
         for fkey, options in CONDITION_OPTIONS.items():
             key = e["key"] + "_" + fkey
             selected = [value for code, value in options if form.get(f"condition_{key}_{code}") == value]
             answers[key] = selected
             expected = set(e[CONDITION_FIELDS[fkey]].split("|")) if e[CONDITION_FIELDS[fkey]] else {"制限なし"}
-            results.append({"id": key, "label": e["label"], "feature": FEATURE_NAME[fkey],
+            results.append({"id": key, "label": e["label"], "feature": FEATURE_NAME[fkey], "feature_key": fkey,
                             "selected": "・".join(selected) or "未選択", "ok": set(selected) == expected})
     return answers, results
 
@@ -1271,6 +1277,19 @@ async def f2_match(request: Request, word_id: str):
         "condition_options": CONDITION_OPTIONS, "feature_names": FEATURE_NAME,
         "context_review": state.get("context_review", []) if reviewing else [],
         "review_token": review_token if reviewing else "",
+    })
+
+
+@app.post("/word/{word_id}/f2/conditions/{expression_key}/check")
+async def condition_check(request: Request, word_id: str, expression_key: str):
+    from fastapi.responses import JSONResponse
+    if not get_word(word_id) or expression_key not in EXPR_BY_KEY:
+        return JSONResponse({"error": "unknown exercise"}, status_code=404)
+    form = await request.form()
+    _, results = grade_conditions(form, expression_key)
+    return JSONResponse({
+        "all_correct": all(r["ok"] for r in results),
+        "correct_by_feature": {r["feature_key"]: r["ok"] for r in results},
     })
 
 

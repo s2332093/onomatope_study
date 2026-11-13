@@ -71,11 +71,16 @@
   document.addEventListener('click',e=>{clicks++;const el=e.target.closest('a,button,input,summary,[data-key]');event('click',{target:el?(el.id||el.name||el.getAttribute('href')||el.tagName):e.target.tagName});},true);
   document.addEventListener('change',e=>{if(e.target.matches('input[type=radio],input[type=checkbox],select'))event('answer_change',{name:e.target.name,value:e.target.value});});
   function hidden(form,name,value){let input=form.querySelector('input[name="'+name+'"]');if(!input){input=document.createElement('input');input.type='hidden';input.name=name;form.append(input);}input.value=value;}
+  function prepareSubmission(form, label){
+    if(status()||!storageOk){notice('学習記録を確認してください。新しく始める場合は「利用者を変更」から名前を入力してください。');return false;}
+    hidden(form,'_study_participant',participant);hidden(form,'_study_page_id',pageId);hidden(form,'_study_path',location.pathname);hidden(form,'_study_active_ms',Math.round(active()));hidden(form,'_study_elapsed_ms',Math.round(performance.now()-started));hidden(form,'_study_click_count',clicks);hidden(form,'attempt_id',crypto.randomUUID());
+    event('submit',{form:label||form.id||form.getAttribute('action')});
+    return true;
+  }
+  window.studyPrepareSubmission=prepareSubmission;
   document.addEventListener('submit',e=>{
     const form=e.target;if(form.method.toLowerCase()!=='post')return;
-    if(status()||!storageOk){e.preventDefault();e.stopImmediatePropagation();notice('学習記録を確認してください。新しく始める場合は「利用者を変更」から名前を入力してください。');return;}
-    hidden(form,'_study_participant',participant);hidden(form,'_study_page_id',pageId);hidden(form,'_study_path',location.pathname);hidden(form,'_study_active_ms',Math.round(active()));hidden(form,'_study_elapsed_ms',Math.round(performance.now()-started));hidden(form,'_study_click_count',clicks);hidden(form,'attempt_id',crypto.randomUUID());
-    event('submit',{form:form.id||form.getAttribute('action')});
+    if(!prepareSubmission(form)){e.preventDefault();e.stopImmediatePropagation();}
   },true);
   document.addEventListener('visibilitychange',()=>{if(document.hidden){pause();event('page_hidden',{},true);}else{activeSince=performance.now();event('page_visible',{},true);}});
   addEventListener('pagehide',()=>{pause();event('page_leave',{},true);});

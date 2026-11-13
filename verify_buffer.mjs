@@ -13,6 +13,14 @@ function page({finish='',pid='learner',receipt=''}={}){
 }
 const p=page();p.advance(2000);
 for(let i=0;i<150;i++)p.emit('click',{target:{closest:()=>null,tagName:'DIV'}});
+const metaInputs=new Map();const form={id:'matching',querySelector(selector){const name=selector.match(/name="([^"]+)"/)[1];return metaInputs.get(name)},append(input){metaInputs.set(input.name,input)}};
+assert.equal(p.ctx.studyPrepareSubmission(form,'conditions:shidasu'),true);
+assert.equal(metaInputs.get('_study_elapsed_ms').value,2000);
+assert.equal(metaInputs.get('_study_click_count').value,150);
+const firstAttempt=metaInputs.get('attempt_id').value;
+p.ctx.studyPrepareSubmission(form,'conditions:shidasu');
+assert.notEqual(metaInputs.get('attempt_id').value,firstAttempt,'every individual judgment has a distinct attempt');
+assert.equal(requests.length,0,'per-form grading metadata must not upload activity records');
 p.emit('pagehide');p.timers.forEach(f=>f());assert.equal(requests.length,0,'learning must not upload even after many actions or navigation');
 const size=values.size;const next=page({receipt:'opaque-server-receipt'});assert.ok(values.size>size,'navigation retains earlier records and grading receipt');
 next.advance(1000);next.doc.hidden=true;next.emit('visibilitychange');next.advance(9000);next.doc.hidden=false;next.emit('visibilitychange');next.advance(1000);next.emit('pagehide');

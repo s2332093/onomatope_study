@@ -335,7 +335,7 @@ assert '未選択' in client.get(missing_conditions['feedback_url']).text
 initial = client.get('/a/word/bikkuri/f2').text
 assert 'id="matchingFeedback"' not in initial and 'feedback.innerHTML' not in initial
 assert 'feedbackButton.href = result.feedback_url' in initial and 'answerLocked = true' in initial
-assert '前接条件も' in initial
+assert '各文法形式の「判定」' in initial
 assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
 
 # All five sound-shape rows now include a continuity forecast in continuity feedback.

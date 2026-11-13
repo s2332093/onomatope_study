@@ -31,7 +31,8 @@
 <div class="card">
   <h1>素性を使って，結びつく文法形式を選ぶ</h1>
   <p class="lesson-instruction">「{{ word.word }}」の素性と文法形式の前接条件を比べ，条件がすべて合う形式に線を引いてください．</p>
-  <p class="lesson-instruction">各文法形式の前接条件も，3つの素性ごとに選んでください．複数当てはまるときはすべて選び，条件がない素性では「制限なし」を選びます．</p>
+  <p class="lesson-instruction">「継続性」「動作性」「意志性」を開いて前接条件を選び，各文法形式の「判定」で確かめましょう．複数当てはまるときはすべて選び，条件がない素性では「制限なし」を選びます．</p>
+  <p class="muted small">間違った素性だけ選択が消え，赤く表示されます．選び直したら，もう一度「判定」を押してください．線を結び終えたら，下の「線結びを判定する」を押します．</p>
 </div>
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
@@ -86,14 +87,19 @@
             <div class="condition-toggles">
               {% for feature, options in condition_options.items() %}
               {% set condition_id = e.key ~ '_' ~ feature %}
-              <fieldset class="condition-choice" data-condition="{{ condition_id }}">
-                <legend>{{ feature_names[feature] }}</legend>
+              <details class="condition-picker" data-feature="{{ feature }}">
+                <summary aria-label="〜{{ e.label }}の{{ feature_names[feature] }}を選ぶ"><span>{{ feature_names[feature] }}：</span><span class="condition-value">未選択</span><span class="condition-mark"></span></summary>
+                <fieldset class="condition-choice" data-condition="{{ condition_id }}">
+                <legend class="sr-only">〜{{ e.label }}の{{ feature_names[feature] }}の前接条件</legend>
                 {% for code, value in options %}
-                <label><input type="checkbox" name="condition_{{ condition_id }}_{{ code }}" value="{{ value }}" {% if value in saved_conditions.get(condition_id, []) %}checked{% endif %}>{{ value }}</label>
+                <label><input type="checkbox" name="condition_{{ condition_id }}_{{ code }}" value="{{ value }}" {% if value in saved_conditions.get(condition_id, []) %}checked{% endif %}>{{ '変化結果＋' if value == '変化結果の＋' else value }}</label>
                 {% endfor %}
-              </fieldset>
+                </fieldset>
+              </details>
               {% endfor %}
             </div>
+            <button type="button" class="btn btn-secondary condition-check" data-check-url="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/conditions/{{ e.key }}/check" aria-label="〜{{ e.label }}の前接条件を判定する" disabled>判定</button>
+            <p class="condition-status small" role="status">3つの素性を選ぶと判定できます．</p>
           </div>
           <button type="button" class="del-x" title="この線を消す" aria-label="〜{{ e.label }}の線を消す">消す</button>
         </div>
@@ -103,7 +109,7 @@
     </div>
   </div>
 
-  <button type="submit" class="btn btn-primary" id="matchingSubmit">{% if context_review %}線結びを確認して文脈問題へ{% else %}判定する{% endif %} →</button>
+  <button type="submit" class="btn btn-primary" id="matchingSubmit">{% if context_review %}線結びを確認して文脈問題へ{% else %}線結びを判定する{% endif %} →</button>
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
 </form>
 
@@ -134,11 +140,25 @@
   }
   #rightCol { display: flex; flex-direction: column; gap: 7px; z-index: 2; flex: 1 1 auto; max-width: 650px; }
   .condition-toggles { margin-top:10px; }
-  .condition-choice { display:flex;flex-wrap:wrap;gap:5px;border:0;padding:0;margin:7px 0 0; }
-  .condition-choice legend { font-size:.8rem;font-weight:700;margin-bottom:4px; }
+  .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
+  .condition-picker { margin-top:7px;border:1px solid var(--border);border-radius:8px;background:white; }
+  .condition-picker summary { display:flex;align-items:center;flex-wrap:wrap;gap:5px;list-style:none;cursor:pointer;padding:9px;font-size:.85rem;font-weight:700; }
+  .condition-picker summary::-webkit-details-marker { display:none; }
+  .condition-picker summary::after { content:'▾';margin-left:auto; }
+  .condition-picker[open] summary::after { content:'▴'; }
+  .condition-picker.is-incorrect { border:2px solid #b72c2c;background:#fff0f0; }
+  .condition-picker.is-incorrect summary { color:#b72c2c; }
+  .condition-picker.is-correct .condition-mark { color:#16723c; }
+  .condition-mark { font-size:.75rem; }
+  .condition-choice { display:flex;flex-wrap:wrap;gap:5px;border:0;padding:0 9px 9px;margin:0; }
   .condition-choice label { display:flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;padding:6px;font-size:.8rem;cursor:pointer;background:white; }
   .condition-choice label:has(input:checked) { border-color:var(--blue);background:#dce9ff;color:#1d4e9a; }
   .condition-choice input { accent-color:var(--blue); }
+  .condition-check { margin-top:10px;padding:7px 18px;font-size:.85rem; }
+  .condition-check:disabled { opacity:.5;cursor:not-allowed; }
+  .condition-status { margin-top:7px;line-height:1.6; }
+  .condition-status.is-incorrect { color:#b72c2c;font-weight:700; }
+  .condition-status.is-correct { color:#16723c;font-weight:700; }
   .right-node {
     position: relative; display: flex; align-items: center; gap: 8px;
     padding: 11px 10px 11px 24px; background: #fff; border: 2px solid var(--border);
@@ -202,6 +222,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const feedbackButton = document.getElementById("showMatchingFeedback");
   let answerRevision = 0;
   let answerLocked = false;
+  let pendingConditionChecks = 0;
+  let wholeCheckPending = false;
 
   let isDragging = false;
   let activeLine = null;
@@ -243,7 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- ドラッグして線を引く ----
   function startDrag(e) {
-    if (answerLocked) return;
+    if (answerLocked || wholeCheckPending) return;
     e.preventDefault();
     isDragging = true;
     leftDot.style.transform = "scale(1.3)";
@@ -298,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- 線の作成・削除（1本ずつ） ----
   function createConnection(key, restored = false) {
-    if (answerLocked) return;
+    if (answerLocked || wholeCheckPending) return;
     if (!restored) answerChanged();
     const node = document.getElementById(`node-${key}`);
     const dot = node.querySelector(".right-dot");
@@ -330,7 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function removeConnection(key) {
-    if (answerLocked) return;
+    if (answerLocked || wholeCheckPending) return;
     answerChanged();
     const conn = connections.get(key);
     if (conn) window.studyEvent?.("line_remove", {key});
@@ -362,32 +384,118 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(connections.keys()).forEach(removeConnection);
   });
 
-  document.querySelectorAll('.condition-choice').forEach(field => {
-    field.addEventListener('change', ev => {
-      const chosen = ev.target;
-      if (chosen.checked) field.querySelectorAll('input').forEach(input => {
-        if (input !== chosen && (chosen.value === '制限なし' || input.value === '制限なし')) input.checked = false;
-      });
-      answerChanged();
-      window.studyEvent?.('conditions_toggle', {key:field.dataset.condition, values:[...field.querySelectorAll('input:checked')].map(input=>input.value)});
-      redrawLines();
+  const featureNames = {{ feature_names|tojson }};
+  function conditionReady(node) {
+    return [...node.querySelectorAll('.condition-choice')].every(field => field.querySelector('input:checked'));
+  }
+  function refreshCondition(node) {
+    node.querySelectorAll('.condition-picker').forEach(picker => {
+      const selected = [...picker.querySelectorAll('input:checked')].map(input => input.value.replace('変化結果の＋', '変化結果＋'));
+      const value = selected.join('・') || '未選択';
+      picker.querySelector('.condition-value').textContent = value;
+      picker.querySelector('.condition-mark').textContent = picker.classList.contains('is-incorrect') ? '× 選び直す' : picker.classList.contains('is-correct') ? '○' : '';
+      picker.querySelector('summary').setAttribute('aria-label', picker.querySelector('legend').textContent.replace('の前接条件', 'を選ぶ') + '：' + value);
     });
+    node.querySelector('.condition-check').disabled = answerLocked || wholeCheckPending || node.dataset.checking === '1' || !conditionReady(node);
+  }
+  function conditionMessage(node, message, tone = '') {
+    const text = node.querySelector('.condition-status');
+    text.textContent = message;
+    text.className = 'condition-status small' + (tone ? ' is-' + tone : '');
+  }
+  rightNodes.forEach(node => {
+    const key = node.dataset.key;
+    node.querySelectorAll('.condition-picker').forEach(picker => {
+      const field = picker.querySelector('.condition-choice');
+      picker.addEventListener('toggle', () => {
+        window.studyEvent?.('conditions_toggle', {key:field.dataset.condition, open:picker.open});
+        redrawLines();
+      });
+      field.addEventListener('change', ev => {
+        const chosen = ev.target;
+        if (chosen.checked) field.querySelectorAll('input').forEach(input => {
+          if (input !== chosen && (chosen.value === '制限なし' || input.value === '制限なし')) input.checked = false;
+        });
+        picker.classList.remove('is-correct');
+        answerChanged();
+        refreshCondition(node);
+        conditionMessage(node, conditionReady(node) ? '「判定」を押して前接条件を確かめましょう．' : '3つの素性を選ぶと判定できます．');
+        window.studyEvent?.('conditions_toggle', {key:field.dataset.condition, values:[...field.querySelectorAll('input:checked')].map(input=>input.value)});
+        redrawLines();
+      });
+    });
+    node.querySelector('.condition-check').addEventListener('click', async () => {
+      if (answerLocked || wholeCheckPending || node.dataset.checking === '1' || !conditionReady(node)) return;
+      if (window.studyPrepareSubmission && !window.studyPrepareSubmission(form, 'conditions:' + key)) return;
+      const data = new FormData(form);
+      for (const name of [...data.keys()]) {
+        if (!name.startsWith('condition_' + key + '_') && !name.startsWith('_study_') && name !== 'attempt_id') data.delete(name);
+      }
+      node.dataset.checking = '1';
+      pendingConditionChecks += 1;
+      submitButton.disabled = true;
+      node.querySelectorAll('input, .condition-check').forEach(el => el.disabled = true);
+      conditionMessage(node, '判定しています…');
+      try {
+        const response = await fetch(node.querySelector('.condition-check').dataset.checkUrl, {
+          method:'POST', body:data, headers:{'Accept':'application/json'},
+        });
+        if (response.status === 409) {
+          conditionMessage(node, '利用者が変わりました．画面を読み込み直してください．', 'incorrect');
+          return;
+        }
+        if (!response.ok) throw new Error('condition check failed');
+        window.studyRecordReceipt?.(response.headers.get('X-Study-Receipt'));
+        const result = await response.json();
+        const reset = [];
+        node.querySelectorAll('.condition-picker').forEach(picker => {
+          const ok = result.correct_by_feature[picker.dataset.feature] === true;
+          picker.classList.toggle('is-correct', ok);
+          picker.classList.toggle('is-incorrect', !ok);
+          picker.querySelector('.condition-choice').setAttribute('aria-invalid', String(!ok));
+          if (!ok) {
+            picker.querySelectorAll('input').forEach(input => input.checked = false);
+            reset.push(featureNames[picker.dataset.feature]);
+          }
+          picker.open = false;
+        });
+        if (reset.length) {
+          answerChanged();
+          conditionMessage(node, '× ' + reset.join('・') + 'を選び直してください．正しかった素性の選択は残しています．', 'incorrect');
+        } else {
+          conditionMessage(node, '○ 3つの前接条件が合っています．', 'correct');
+        }
+      } catch (error) {
+        conditionMessage(node, '判定できませんでした．選択を残しているので，もう一度「判定」を押してください．', 'incorrect');
+      } finally {
+        delete node.dataset.checking;
+        pendingConditionChecks -= 1;
+        node.querySelectorAll('input').forEach(input => input.disabled = answerLocked || wholeCheckPending);
+        refreshCondition(node);
+        submitButton.disabled = answerLocked || wholeCheckPending || pendingConditionChecks > 0;
+        redrawLines();
+      }
+    });
+    refreshCondition(node);
+    if (conditionReady(node)) conditionMessage(node, '「判定」を押して前接条件を確かめましょう．');
   });
 
   form.addEventListener("submit", async ev => {
     ev.preventDefault();
+    if (submitButton.disabled || answerLocked || pendingConditionChecks > 0 || wholeCheckPending) return;
     if (connections.size === 0 &&
         !confirm("線を1本も引いていません。「どの表現とも結びつかない」という判断で提出しますか？")) {
       return;
     }
-    if (submitButton.disabled || answerLocked) return;
     const submittedRevision = answerRevision;
-    submitButton.disabled = true;
+    const submittedData = new FormData(form);
+    wholeCheckPending = true;
+    form.querySelectorAll('button, input[type=checkbox]').forEach(el => el.disabled = true);
     showMatchingStatus("判定しています…");
     actions.hidden = true;
     try {
       const response = await fetch(form.action, {
-        method:"POST", body:new FormData(form), headers:{"Accept":"application/json"},
+        method:"POST", body:submittedData, headers:{"Accept":"application/json"},
       });
       if (response.status === 409) { alert("利用者が変わりました。画面を読み込み直してください。"); return; }
       if (!response.ok) throw new Error("matching check failed");
@@ -422,6 +530,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       showMatchingStatus("判定できませんでした。もう一度判定してください。", "incorrect");
     } finally {
+      wholeCheckPending = false;
+      form.querySelectorAll('button, input[type=checkbox]').forEach(el => el.disabled = answerLocked);
+      rightNodes.forEach(refreshCondition);
       submitButton.disabled = answerLocked;
     }
   });
