@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
+from verify_support import condition_answers
 from main import app, WORDS, EXPRESSIONS, CAT_EXPRS, CAT_BY_ID, PRACTICE, EXPR_BY_KEY
 
 client = TestClient(app)
@@ -34,20 +35,14 @@ def post(path, data):
 for p in ["/a/", "/a/reference"]:
     get(p)
 
-# ---- 出題語が16語・各カテゴリー2語であること ----
-if len(WORDS) != 16:
-    fails.append(f"出題語が {len(WORDS)} 語です（16語）")
-_by_cat = {}
-for w in WORDS:
-    _by_cat.setdefault(w["category_id"], []).append(w["word"])
-for c in main.CATEGORIES:
-    if len(_by_cat.get(c["id"], [])) != 2:
-        fails.append(f'{c["name"]} の出題語が {len(_by_cat.get(c["id"], []))} 語です')
+# Six specified words, no category quota.
+if [w['id'] for w in WORDS] != ['iraira','zukizuki','bikkuri','zukitto','burabura','ukauka']:
+    fails.append('学習対象6語が指定と異なります')
 
 # ---- 語を選ぶ場所はトップだけ（各フェーズに語の一覧を置かない） ----
 home = client.get("/a/").text
 n_links_home = home.count('href="/a/word/')
-if n_links_home < 16:
+if n_links_home != 6:
     fails.append(f"トップに語のリンクが {n_links_home} 件しかありません")
 for path in ["/a/word/iraira/f2/learn", "/a/word/iraira/f3"]:
     body = client.get(path).text
@@ -74,7 +69,7 @@ for w in WORDS:
         if "正解です" not in res.text:
             fails.append(f'フェーズ1：{w["word"]} の第{k}問で、正解を入れても正解になりません')
         # 誤答でも落ちないこと
-        wrong = {1: "iraira" if w["id"] != "iraira" else "gakkari",
+        wrong = {1: "iraira" if w["id"] != "iraira" else "bikkuri",
                  2: "qri" if w["phon"] != "qri" else "repeat"}.get(k)
         if wrong is None:
             wrong = [v for v in CHAIN_FIGS[FKEY_BY_K[k]] if v != cat[FKEY_BY_K[k]]][0]
@@ -120,10 +115,10 @@ import os as _os
 for key, fig in main.PHON_FIGS.items():
     if not _os.path.exists(_os.path.join("static", fig)):
         fails.append(f"音韻形態の図がありません：static/{fig}")
-r = get('/a/word/nikoniko/f1/2')
+r = get('/a/word/iraira/f1/2')
 if r.text.count("/static/phon_") < 3:
     fails.append("第2問：音韻形態の選択肢に図が出ていません")
-r = get('/a/word/nikoniko/f1/3')
+r = get('/a/word/iraira/f1/3')
 if f'/static/{main.PHON_FIGS["repeat"]}' not in r.text:
     fails.append("第3問：確定した音の形の図が出ていません")
 
@@ -167,6 +162,7 @@ for prefix in ('/a', '/b'):
         if 'ドリル' in body or '/drill/' in body:
             fails.append(f'{prefix}{suffix} にドリルの案内が残っています')
 last = main.WORDS[-1]['id']
+client.post(f'/a/word/{last}/f3/check', data={f'choice_{q["ord"]}': q['correct_key'] for q in PRACTICE[last]})
 body = get(f'/a/word/{last}/complete').text
 if 'ドリル' in body or '/drill/' in body or '学習を終了・記録を保存' not in body:
     fails.append('全語の学習完了画面にドリルが残っているか終了時保存の案内がありません')
@@ -179,7 +175,7 @@ for w in WORDS:
     get(f'/a/word/{w["id"]}/f2/learn')
     get(f'/a/word/{w["id"]}/f2')
     # 正解の線結び
-    data = {k: "○" for k in CAT_EXPRS[cat["id"]]}
+    data = {**condition_answers(), **{k: "○" for k in CAT_EXPRS[cat["id"]]}}
     data["hint_level"] = "2"
     r = post(f'/a/word/{w["id"]}/f2/check', data)
     if f'{len(EXPRESSIONS)} / {len(EXPRESSIONS)} 正解' not in r.text:
@@ -204,6 +200,7 @@ for w in WORDS:
         data2[f'choice_{q["idx"]}'] = wrong
     post(f'/a/word/{w["id"]}/f3/check', data2)
 
+    post(f'/a/word/{w["id"]}/f3/check', data)
     r = get(f'/a/word/{w["id"]}/complete')
     if cat["name"] in r.text or cat["kind"] not in r.text:
         fails.append(f'{w["word"]} の完了画面に詳細カテゴリーが残っているか種類がありません')

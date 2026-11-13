@@ -17,7 +17,10 @@
 </div>
 {% endfor %}
 <div style="display:flex; gap:12px; flex-wrap:wrap;">
+  {% if n_correct == total %}
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary">この語の学習を終える →</a>
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-secondary">文脈練習をもう一度</a>
+  {% else %}
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-primary">もう一度選ぶ</a>
+  {% endif %}
 </div>
 {% endblock %}

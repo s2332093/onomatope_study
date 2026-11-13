@@ -29,6 +29,13 @@ def read(participant, group, word_id):
     return json.loads(row[0]) if row else {}
 
 
+def completed_words(participant, group):
+    with connect() as db:
+        rows = db.execute('SELECT word_id,state FROM learning_state WHERE participant_id=? AND study_group=?',
+                          (participant, group)).fetchall()
+    return {wid for wid, raw in rows if json.loads(raw).get('completed')}
+
+
 def update(participant, group, word_id, change):
     """Read/modify/write under one SQLite transaction, including concurrent tabs."""
     with connect() as db:

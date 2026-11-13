@@ -5,6 +5,7 @@ from unittest.mock import patch
 os.environ.update(STUDY_REQUIRE_NAME='1',STUDY_ADMIN_PASSWORD='test-only-secret-password',STUDY_SESSION_SECRET='test-only-session-secret',STUDY_LOG_PATH=str(Path(tempfile.mkdtemp())/'research.db'))
 from fastapi.testclient import TestClient
 import main,research,study_logging
+from verify_support import condition_answers
 client=TestClient(main.app);auth=('researcher','test-only-secret-password')
 for word_id, word in [('hotto','ほっ'), ('orooro','おろおろ'), ('gikushaku','ぎくしゃく'), ('daradara','だらだら'), ('bonyari','ぼんやり')]:
     assert word_id not in main.WORD_BY_ID
@@ -33,7 +34,7 @@ with patch.object(study_logging,'connect',side_effect=AssertionError('analytics 
         assert f'data-study-receipt="{receipts[-1]}"' in r.text
     capture(client.post('/a/word/iraira/f1/1/check',data=dict(meta,choice='iraira',attempt_id='right-1')))
     cat=main.get_category(main.WORD_BY_ID['iraira'])
-    connections={key:'○' for key in main.CAT_EXPRS[cat['id']]}
+    connections={**condition_answers(), **{key:'○' for key in main.CAT_EXPRS[cat['id']]}}
     r=capture(client.post('/a/word/iraira/f2/check',data=dict(connections,_study_participant=pid,attempt_id='matching-right',_study_path='/a/word/iraira/f2'),headers={'Accept':'application/json'}));assert r.json()['all_correct']
     choices={f'choice_{q["ord"]}':q['correct_key'] for q in main.PRACTICE['iraira']};choices['choice_1']='wrong'
     r=capture(client.post('/a/word/iraira/f3/check',data=dict(choices,_study_participant=pid,attempt_id='context-wrong'),follow_redirects=False));assert r.status_code==303
@@ -51,7 +52,7 @@ with study_logging.connect() as db:assert db.execute('SELECT COUNT(*) FROM event
 with patch.object(study_logging,'save_batch',side_effect=RuntimeError('offline')):assert client.post('/a/api/finish',json=payload).status_code==503
 for _ in range(2):assert client.post('/a/api/finish',json=payload).status_code==200
 p=research.report(pid)['people'][0]
-assert (p['attempts'],p['correct'],p['incorrect'],p['rate'],p['items'],p['item_wrong'],p['seconds'])==(4,2,2,50.0,14,2,2.5),p
+assert (p['attempts'],p['correct'],p['incorrect'],p['rate'],p['items'],p['item_wrong'],p['seconds'])==(4,2,2,50.0,44,2,2.5),p
 for kind in ['people','pages','attempts','events']:
     r=client.get('/a/research/export/'+kind,auth=auth);assert r.status_code==200 and r.content.startswith(b'\xef\xbb\xbf') and r.headers['cache-control']=='no-store'
 client.post('/b/registration',data={'name':'=1+1<script>'})

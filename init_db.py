@@ -370,25 +370,19 @@ WORDS_ALL = [
      "怒られそうで、びくびくしている", "自信がなく、おびえているようす"),
     ("bonyari",  "ぼんやり", "🌫️", "nri", "act_low_novol",
      "何も考えずに、窓の外を眺めている", "頭や輪郭がはっきりしないようす"),
+    ("ukauka", "うかうか", "💭", "repeat", "act_low_novol",
+     "大切な連絡に気づかず、何もしないまま時間が過ぎている", "注意が足りず、気づかないまま時間を過ごすようす"),
     ("guttari",  "ぐったり", "🥱", "qri", "act_low_novol",
      "暑さで疲れ切って、力が出ない", "疲れて力が抜けたようす"),
 ]
 
 
 # ---------------------------------------------------------------------
-#  出題対象：8カテゴリー × 2語 = 16語
-#    研究データは39語すべて残したうえで、学習に使う語だけをここで選ぶ。
-#    各カテゴリー2語を、指定された学習順で選ぶ。
+#  出題対象：指定の6語。過去の教材は参照・研究ログのために保持する。
 # ---------------------------------------------------------------------
 SELECTED_WORD_IDS = [
     "iraira", "zukizuki",
-    "bikkuri", "gakkari",
-    "iratto", "zukitto",
-    "burabura", "urouro",
-    "yoroyoro", "kyorokyoro",
-    "nikoniko", "kirakira",
-    "gorogoro", "yukkuri",
-    "mesomeso", "kuyokuyo",
+    "bikkuri", "zukitto", "burabura", "ukauka",
 ]
 
 _word_by_id = {w[0]: w for w in WORDS_ALL}
@@ -622,6 +616,10 @@ PRACTICE = [
 
 
 PRACTICE_ALL = PRACTICE
+PRACTICE_ALL += [
+    ("ukauka", "大切な連絡に気づかず、何もしないまま、うかうか[ ？ ]。", "shiteshimau", "past"),
+    ("ukauka", "受付が終わったことにも気づかず、今もうかうか[ ？ ]。", "shiteirutokoroda", "base"),
+]
 PRACTICE = [q for q in PRACTICE_ALL if q[0] in SELECTED_WORD_IDS]
 
 
@@ -719,21 +717,14 @@ def verify():
         if counts.get(w[0], 0) != 2:
             errors.append(f'[Step4] 「{w[1]}」の問題数が {counts.get(w[0], 0)} 問です（2問必要）')
 
-    # (3a) 出題対象16語の選定チェック
-    sel_by_cat = {}
-    for w in WORDS:
-        sel_by_cat.setdefault(w[4], []).append(w[1])
-    for c in CATEGORIES:
-        n = len(sel_by_cat.get(c[0], []))
-        if n != 2:
-            errors.append(f'[選定] {c[2]} の出題語が {n} 語です（各カテゴリー2語）')
-    if len(WORDS) != 16:
-        errors.append(f"[選定] 出題語が {len(WORDS)} 語です（16語）")
+    # (3a) 学習範囲の検証。全分類からの出題は要求しない。
+    if len(WORDS) != 6:
+        errors.append(f"[選定] 出題語が {len(WORDS)} 語です（6語）")
     unknown = [i for i in SELECTED_WORD_IDS if i not in {w[0] for w in WORDS_ALL}]
     if unknown:
         errors.append(f"[選定] 存在しない語が選ばれています：{unknown}")
     # All selected sound shapes must be defined; not every shape must be selected.
-    if len(set(SELECTED_WORD_IDS)) != 16:
+    if len(set(SELECTED_WORD_IDS)) != len(SELECTED_WORD_IDS):
         errors.append("[選定] 出題語のIDが重複しています")
     known_phons = {pf[0] for pf in PHON_FORMS}
     for w in WORDS:
@@ -742,7 +733,7 @@ def verify():
 
     # (3b) 段階ごとの学習コンテンツ（チェックリスト・対比ペア・思考ガイド）
     stage_keys = ["continuity", "action", "volition", "phon", "category"]
-    cat_of = {w[0]: w[4] for w in WORDS}
+    cat_of = {w[0]: w[4] for w in WORDS_ALL}
     cat_feat = {c[0]: {"continuity": c[4], "action": c[5], "volition": c[6], "kind": c[3]}
                 for c in CATEGORIES}
     ex_steps = {}
@@ -775,12 +766,6 @@ def verify():
     for st, wid, concl, note in WORKED_EXAMPLES:
         if wid not in cat_of:
             errors.append(f"[学習] 思考ガイドに未知の語：{wid}")
-        elif wid not in SELECTED_WORD_IDS:
-            errors.append(f"[学習] 思考ガイドが出題対象外の語を参照しています：{wid}")
-    for st, o, wa, wb, feat, point in CONTRAST_PAIRS:
-        for wid in (wa, wb):
-            if wid not in SELECTED_WORD_IDS:
-                errors.append(f"[学習] 対比ペアが出題対象外の語を参照しています：{wid}")
 
     # (4) 誤答選択肢が2つ以上作れるか（結びつかない形式が2つ以上あるか）
     for c in cats:

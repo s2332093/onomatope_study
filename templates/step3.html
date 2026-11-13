@@ -31,6 +31,7 @@
 <div class="card">
   <h1>素性を使って，結びつく文法形式を選ぶ</h1>
   <p class="lesson-instruction">「{{ word.word }}」の素性と文法形式の前接条件を比べ，条件がすべて合う形式に線を引いてください．</p>
+  <p class="lesson-instruction">各文法形式の前接条件も，3つの素性ごとに選んでください．複数当てはまるときはすべて選び，条件がない素性では「制限なし」を選びます．</p>
 </div>
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
@@ -82,6 +83,17 @@
           <button type="button" class="dot right-dot" aria-label="〜{{ e.label }}への線を切り替える" aria-pressed="false"></button>
           <div style="flex:1;">
             <div style="font-weight:700; font-size:0.92rem;">〜{{ e.label }}</div>
+            <div class="condition-toggles">
+              {% for feature, options in condition_options.items() %}
+              {% set condition_id = e.key ~ '_' ~ feature %}
+              <fieldset class="condition-choice" data-condition="{{ condition_id }}">
+                <legend>{{ feature_names[feature] }}</legend>
+                {% for code, value in options %}
+                <label><input type="checkbox" name="condition_{{ condition_id }}_{{ code }}" value="{{ value }}" {% if value in saved_conditions.get(condition_id, []) %}checked{% endif %}>{{ value }}</label>
+                {% endfor %}
+              </fieldset>
+              {% endfor %}
+            </div>
           </div>
           <button type="button" class="del-x" title="この線を消す" aria-label="〜{{ e.label }}の線を消す">消す</button>
         </div>
@@ -97,10 +109,9 @@
 
 <div id="matchingStatus" class="feedback-banner" role="status" hidden style="margin-top:18px;"></div>
 <div id="matchingActions" class="feedback-actions" hidden style="margin:14px 0;">
-  <button type="button" class="btn btn-secondary" id="showMatchingFeedback">フィードバックを見る</button>
+  <a class="btn btn-secondary" id="showMatchingFeedback" hidden>フィードバックを見る</a>
   <a class="btn btn-primary" id="matchingNext" hidden>{% if context_review %}文脈問題に戻る{% else %}場面・文脈の問題へ進む{% endif %} →</a>
 </div>
-<section id="matchingFeedback" aria-label="線結びのフィードバック" hidden style="margin-top:20px;scroll-margin-top:20px;"></section>
 
 <style>
   #matchingActions[hidden], #matchingNext[hidden], #showMatchingFeedback[hidden] { display:none; }
@@ -113,15 +124,21 @@
     pointer-events: none; z-index: 1;
   }
   #leftCol {
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    display: block; position:relative;
     z-index: 2; flex: 0 0 210px;
   }
   #leftNode {
-    position: relative; padding: 18px 22px; background: var(--blue-soft);
+    position: sticky; top:110px; padding: 18px 22px; background: var(--blue-soft);
     border: 2px solid var(--blue); border-radius: 12px; font-weight: 700; text-align: center;
     width: 100%;
   }
-  #rightCol { display: flex; flex-direction: column; gap: 7px; z-index: 2; flex: 1 1 auto; max-width: 480px; }
+  #rightCol { display: flex; flex-direction: column; gap: 7px; z-index: 2; flex: 1 1 auto; max-width: 650px; }
+  .condition-toggles { margin-top:10px; }
+  .condition-choice { display:flex;flex-wrap:wrap;gap:5px;border:0;padding:0;margin:7px 0 0; }
+  .condition-choice legend { font-size:.8rem;font-weight:700;margin-bottom:4px; }
+  .condition-choice label { display:flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;padding:6px;font-size:.8rem;cursor:pointer;background:white; }
+  .condition-choice label:has(input:checked) { border-color:var(--blue);background:#dce9ff;color:#1d4e9a; }
+  .condition-choice input { accent-color:var(--blue); }
   .right-node {
     position: relative; display: flex; align-items: center; gap: 8px;
     padding: 11px 10px 11px 24px; background: #fff; border: 2px solid var(--border);
@@ -181,10 +198,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const submitButton = document.getElementById("matchingSubmit");
   const status = document.getElementById("matchingStatus");
   const actions = document.getElementById("matchingActions");
-  const feedback = document.getElementById("matchingFeedback");
   const nextLink = document.getElementById("matchingNext");
   const feedbackButton = document.getElementById("showMatchingFeedback");
   let answerRevision = 0;
+  let answerLocked = false;
 
   let isDragging = false;
   let activeLine = null;
@@ -203,8 +220,8 @@ document.addEventListener("DOMContentLoaded", () => {
     answerRevision += 1;
     status.hidden = true;
     actions.hidden = true;
-    feedback.hidden = true;
-    feedback.replaceChildren();
+    feedbackButton.hidden = true;
+    feedbackButton.removeAttribute("href");
     nextLink.hidden = true;
     nextLink.removeAttribute("href");
   }
@@ -226,6 +243,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- ドラッグして線を引く ----
   function startDrag(e) {
+    if (answerLocked) return;
     e.preventDefault();
     isDragging = true;
     leftDot.style.transform = "scale(1.3)";
@@ -280,6 +298,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- 線の作成・削除（1本ずつ） ----
   function createConnection(key, restored = false) {
+    if (answerLocked) return;
     if (!restored) answerChanged();
     const node = document.getElementById(`node-${key}`);
     const dot = node.querySelector(".right-dot");
@@ -311,6 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function removeConnection(key) {
+    if (answerLocked) return;
     answerChanged();
     const conn = connections.get(key);
     if (conn) window.studyEvent?.("line_remove", {key});
@@ -342,18 +362,29 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(connections.keys()).forEach(removeConnection);
   });
 
+  document.querySelectorAll('.condition-choice').forEach(field => {
+    field.addEventListener('change', ev => {
+      const chosen = ev.target;
+      if (chosen.checked) field.querySelectorAll('input').forEach(input => {
+        if (input !== chosen && (chosen.value === '制限なし' || input.value === '制限なし')) input.checked = false;
+      });
+      answerChanged();
+      window.studyEvent?.('conditions_toggle', {key:field.dataset.condition, values:[...field.querySelectorAll('input:checked')].map(input=>input.value)});
+      redrawLines();
+    });
+  });
+
   form.addEventListener("submit", async ev => {
     ev.preventDefault();
     if (connections.size === 0 &&
         !confirm("線を1本も引いていません。「どの表現とも結びつかない」という判断で提出しますか？")) {
       return;
     }
-    if (submitButton.disabled) return;
+    if (submitButton.disabled || answerLocked) return;
     const submittedRevision = answerRevision;
     submitButton.disabled = true;
     showMatchingStatus("判定しています…");
     actions.hidden = true;
-    feedback.hidden = true;
     try {
       const response = await fetch(form.action, {
         method:"POST", body:new FormData(form), headers:{"Accept":"application/json"},
@@ -373,23 +404,26 @@ document.addEventListener("DOMContentLoaded", () => {
         missing.textContent = "！ まだ結べていない形式があります．";
         status.appendChild(missing);
       }
-      feedback.innerHTML = result.all_correct ? "" : result.feedback_html;
+      if (result.has_condition_errors) {
+        const message = document.createElement('p');
+        message.textContent = '前接条件にも，不正解または未選択があります．';
+        status.appendChild(message);
+      }
       feedbackButton.hidden = result.all_correct;
+      if (result.feedback_url) feedbackButton.href = result.feedback_url;
+      else feedbackButton.removeAttribute('href');
       nextLink.hidden = !result.all_correct;
       if (result.all_correct) nextLink.href = result.context_url;
       else nextLink.removeAttribute("href");
       actions.hidden = false;
+      answerLocked = true;
+      form.querySelectorAll('button, input[type=checkbox]').forEach(el => el.disabled = true);
       status.scrollIntoView({behavior:"smooth", block:"center"});
     } catch (error) {
       showMatchingStatus("判定できませんでした。もう一度判定してください。", "incorrect");
     } finally {
-      submitButton.disabled = false;
+      submitButton.disabled = answerLocked;
     }
-  });
-
-  document.getElementById("showMatchingFeedback").addEventListener("click", () => {
-    feedback.hidden = !feedback.hidden;
-    if (!feedback.hidden) feedback.scrollIntoView({behavior:"smooth", block:"start"});
   });
 
   leftDot.addEventListener("mousedown", startDrag);
@@ -407,6 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   window.addEventListener("resize", redrawLines);
+  window.addEventListener("scroll", () => requestAnimationFrame(redrawLines), {passive:true});
   rightNodes.forEach(node => {
     const key = node.getAttribute("data-key");
     if (document.getElementById(`input-${key}`).value === "○") createConnection(key, true);

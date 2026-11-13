@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
 import learning_state
+from verify_support import condition_answers
 
 client = TestClient(main.app)
 base = '/a/word/iraira'
@@ -211,15 +212,15 @@ assert notice not in client.get(f'{base}/f2').text
 
 # A missing line produces only a generic reminder, without listing its identity.
 word = main.WORD_BY_ID['iraira']
-correct = {k: '○' for k in main.CAT_EXPRS[word['category_id']]}
+correct = {**condition_answers(), **{k: '○' for k in main.CAT_EXPRS[word['category_id']]}}
 r = client.post(f'{base}/f2/check', data={})
 assert 'まだ結べていない形式があります' in r.text
-assert not r.context['selected_results'] and '<table' not in r.text
+assert not r.context['selected_results'] and not r.text.count('matching-comparison')
 assert '正解の線結び' not in r.text and '/f3"' not in r.text
 
 # Invalid selected links show only their prerequisites; correct forms stay undisclosed.
-invalid = next(e for e in main.EXPRESSIONS if e['key'] not in correct)
-submitted = {invalid['key']: '○'}
+invalid = next(e for e in main.EXPRESSIONS if e['key'] not in main.CAT_EXPRS[word['category_id']])
+submitted = {**condition_answers(), invalid['key']: '○'}
 r = client.post(f'{base}/f2/check', data=submitted)
 assert [e['key'] for e in r.context['selected_results']] == [invalid['key']]
 assert r.text.count('<table') == 1
@@ -275,10 +276,10 @@ for q in questions:
     completed = q['text'].replace('[ ？ ]', '〈' + main.EXPR_BY_KEY[q['correct_key']][main.FORM_COL[q['form']]] + '〉')
     assert completed not in review.text
 assert not review.context['saved_connections']
-for key in correct:
+for key in main.CAT_EXPRS[word['category_id']]:
     assert f'id="input-{key}" value="×"' in review.text
 # An incorrect matching answer can be edited within the current context-review flow.
-wrong_match = client.post(f'{base}/f2/check', data={invalid['key']: '○', 'review_token': review_token})
+wrong_match = client.post(f'{base}/f2/check', data={**condition_answers(), invalid['key']: '○', 'review_token': review_token})
 assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in wrong_match.text
 repair = client.get('/a' + wrong_match.context['retry_url'])
 assert repair.context['review_token'] == review_token
@@ -304,54 +305,38 @@ assert notice in client.get(old_return).text
 assert notice not in client.get(f'{base}/f2').text
 assert notice not in client.get(old_return).text
 
-# Judging stays neutral in the answer area. Every selected form, correct or incorrect, has a comparison in feedback.
+# The answer page receives a feedback URL, never an editable inline explanation.
 json_headers = {'Accept': 'application/json'}
-one_valid = next(iter(correct))
-response = client.post(f'{base}/f2/check', data={invalid['key']: '○', one_valid: '○'}, headers=json_headers)
-assert response.status_code == 200
-judgment = response.json()
-assert set(judgment) == {'feedback_html', 'all_correct', 'has_missing', 'context_url'}
-assert judgment['context_url'] is None
-assert not judgment['all_correct'] and judgment['has_missing']
-assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in judgment['feedback_html']
-assert '<th scope="col">' + main.EXPR_BY_KEY[one_valid]['label'] + 'の条件</th>' in judgment['feedback_html']
-assert judgment['feedback_html'].count('<table') == 2
-assert 'href="#step3Form"' in judgment['feedback_html']
-missing_only = client.post(f'{base}/f2/check', data={}, headers=json_headers).json()
-assert missing_only['has_missing'] and not missing_only['all_correct'] and '<table' not in missing_only['feedback_html']
-right = client.post(f'{base}/f2/check', data=correct, headers=json_headers).json()
-assert right['all_correct'] and not right['has_missing']
-assert '<table' not in right['feedback_html'] and 'comparison-choices' not in right['feedback_html']
-assert right['context_url'] == f'{base}/f3'
-assert f'href="{base}/f3"' in right['feedback_html']
-assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
-initial = client.get('/a/word/bikkuri/f2').text
-assert 'markInvalid' not in initial and 'invalid-answer' not in initial and 'answer-condition' not in initial
-assert 'showMatchingStatus(result.all_correct' in initial and 'id="matchingNext" hidden' in initial
-assert 'feedbackButton.hidden = result.all_correct' in initial
-assert 'nextLink.hidden = !result.all_correct' in initial
-assert 'nextLink.removeAttribute("href")' in initial
-assert 'まだ結べていない形式があります' in initial
-assert 'status.hidden = !feedback.hidden' not in initial
+one_valid = next(iter(main.CAT_EXPRS[word['category_id']]))
 for w in main.WORDS:
     cat = main.get_category(w)
-    for connected in ([e for e in main.EXPRESSIONS], [next(e for e in main.EXPRESSIONS if main.expr_combines(cat, e))]):
-        r = client.post(f'/a/word/{w["id"]}/f2/check', data={e['key']: '○' for e in connected}, headers=json_headers).json()
-        if r['all_correct']:
-            assert '<table' not in r['feedback_html'] and 'comparison-choices' not in r['feedback_html']
-            assert r['context_url'] == f'/a/word/{w["id"]}/f3'
-            continue
-        assert r['context_url'] is None
-        assert r['feedback_html'].count('<table') == len(connected)
-        assert r['feedback_html'].count('class="comparison-choices"') == 3 * len(connected)
-        assert '○ 合う' not in r['feedback_html'] and '× 合わない' not in r['feedback_html']
-        assert ' checked' not in r['feedback_html'] and 'condition-mismatch' not in r['feedback_html']
-        for e in connected:
-            assert f'「{w["word"]}」と「〜{e["label"]}」の比較' in r['feedback_html']
-            for fkey in ['continuity', 'action', 'volition']:
-                assert f'name="compare_{e["key"]}_{fkey}"' in r['feedback_html']
-        for fkey in ['continuity', 'action', 'volition']:
-            assert main.val_label(fkey, cat[fkey]) in r['feedback_html']
+    connected = list(main.EXPRESSIONS)
+    response = client.post(f'/a/word/{w["id"]}/f2/check',
+        data={**condition_answers(), **{e['key']: '○' for e in connected}}, headers=json_headers)
+    judgment = response.json()
+    assert 'feedback_html' not in judgment and not judgment['all_correct']
+    assert judgment['context_url'] is None
+    feedback = client.get(judgment['feedback_url'])
+    assert feedback.status_code == 200 and 'step3Form' not in feedback.text
+    assert feedback.text.count('matching-comparison') == len(connected)
+    assert '回答画面に戻って選び直す' in feedback.text
+    assert '正解の線結び' not in feedback.text
+    for e in connected:
+        assert f'「{w["word"]}」と「〜{e["label"]}」の比較' in feedback.text
+    assert TestClient(main.app).get(judgment['feedback_url'], follow_redirects=False).status_code == 303
+right = client.post(f'{base}/f2/check', data=correct, headers=json_headers).json()
+assert right['all_correct'] and not right['has_missing'] and not right['has_condition_errors']
+assert right['feedback_url'] is None and right['context_url'] == f'{base}/f3'
+missing_conditions = client.post(f'{base}/f2/check',
+    data={k:'○' for k in main.CAT_EXPRS[word['category_id']]}, headers=json_headers).json()
+assert not missing_conditions['all_correct'] and missing_conditions['has_condition_errors']
+assert missing_conditions['context_url'] is None
+assert '未選択' in client.get(missing_conditions['feedback_url']).text
+initial = client.get('/a/word/bikkuri/f2').text
+assert 'id="matchingFeedback"' not in initial and 'feedback.innerHTML' not in initial
+assert 'feedbackButton.href = result.feedback_url' in initial and 'answerLocked = true' in initial
+assert '前接条件も' in initial
+assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
 
 # All five sound-shape rows now include a continuity forecast in continuity feedback.
 r = client.post('/a/word/iraira/f1/3/check', data={'choice':'ー'})
@@ -365,8 +350,8 @@ assert main.req_label('volition', ['ー','関与しない']) == '意志性「−
 assert main.EXPR_BY_KEY['shidasu']['req_vol'] == 'ー|関与しない'
 assert '意志的でないこと' not in client.get('/a/reference').text
 r = client.post('/a/word/bikkuri/f2/check', data={'shidasu':'○'}, headers=json_headers).json()
-assert '意志性「−」または「関与しない」' in r['feedback_html']
-assert '意志的でないこと' not in r['feedback_html']
+assert '意志性「−」または「関与しない」' in client.get(r['feedback_url']).text
+assert '意志的でないこと' not in client.get(r['feedback_url']).text
 
 # The revised curriculum has no exception-specific teaching or feedback.
 intro = client.get('/a/reference')
@@ -386,8 +371,7 @@ for prefix in ('/a', '/b'):
             assert '例外' not in client.get(base_word).text
             assert '例外' not in client.get(base_word + '/f3').text
 assert '例外' not in client.get('/b/knowledge').text
-# Removing the special feedback does not change the retained word's feature values.
-yukkuri = main.get_category(main.WORD_BY_ID['yukkuri'])
-assert (yukkuri['continuity'], yukkuri['action'], yukkuri['volition']) == ('＋', '低', '＋')
-
-print('OK: 16 words, separately graded kind question, five example-free sound choices, continuity diagrams, kind-specific action/volition feedback, all-selected matching tables, learner-selected comparisons, persistent overall results and group isolation')
+# Newly added word uses the existing low-action, non-volitional classification.
+ukauka = main.get_category(main.WORD_BY_ID['ukauka'])
+assert (ukauka['continuity'], ukauka['action'], ukauka['volition']) == ('＋', '低', 'ー')
+print('OK: six words, feature feedback, separate matching feedback, prerequisites, retry restoration, context review and group isolation')

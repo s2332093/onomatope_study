@@ -6,6 +6,17 @@
   {% elif has_missing %}<p class="feedback-missing">！ まだ結べていない形式があります。</p>{% endif %}
 </div>
 {% endif %}
+{% if condition_errors %}
+<section class="card">
+  <h2>前接条件を見直しましょう</h2>
+  <p class="lesson-instruction">次の選択に不正解または未選択があります．学習前の知識で条件を確認してから，回答画面に戻りましょう．</p>
+  <div class="tscroll"><table class="dtable">
+    <thead><tr><th>文法形式</th><th>見直す素性</th><th>あなたが選んだ前接条件</th></tr></thead>
+    <tbody>{% for r in condition_errors %}<tr><th scope="row">〜{{ r.label }}</th><td>{{ r.feature }}</td><td>{{ r.selected }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <a href="{{ prefix }}/reference#grammar" class="btn btn-secondary" style="margin-top:16px;">前接条件の知識を確認する</a>
+</section>
+{% endif %}
 {% if not all_correct and selected_results %}<p class="feedback-guidance">それぞれの素性が条件に合うか，
 自分で選んでみましょう．</p>{% endif %}
 {% for r in selected_results if not all_correct %}
@@ -32,6 +43,6 @@
   {% if all_correct %}
   <a href="{{ prefix }}{{ context_url }}" class="btn btn-primary">{% if context_review %}文脈問題に戻る{% else %}場面・文脈の問題へ進む{% endif %} →</a>
   {% else %}
-  <a href="{% if inline_feedback %}#step3Form{% else %}{{ prefix }}{{ retry_url }}{% endif %}" class="btn btn-primary">自分の線を直す →</a>
+  <a href="{{ prefix }}{{ retry_url }}" class="btn btn-primary">回答画面に戻って選び直す</a>
   {% endif %}
 </div>

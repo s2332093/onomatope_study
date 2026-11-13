@@ -232,11 +232,13 @@
   <span class="badge">研究者用</span>
   {% elif request.state.participant_name or request.scope.get('path') != '/registration' %}
   <span class="badge">学習システム{{ request.state.study_label }}</span>
+  {% if not hide_learning_navigation %}
   <a href="{{ request.scope.get('study_prefix', '') }}/">ホーム（語を選ぶ）</a>
   {% if request.state.study_group != 'control' %}
   <a href="{{ request.scope.get('study_prefix', '') }}/reference">学習前の知識</a>
   {% else %}
   <a href="{{ request.scope.get('study_prefix', '') }}/knowledge">学習前の知識</a>
+  {% endif %}
   {% endif %}
   {% if request.state.participant_name %}
   <span style="margin-left:auto">{{ request.state.participant_name }} さん</span>

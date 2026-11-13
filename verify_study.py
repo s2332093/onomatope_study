@@ -9,6 +9,7 @@ os.environ['STUDY_LOG_PATH'] = str(Path(tempfile.mkdtemp()) / 'events.db')
 from fastapi.testclient import TestClient
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
+from verify_support import condition_answers
 import study_logging
 import deferred_logging
 client = TestClient(main.app)
@@ -28,16 +29,12 @@ assert '/a/reference' in client.get('/a/').text
 home_a = client.get('/a/').text
 rows = re.findall(r'<div class="home-word-row">(.*?)\n  </div>', home_a, re.S)
 word_pairs = [re.findall(r'href="/a/word/([^"]+)"', row) for row in rows]
-assert len(word_pairs) == 8 and all(len(pair) == 2 for pair in word_pairs)
-curriculum_pairs = [
-    ['iraira', 'zukizuki'], ['bikkuri', 'gakkari'], ['iratto', 'zukitto'],
-    ['burabura', 'urouro'], ['yoroyoro', 'kyorokyoro'], ['nikoniko', 'kirakira'],
-    ['gorogoro', 'yukkuri'], ['mesomeso', 'kuyokuyo'],
-]
-expected_pairs = [['zukizuki', 'iraira'], *curriculum_pairs[1:]]
+assert len(word_pairs) == 3 and all(len(pair) == 2 for pair in word_pairs)
+curriculum_pairs = [['iraira','zukizuki'], ['bikkuri','zukitto'], ['burabura','ukauka']]
+expected_pairs = [['zukizuki','iraira'], *curriculum_pairs[1:]]
 assert word_pairs == expected_pairs
 assert [w['id'] for w in main.WORDS] == [wid for pair in curriculum_pairs for wid in pair]
-expected_words = ['いらいら','ずきずき','びっくり','がっかり','いらっ','ずきっ','ぶらぶら','うろうろ','よろよろ','きょろきょろ','にこにこ','きらきら','ごろごろ','ゆっくり','めそめそ','くよくよ']
+expected_words = ['いらいら','ずきずき','びっくり','ずきっ','ぶらぶら','うかうか']
 assert [w['word'] for w in main.WORDS] == expected_words
 assert set(main.PRACTICE) == set(main.WORD_BY_ID)
 for removed in ['hotto', 'orooro', 'gikushaku', 'daradara', 'bonyari']:
@@ -47,8 +44,7 @@ for removed in ['hotto', 'orooro', 'gikushaku', 'daradara', 'bonyari']:
             assert response.status_code == 307 and response.headers['location'] == prefix + '/'
 assert '例外' not in client.get('/a/reference').text
 assert {wid for pair in word_pairs for wid in pair} == set(main.WORD_BY_ID)
-assert all(main.WORD_BY_ID[a]['category_id'] == main.WORD_BY_ID[b]['category_id'] for a, b in word_pairs)
-assert len({main.WORD_BY_ID[a]['category_id'] for a, b in word_pairs}) == 8
+assert len({w['category_id'] for w in main.WORDS}) == 5
 visible_home = re.sub(r'<style>.*?</style>', '', home_a, flags=re.S)
 assert 'カテゴリー' not in visible_home and all(c['name'] not in visible_home for c in main.CATEGORIES)
 control = re.sub(r'<style>.*?</style>', '', client.get('/b/').text, flags=re.S)
@@ -58,7 +54,7 @@ knowledge = client.get('/b/knowledge')
 assert knowledge.status_code == 200
 assert 'data-study-prefix="/b"' in knowledge.text and 'study_log.js' in knowledge.text
 knowledge_rows = re.findall(r'<tr>\s*<th scope="row">(.*?)</tr>', knowledge.text, re.S)
-assert len(knowledge_rows) == len(main.WORDS) == 16
+assert len(knowledge_rows) == len(main.WORDS) == 6
 for word, row in zip(main.WORDS, knowledge_rows):
     assert word['word'] in row and word['meaning'] in row
     shown = re.findall(r'<li>〜(.*?)</li>', row)
@@ -98,6 +94,7 @@ for w in main.WORDS:
     assert '2／2 正解' in right.text and '0／2 正解' in wrong.text
     assert '（未選択）' in wrong.text
     assert f'href="/b/word/{w["id"]}/complete"' in right.text
+    client.post(f'/b/word/{w["id"]}/f3/check', data=correct)
     complete = client.get(f'/b/word/{w["id"]}/complete')
     for page in (result, b, right, wrong, complete):
         assert page.status_code == 200
@@ -127,9 +124,9 @@ with study_logging.connect() as db:
     answers = [json.loads(r[0]) for r in db.execute("SELECT detail FROM events WHERE event_type='answer_submission' AND study_group='control'")]
     meaning_answers = [r for r in answers if 'correct' in r]
     context_answers = [r for r in answers if 'correct_by_question' in r]
-    assert len(meaning_answers) == 16 and all(r['correct'] for r in meaning_answers)
-    assert len(context_answers) == 32
-    assert sum(all(r['correct_by_question'].values()) for r in context_answers) == 16
+    assert len(meaning_answers) == 6 and all(r['correct'] for r in meaning_answers)
+    assert len(context_answers) == 18
+    assert sum(all(r['correct_by_question'].values()) for r in context_answers) == 12
     assert all(len(r['correct_by_question']) == 2 for r in context_answers)
 # Legacy links preserve method, nested paths and query while redirecting to neutral URLs.
 for old, new in (('experiment', 'a'), ('control', 'b')):
@@ -148,13 +145,13 @@ blocked = client.get('/b/reference')
 assert '統制群' not in blocked.text and '/b/' in blocked.text
 # Answer submitted through middleware still reaches route; compare wrong and correct cases.
 w=main.WORD_BY_ID['iraira']; cat=main.get_category(w)
-correct={k:'○' for k in main.CAT_EXPRS[cat['id']]}
+correct={**condition_answers(), **{k:'○' for k in main.CAT_EXPRS[cat['id']]}}
 r=client.post('/a/word/iraira/f2/check', data=correct)
 assert '10 / 10 正解' in r.text
 assert '○ 正解です！' in r.text
 assert '正解の線結び' not in r.text and '<line ' not in r.text
 r=client.post('/a/word/iraira/f2/check', data={})
-assert '<line ' not in r.text and '<table' not in r.text
+assert '<line ' not in r.text and '前接条件を見直しましょう' in r.text
 assert 'まだ結べていない形式があります' in r.text
 # CSV exports are local commands, never HTTP resources.
 import subprocess
@@ -162,4 +159,4 @@ subprocess.run([os.sys.executable, 'study_logging.py', str(study_logging.LOG_PAT
 subprocess.run([os.sys.executable, 'analyze_logs.py', str(study_logging.LOG_PATH.with_name('summary.csv'))], check=True)
 assert study_logging.LOG_PATH.with_suffix('.csv').exists()
 assert client.get('/b/study_logs.db').status_code == 404
-print('OK: both groups, 16 meaning/context lessons, shared questions, correct/wrong answers, blocked curriculum, logs, feedback maps, CSV exports')
+print('OK: both groups, 6 meaning/context lessons, shared questions, correct/wrong answers, blocked curriculum, logs, feedback maps, CSV exports')

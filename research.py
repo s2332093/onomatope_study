@@ -89,10 +89,8 @@ def empty():
 def score(detail):
     if isinstance(detail.get('correct'), bool):
         return [detail['correct']]
-    for field in ('correct_by_expression','correct_by_question'):
-        if isinstance(detail.get(field), dict):
-            return [v for v in detail[field].values() if isinstance(v,bool)]
-    return []
+    return [v for field in ('correct_by_expression','correct_by_condition','correct_by_question')
+            if isinstance(detail.get(field), dict) for v in detail[field].values() if isinstance(v, bool)]
 
 
 def report_word(word_id):
@@ -131,6 +129,8 @@ def page_label(path):
                 suffix = 'オノマトペの種類' if parts[3:5] in (['2','kind'], ['4','kind']) else '素性学習のまとめ' if parts[3]=='done' else {'1':'意味','2':'音の形','3':'継続性','4':'動作性','5':'意志性'}.get(parts[3],'素性学習')
             else:
                 suffix={'meaning':'意味','f2':'線結び','f3':'文脈練習','complete':'学習完了'}.get(stage,stage)
+                if stage == 'f2' and parts[-1] == 'feedback':
+                    suffix += '：フィードバック'
         return word+'：'+suffix+('：フィードバック' if parts[-1]=='check' else '')
     return path
 
@@ -142,6 +142,10 @@ def answer_label(answers,path):
         if key.startswith(('opt_keys_','spec_')):
             continue
         label = '解答' if key=='choice' else ('問'+key[7:] if key.startswith('choice_') else main.EXPR_BY_KEY.get(key,{}).get('label',key))
+        if key.startswith('condition_'):
+            parts = key[len('condition_'):].rsplit('_', 2)
+            if len(parts) == 3 and parts[0] in main.EXPR_BY_KEY and parts[1] in main.FEATURE_NAME:
+                label = main.EXPR_BY_KEY[parts[0]]['label'] + 'の前接条件（' + main.FEATURE_NAME[parts[1]] + '）'
         item=report_word(value)
         if item:
             value=item['meaning'] if '/f1/1' in path or '/meaning' in path else item['word']
