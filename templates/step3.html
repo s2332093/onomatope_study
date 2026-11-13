@@ -134,7 +134,7 @@
     z-index: 2; flex: 0 0 210px;
   }
   #leftNode {
-    position: sticky; top:110px; padding: 18px 22px; background: var(--blue-soft);
+    position:sticky;top:max(12px,calc(50vh - var(--left-node-half-height,75px)));padding:18px 22px;background:var(--blue-soft);
     border: 2px solid var(--blue); border-radius: 12px; font-weight: 700; text-align: center;
     width: 100%;
   }
@@ -605,6 +605,11 @@ document.addEventListener("DOMContentLoaded", () => {
       conn.lines.forEach(line => setCoords(line, a, b));
     });
   }
+  const leftNodeObserver = new ResizeObserver(() => {
+    leftNode.style.setProperty('--left-node-half-height', `${leftNode.offsetHeight / 2}px`);
+    redrawLines();
+  });
+  leftNodeObserver.observe(leftNode);
   window.addEventListener("resize", redrawLines);
   window.addEventListener("scroll", () => requestAnimationFrame(redrawLines), {passive:true});
   rightNodes.forEach(node => {
