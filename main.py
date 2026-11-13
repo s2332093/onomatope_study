@@ -229,7 +229,7 @@ FEATURE_NAME = {"continuity": "継続性", "action": "動作性", "volition": "�
 CONDITION_OPTIONS = {
     "continuity": [("plus", "＋"), ("result", "変化結果の＋"), ("minus", "ー"), ("none", "制限なし")],
     "action": [("high", "高"), ("mid", "中"), ("low", "低"), ("none", "制限なし")],
-    "volition": [("plus", "＋"), ("minus", "ー"), ("none", "制限なし")],
+    "volition": [("plus", "＋"), ("none", "制限なし")],
 }
 CONDITION_FIELDS = {"continuity": "req_cont", "action": "req_act", "volition": "req_vol"}
 

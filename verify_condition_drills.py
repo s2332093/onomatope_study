@@ -53,7 +53,7 @@ display_values = {'none':'制限なし','plus':'＋','result':'変化結果＋',
                   'minus':'ー','mid':'中','high':'高','low':'低'}
 knowledge = c.get('/a/reference')
 assert '関与しない' not in knowledge.text and 'vol_na.svg' not in knowledge.text
-assert set(dict(main.CONDITION_OPTIONS['volition'])) == {'plus','minus','none'}
+assert set(dict(main.CONDITION_OPTIONS['volition'])) == {'plus','none'}
 assert [o['value'] for o in main.feature_options('volition')] == ['＋','ー']
 assert len(main.KNOWLEDGE['volition']) == 2
 for card in knowledge.context['expr_cards']:
