@@ -118,7 +118,7 @@ async def study_context(request: Request, call_next):
         form = await request.form()
         choices = {k: str(v)[:200] for k, v in form.multi_items()
                    if k == "choice" or k.startswith(("choice_", "opt_keys_", "spec_", "q_", "condition_")) or k in EXPR_BY_KEY}
-        result = {"answers": choices, "curriculum_version": "2026-11-13-unrestricted-shiteiku"}
+        result = {"answers": choices, "curriculum_version": "2026-11-16-fixed-options"}
         parts = request.scope["path"].strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "word" and parts[1] in WORD_BY_ID:
             word = WORD_BY_ID[parts[1]]
@@ -429,8 +429,17 @@ def get_category(word):
 
 
 
+def fixed_options(options, position=0):
+    """Use a fixed lesson position so answers do not always occupy the first slot."""
+    options = list(options)
+    if not options:
+        return options
+    offset = position % len(options)
+    return options[offset:] + options[:offset]
+
+
 def meaning_options(word, n=4):
-    """1-1（意味の確認）の選択肢。紛らわしい順に誤答を補う。"""
+    """意味の選択肢は内容・順番とも固定し，両群で共用する．"""
     kind = CAT_BY_ID[word["category_id"]]["kind"]
     same_cat = [w for w in WORDS if w["id"] != word["id"]
                 and w["category_id"] == word["category_id"]]
@@ -440,17 +449,16 @@ def meaning_options(word, n=4):
     others = [w for w in WORDS if w["id"] != word["id"]
               and CAT_BY_ID[w["category_id"]]["kind"] != kind]
 
-    distractors = random.sample(same_cat, min(2, len(same_cat)))
+    distractors = same_cat[:min(2, n - 1)]
     for pool in (same_kind, others):
         need = (n - 1) - len(distractors)
         if need <= 0:
             break
-        distractors += random.sample(pool, min(need, len(pool)))
+        distractors += pool[:need]
 
     opts = [{"text": word["meaning"], "src": word["id"]}]
     opts += [{"text": d["meaning"], "src": d["id"]} for d in distractors]
-    random.shuffle(opts)
-    return opts
+    return fixed_options(opts, WORDS.index(word))
 
 
 
@@ -591,10 +599,8 @@ def feature_options(fkey):
 
 def phon_options(word):
     """全5種類の音の形。選択肢には語例を付けない。"""
-    opts = list(PHON_DEFS)
-    random.shuffle(opts)
     return [{"value": p["key"], "label": p["label"], "term": p["term"],
-             "fig": PHON_FIGS.get(p["key"])} for p in opts]
+             "fig": PHON_FIGS.get(p["key"])} for p in PHON_DEFS]
 
 
 def _chip(cap, val, sub=None, fig=None):
@@ -871,8 +877,7 @@ def _q_same(fkey=None):
                 and CAT_BY_ID[w["category_id"]][fkey] == tv]
         diff = [w for w in WORDS if CAT_BY_ID[w["category_id"]][fkey] != tv]
         if same and len(diff) >= 3:
-            opts = [random.choice(same)] + random.sample(diff, 3)
-            random.shuffle(opts)
+            opts = fixed_options([same[0]] + diff[:3], WORDS.index(target))
             return {
                 "type": "same", "spec": f'S:{target["id"]}:{fkey}',
                 "word": target, "feature": fdef,
@@ -891,8 +896,7 @@ def _q_cat():
         inside = [w for w in WORDS if w["category_id"] == cat["id"]]
         outside = [w for w in WORDS if w["category_id"] != cat["id"]]
         if inside and len(outside) >= 3:
-            opts = [random.choice(inside)] + random.sample(outside, 3)
-            random.shuffle(opts)
+            opts = fixed_options([inside[0]] + outside[:3], CATEGORIES.index(cat))
             return {
                 "type": "cat", "spec": f'C:{cat["id"]}',
                 "word": None, "feature": None, "category": cat,
@@ -1143,8 +1147,7 @@ EXPR_DRILL_PLAN = [("cond", 2), ("pair", 2)]
 def _q_cond():
     e = random.choice(EXPRESSIONS)
     pool = list(dict.fromkeys(x["cond_text"] for x in EXPRESSIONS if x["cond_text"] != e["cond_text"]))
-    opts = random.sample(pool, min(3, len(pool))) + [e["cond_text"]]
-    random.shuffle(opts)
+    opts = fixed_options([e["cond_text"]] + pool[:3], EXPRESSIONS.index(e))
     return {
         "type": "cond", "spec": f'x:{e["key"]}',
         "prompt": f'「〜{e["label"]}」はどんな素性のオノマトペと結びつく？',
@@ -1161,8 +1164,7 @@ def _q_pair():
         ok_words = [w for w in WORDS if expr_combines(CAT_BY_ID[w["category_id"]], e)]
         ng_words = [w for w in WORDS if not expr_combines(CAT_BY_ID[w["category_id"]], e)]
         if ok_words and len(ng_words) >= 3:
-            opts = [random.choice(ok_words)] + random.sample(ng_words, 3)
-            random.shuffle(opts)
+            opts = fixed_options([ok_words[0]] + ng_words[:3], EXPRESSIONS.index(e))
             return {
                 "type": "pair", "spec": f'y:{e["key"]}',
                 "prompt": f'「〜{e["label"]}」と結びつくオノマトペはどれ？',
@@ -1250,12 +1252,8 @@ async def f2_match(request: Request, word_id: str):
         return RedirectResponse("/")
     cat = get_category(w)
 
-    # 局面グループごとにまとめ、グループ内はシャッフル
-    groups = []
-    for g in EXPR_GROUPS:
-        exprs = g["exprs"][:]
-        random.shuffle(exprs)
-        groups.append({"name": g["name"], "exprs": exprs})
+    # 知識ページと同じ教材順で固定する．
+    groups = [{"name": g["name"], "exprs": g["exprs"][:]} for g in EXPR_GROUPS]
 
     state = learner_state(request, word_id)
     review_token = request.query_params.get("review", "")
@@ -1392,14 +1390,18 @@ def step4_build(w, n_distractors=2, saved_options=None):
     for q in PRACTICE.get(w["id"], []):
         col = FORM_COL.get(q["form"], "form_base")
         correct = EXPR_BY_KEY[q["correct_key"]]
-        ds = random.sample(ng_exprs, min(n_distractors, len(ng_exprs)))
-        opts = [{"key": correct["key"], "label": correct[col], "phase": correct["phase"]}]
-        opts += [{"key": d["key"], "label": d[col], "phase": d["phase"]} for d in ds]
-        random.shuffle(opts)
+        ds = fixed_options(ng_exprs, q["ord"])[:n_distractors]
+        selected_keys = {correct["key"], *(d["key"] for d in ds)}
         saved = (saved_options or {}).get(str(q["ord"]), [])
-        if (len(saved) == len(set(saved)) == len(opts) and q["correct_key"] in saved
+        if (len(saved) == len(set(saved)) == len(selected_keys) and q["correct_key"] in saved
                 and all(k in EXPR_BY_KEY and (k == q["correct_key"] or k not in ok_keys) for k in saved)):
-            opts = [{"key": k, "label": EXPR_BY_KEY[k][col], "phase": EXPR_BY_KEY[k]["phase"]} for k in saved]
+            # Keep choices from an in-progress review, including before this revision,
+            # while replacing their old random ordering with the fixed order.
+            selected_keys = set(saved)
+        ordered = [correct] + [e for e in EXPRESSIONS if e["key"] in selected_keys and e["key"] != correct["key"]]
+        position = WORDS.index(w) * len(PRACTICE[w["id"]]) + q["ord"]
+        opts = [{"key": e["key"], "label": e[col], "phase": e["phase"]}
+                for e in fixed_options(ordered, position)]
         questions.append({
             "idx": q["ord"], "text": q["frame"], "options": opts,
             "correct_key": correct["key"],

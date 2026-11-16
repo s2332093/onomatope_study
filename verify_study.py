@@ -1,6 +1,5 @@
 """Group isolation, meaning/context lessons and event collection."""
 import re
-import random
 import json
 import os
 import tempfile
@@ -76,10 +75,8 @@ for w in main.WORDS:
     result = client.post('/b/word/' + w['id'] + '/meaning/check', data={'choice': w['id']})
     assert '正解です' in result.text and w['meaning'] in result.text
     assert f'href="/b/word/{w["id"]}/f3"' in result.text
-    # Both groups use the same frames and option generator, including shuffling.
-    random.seed(20261020)
+    # Both groups use the same fixed frames, choices and display order.
     a = client.get(f'/a/word/{w["id"]}/f3')
-    random.seed(20261020)
     b = client.get(f'/b/word/{w["id"]}/f3')
     assert b.status_code == 200
     assert re.findall(r'name="opt_keys_\d+" value="([^"]+)"', a.text) == re.findall(r'name="opt_keys_\d+" value="([^"]+)"', b.text)
