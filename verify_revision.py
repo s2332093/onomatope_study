@@ -25,7 +25,7 @@ for group in ('a', 'b'):
     assert TestClient(main.app).get(f'/{group}/').context['completed_words'] == set()
     if group == 'a':
         assert not c.get('/b/').context['completed_words']
-    knowledge = c.get('/a/reference' if group == 'a' else '/b/knowledge').text
+    knowledge = c.get('/a/reference/grammar' if group == 'a' else '/b/knowledge').text
     assert 'ホーム画面に戻る' in knowledge
 
 for suffix, data in [('meaning/check', {'choice':'bikkuri'}), ('f3/check', {})]:

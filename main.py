@@ -1,12 +1,12 @@
 # main.py
 # オノマトペ学習支援システム
-#   A: 素性の知識10分 → 全6語のフェーズ1 → 前接条件の知識5分 → 各語のフェーズ2・3。
+#   A: 素性の知識10分 → 前接条件の知識5分 → 各語のフェーズ1〜3。
 #     /                       出題対象6語の一覧（語を選ぶのはここだけ）
 #     /word/{id}              その語の学習マップ（3フェーズの現在地）
 #     /word/{id}/f1/1〜5      フェーズ1：意味 → 音の形 → 継続性 → 動作性 → 意志性
 #     /word/{id}/f1/done      フェーズ1のまとめ（カテゴリー確定）
 #     /reference             素性の知識（10分）
-#     /reference/grammar     全6語のフェーズ1後：前接条件の知識（5分）
+#     /reference/grammar     素性の知識のあと：前接条件の知識（5分）
 #     /word/{id}/f2           フェーズ2：線結び
 #     /word/{id}/f3           フェーズ3：例文の練習
 #     /word/{id}/complete     この語の学習完了
@@ -119,11 +119,10 @@ async def study_context(request: Request, call_next):
             blocked = None
             if not course['features_known']:
                 blocked = '/reference'
-            elif len(parts) >= 3 and parts[2] in ('f2', 'f3', 'complete'):
-                if not course['features_finished']:
-                    blocked = '/'
-                elif not course['grammar_known']:
-                    blocked = '/reference/grammar'
+            elif not course['grammar_known']:
+                blocked = '/reference/grammar'
+            elif len(parts) >= 3 and parts[2] in ('f2', 'f3', 'complete') and parts[1] not in course['phase1_words']:
+                blocked = f'/word/{parts[1]}/f1/1'
             if blocked:
                 return RedirectResponse(prefix + blocked, status_code=303)
     submission = None
@@ -133,7 +132,7 @@ async def study_context(request: Request, call_next):
         form = await request.form()
         choices = {k: str(v)[:200] for k, v in form.multi_items()
                    if k == "choice" or k.startswith(("choice_", "opt_keys_", "spec_", "q_", "condition_")) or k in EXPR_BY_KEY}
-        result = {"answers": choices, "curriculum_version": "2026-11-24-staged-learning"}
+        result = {"answers": choices, "curriculum_version": "2026-11-24-knowledge-first"}
         parts = request.scope["path"].strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "word" and parts[1] in WORD_BY_ID:
             word = WORD_BY_ID[parts[1]]
@@ -504,7 +503,7 @@ def course_progress(request, refresh=False):
     done = learning_state.phase1_words(pid, group) & set(WORD_BY_ID)
     result = dict(features_known=bool(state.get('features_known')),
                   grammar_known=bool(state.get('grammar_known')),
-                  phase1_words=done, features_finished=len(done) == len(WORDS), total=len(WORDS))
+                  phase1_words=done, total=len(WORDS))
     request.state.course_progress_cache = result
     return result
 
@@ -875,14 +874,14 @@ async def feature_knowledge_complete(request: Request):
     if form.get('_study_participant') != request.state.participant:
         return HTMLResponse('利用者が変わりました．画面を読み込み直してください．', status_code=409)
     update_learner(request, '__course__', lambda s: s.update(features_known=True))
-    return RedirectResponse('/', status_code=303)
+    return RedirectResponse('/reference/grammar', status_code=303)
 
 
 @app.get('/reference/grammar', response_class=HTMLResponse)
 async def grammar_reference(request: Request):
     course = course_progress(request)
-    if not course['features_finished']:
-        return RedirectResponse('/', status_code=303)
+    if not course['features_known']:
+        return RedirectResponse('/reference', status_code=303)
     return templates.TemplateResponse(request, 'grammar_reference.html', {
         'course': course, 'expr_cards': expression_cards(), 'figs': FEATURE_FIGS,
         'include_grammar': True,
@@ -895,8 +894,8 @@ async def grammar_knowledge_complete(request: Request):
     if form.get('_study_participant') != request.state.participant:
         return HTMLResponse('利用者が変わりました．画面を読み込み直してください．', status_code=409)
     course = course_progress(request)
-    if not course['features_finished']:
-        return RedirectResponse('/', status_code=303)
+    if not course['features_known']:
+        return RedirectResponse('/reference', status_code=303)
     update_learner(request, '__course__', lambda s: s.update(grammar_known=True))
     return RedirectResponse('/', status_code=303)
 

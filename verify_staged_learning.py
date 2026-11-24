@@ -1,4 +1,4 @@
-"""The six-word course order and the iraira-only progression exception."""
+"""Two knowledge pages before per-word phases, with iraira-only progression."""
 import os
 import tempfile
 from pathlib import Path
@@ -14,15 +14,27 @@ home = c.get('/a/')
 pid = c.cookies['study_participant']
 assert not home.context['course']['features_known']
 assert c.get('/a/word/iraira/f1/1', follow_redirects=False).headers['location'] == '/a/reference'
+assert c.get('/a/reference/grammar', follow_redirects=False).headers['location'] == '/a/reference'
+assert c.post('/a/reference/grammar/complete', data={'_study_participant': pid}, follow_redirects=False).headers['location'] == '/a/reference'
 intro = c.get('/a/reference')
 assert '素性（10分）' in intro.text
 assert '文法形式の前接条件（全' not in intro.text
 assert '文法形式の条件と照合する' not in intro.text
+assert '前接条件の知識学習へ →' in intro.text and '全6語のフェーズ1' not in intro.text
 assert c.post('/a/reference/complete', data={'_study_participant': 'other'}).status_code == 409
-c.post('/a/reference/complete', data={'_study_participant': pid})
-assert c.get('/a/word/iraira/f1/done', follow_redirects=False).status_code == 303
-assert c.get('/a/reference/grammar', follow_redirects=False).headers['location'] == '/a/'
+assert c.post('/a/reference/complete', data={'_study_participant': pid}, follow_redirects=False).headers['location'] == '/a/reference/grammar'
+assert c.get('/a/').context['course']['phase1_words'] == set()
+for path in ('', '/f1/1', '/f2', '/f3'):
+    assert c.get('/a/word/iraira' + path, follow_redirects=False).headers['location'] == '/a/reference/grammar'
+grammar = c.get('/a/reference/grammar')
+assert '前接条件（5分）' in grammar.text and '文法形式の前接条件（全10形式）' in grammar.text
+assert '全6語の素性の学習が終わりました' not in grammar.text
+assert c.post('/a/reference/grammar/complete', data={'_study_participant': 'other'}).status_code == 409
 assert c.post('/a/reference/grammar/complete', data={'_study_participant': pid}, follow_redirects=False).headers['location'] == '/a/'
+assert c.get('/a/').context['course']['grammar_known']
+assert 'フェーズ1を始める →' in c.get('/a/word/iraira').text
+assert c.get('/a/word/iraira/f1/done', follow_redirects=False).status_code == 303
+assert c.get('/a/word/iraira/f2', follow_redirects=False).headers['location'] == '/a/word/iraira/f1/1'
 
 for index, word in enumerate(main.WORDS):
     wid = word['id']
@@ -44,20 +56,17 @@ for index, word in enumerate(main.WORDS):
     summary = c.get(f'/a/word/{wid}/f1/done')
     assert summary.status_code == 200
     assert len(summary.context['course']['phase1_words']) == index + 1
+    assert 'フェーズ2へ進む' in summary.text and '6語のフェーズ1を学習しましょう' not in summary.text
+    # This word can continue before the other five phase-1 lessons have finished.
+    assert c.get(f'/a/word/{wid}/f2').status_code == 200
+    assert c.post(f'/a/word/{wid}/f2/check', data={}, headers={'Accept': 'application/json'}).status_code == 200
     if index < len(main.WORDS) - 1:
-        assert 'ホーム画面に戻る' in summary.text and 'フェーズ2へ進む' not in summary.text
-        for path in ('f2', 'f3', 'complete'):
-            assert c.get(f'/a/word/{wid}/{path}', follow_redirects=False).headers['location'] == '/a/'
-        assert c.post(f'/a/word/{wid}/f2/check', data={}, follow_redirects=False).status_code == 303
+        other = main.WORDS[index + 1]['id']
+        assert c.get(f'/a/word/{other}/f2', follow_redirects=False).headers['location'] == f'/a/word/{other}/f1/1'
 
 home = c.get('/a/')
-assert home.context['course']['features_finished'] and not home.context['course']['grammar_known']
-assert home.text.count('✓ フェーズ1終了') == 6
-assert c.get('/a/word/iraira/f2', follow_redirects=False).headers['location'] == '/a/reference/grammar'
-grammar = c.get('/a/reference/grammar')
-assert '前接条件（5分）' in grammar.text and '文法形式の前接条件（全10形式）' in grammar.text
-assert c.post('/a/reference/grammar/complete', data={'_study_participant': 'other'}).status_code == 409
-c.post('/a/reference/grammar/complete', data={'_study_participant': pid})
+assert len(home.context['course']['phase1_words']) == 6
+assert '全6語のフェーズ1' not in home.text and '✓ フェーズ1終了' not in home.text
 for wid in main.WORD_BY_ID:
     matching = c.get(f'/a/word/{wid}/f2')
     assert matching.status_code == 200
@@ -92,4 +101,4 @@ for path in ('/b/reference', '/b/reference/grammar'):
     assert c.get(path).status_code == 404
 assert c.post('/b/reference/grammar/complete', data={'_study_participant': pid}).status_code == 404
 assert TestClient(main.app).get('/a/').context['course']['phase1_words'] == set()
-print('OK: 10-minute knowledge, all six phase-1 lessons, 5-minute prerequisites, gated phase 2, iraira-only next, honest grading and participant/group isolation')
+print('OK: features knowledge → prerequisites knowledge → per-word phases 1–3; no six-word gate; iraira-only next, honest grading and participant/group isolation')

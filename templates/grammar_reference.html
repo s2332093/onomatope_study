@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card"><h1>知識学習②：前接条件（5分）</h1>
-<p style="margin-top:12px;">全6語の素性の学習が終わりました．次は，文法形式が求める前接条件を5分間確認して覚えましょう．</p>
+<p style="margin-top:12px;">素性の知識に続いて，文法形式が求める前接条件を5分間確認して覚えましょう．</p>
 <p style="margin-top:12px;">前接条件は，文法形式の前に来る語が満たす条件です．語の継続性・動作性・意志性が，それぞれの条件に合うか比べます．</p></div>
 {% with grammar_open=true %}{% include "_grammar_knowledge.html" %}{% endwith %}
 <div class="card"><h2>素性と前接条件を比べる例</h2>
@@ -10,7 +10,7 @@
 <tr><th>しはじめる</th><td>継続性＋／動作性中・高／意志性制限なし</td><td>3つの条件に合う</td></tr>
 <tr><th>するところだ</th><td>継続性制限なし／動作性高／意志性＋</td><td>動作性と意志性が条件に合わない</td></tr>
 </tbody></table></div></div>
-<div class="card" style="text-align:center;"><p style="margin-bottom:14px;">確認したら，ホーム画面から各語のフェーズ2を始めましょう．</p>
+<div class="card" style="text-align:center;"><p style="margin-bottom:14px;">確認したら，ホーム画面で語を選び，その語のフェーズ1〜3を順に学習しましょう．</p>
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/reference/grammar/complete">
 <input type="hidden" name="_study_participant" value="{{ request.state.participant }}"><button class="btn btn-primary" type="submit">ホーム画面に戻る</button></form></div>
 {% endblock %}

@@ -40,13 +40,13 @@
   {% include "_phon_table.html" %}
 </details>
 
-<p class="lesson-instruction" id="grammar">前接条件の知識は，全6語のフェーズ1を終えたあとに学習します．</p>
+<p class="lesson-instruction" id="grammar">素性の知識を確認したら，続けて前接条件の知識を学習します．</p>
 
 <div class="card" style="text-align:center;background:var(--blue-soft);">
-  <p style="margin-bottom:14px;">知識を確認したら，ホーム画面から6語のフェーズ1を学習しましょう．</p>
+  <p style="margin-bottom:14px;">次は，文法形式が求める前接条件を確認しましょう．</p>
   <form method="post" action="{{ request.scope.get('study_prefix', '') }}/reference/complete">
     <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
-    <button class="btn btn-primary" type="submit">ホーム画面に戻る</button>
+    <button class="btn btn-primary" type="submit">前接条件の知識学習へ →</button>
   </form>
 </div>
 {% endblock %}
