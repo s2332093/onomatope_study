@@ -234,11 +234,13 @@
   <span class="badge">学習システム{{ request.state.study_label }}</span>
   {% if not hide_learning_navigation %}
   <a href="{{ request.scope.get('study_prefix', '') }}/">ホーム（語を選ぶ）</a>
+  {% if not request.scope.get('path', '').startswith('/word/') %}
   {% if request.state.study_group != 'control' %}
   <a href="{{ request.scope.get('study_prefix', '') }}/reference">素性の知識</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/reference/grammar">前接条件の知識</a>
   {% else %}
   <a href="{{ request.scope.get('study_prefix', '') }}/knowledge">学習前の知識</a>
+  {% endif %}
   {% endif %}
   {% endif %}
   {% if request.state.participant_name %}

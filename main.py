@@ -117,11 +117,7 @@ async def study_context(request: Request, call_next):
         if len(parts) >= 2 and parts[1] in WORD_BY_ID:
             course = course_progress(request)
             blocked = None
-            if not course['features_known']:
-                blocked = '/reference'
-            elif not course['grammar_known']:
-                blocked = '/reference/grammar'
-            elif len(parts) >= 3 and parts[2] in ('f2', 'f3', 'complete') and parts[1] not in course['phase1_words']:
+            if len(parts) >= 3 and parts[2] in ('f2', 'f3', 'complete') and parts[1] not in course['phase1_words']:
                 blocked = f'/word/{parts[1]}/f1/1'
             if blocked:
                 return RedirectResponse(prefix + blocked, status_code=303)
