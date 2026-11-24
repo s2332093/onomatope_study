@@ -1,19 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card feedback-panel is-correct">
-  <h1 class="feedback-verdict is-correct">○ 全問正解！</h1>
-  <p class="feedback-answer">「{{ word.word }}」の学習が完了しました</p>
-  <p class="small muted">場面・文脈の問題（{{ n_correct }}／{{ total }} 正解）</p>
+<div class="card feedback-panel {% if all_correct %}is-correct{% else %}is-incorrect{% endif %}">
+  <h1 class="feedback-verdict {% if all_correct %}is-correct{% else %}is-incorrect{% endif %}">{% if all_correct %}○ 全問正解！{% else %}× 不正解があります{% endif %}</h1>
+  <p class="feedback-answer">「{{ word.word }}」の答え合わせ</p><p>{{ n_correct }}／{{ total }} 正解</p>
 </div>
-{% for r in results %}
-<div class="card">
-  <h2 class="feedback-check is-correct">問{{ r.no }}：○ 正解</h2>
-  <div class="feedback-guidance is-correct">{{ r.completed }}</div>
-  <p class="small" style="margin-top:12px;">「〜{{ r.label }}」の局面：{{ r.phase }}</p>
-</div>
-{% endfor %}
+{% for r in results %}<div class="card">
+  <h2 class="feedback-check {% if r.ok %}is-correct{% else %}is-incorrect{% endif %}">問{{ r.no }}：{% if r.ok %}○ 正解{% else %}× 不正解{% endif %}</h2>
+  {% if r.ok %}<div class="feedback-guidance is-correct">{{ r.completed }}</div><p class="small" style="margin-top:12px;">「〜{{ r.label }}」の局面：{{ r.phase }}</p>
+  {% else %}<p>あなたの回答：{{ r.user_label }}</p><p style="margin-top:12px;">文中の時間表現と，語の素性・前接条件を確認しましょう．</p>{% endif %}
+</div>{% endfor %}
 <div class="feedback-actions">
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary">まとめを見る →</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary">次へ：この語の学習を終える →</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-secondary">文脈問題をもう一度</a>
-</div>
-{% endblock %}
+</div>{% endblock %}

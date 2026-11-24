@@ -36,6 +36,23 @@ def completed_words(participant, group):
     return {wid for wid, raw in rows if json.loads(raw).get('completed')}
 
 
+PHASE1_STEPS = {'1', '2', '3', 'kind', '4', '5'}
+
+
+def phase1_complete(state):
+    # Existing completed lessons and confirmed answers remain usable after upgrades.
+    confirmed = {str(k) for k, v in state.get('feature_confirmed', {}).items() if v}
+    confirmed.update(str(a['k']) for a in state.get('feature_submissions', []) if a.get('ok'))
+    return bool(state.get('completed') or state.get('context_passed') or PHASE1_STEPS <= confirmed)
+
+
+def phase1_words(participant, group):
+    with connect() as db:
+        rows = db.execute('SELECT word_id,state FROM learning_state WHERE participant_id=? AND study_group=?',
+                          (participant, group)).fetchall()
+    return {wid for wid, raw in rows if phase1_complete(json.loads(raw))}
+
+
 def update(participant, group, word_id, change):
     """Read/modify/write under one SQLite transaction, including concurrent tabs."""
     with connect() as db:

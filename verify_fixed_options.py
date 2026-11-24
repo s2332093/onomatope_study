@@ -11,6 +11,7 @@ os.environ.update(STUDY_REQUIRE_NAME='0',
                   STUDY_LOG_PATH=str(Path(tempfile.mkdtemp()) / 'fixed-options.db'))
 from fastapi.testclient import TestClient
 import main
+from verify_support import ready_for_practice
 
 
 def radio_choices(response):
@@ -26,8 +27,8 @@ with ExitStack() as stack:
                             side_effect=AssertionError('randomized learner choices')))
     for word in main.WORDS:
         base = '/a/word/' + word['id']
-        learner = TestClient(main.app)
-        other = TestClient(main.app)
+        learner = ready_for_practice(TestClient(main.app))
+        other = ready_for_practice(TestClient(main.app))
         for stage in range(1, 6):
             first = learner.get(f'{base}/f1/{stage}')
             again = learner.get(f'{base}/f1/{stage}')
@@ -71,11 +72,15 @@ with ExitStack() as stack:
                    if o['key'] != questions[0]['correct_key'])
         answers['choice_' + str(questions[0]['idx'])] = bad
         failed = learner.post(base + '/f3/check', data=answers, follow_redirects=False)
-        review = learner.get(failed.headers['location'])
-        token = review.context['review_token']
-        back = learner.get(base + '/f3?review=' + token)
-        assert back.context['questions'] == questions
-        assert back.context['saved_choices'][str(questions[0]['idx'])] == bad
+        if word['id'] == 'iraira':
+            assert failed.status_code == 200 and not failed.context['all_correct']
+            assert learner.get(base + '/f3').context['questions'] == questions
+        else:
+            review = learner.get(failed.headers['location'])
+            token = review.context['review_token']
+            back = learner.get(base + '/f3?review=' + token)
+            assert back.context['questions'] == questions
+            assert back.context['saved_choices'][str(questions[0]['idx'])] == bad
         learner.post('/b/word/' + word['id'] + '/f3/check', data=answers)
         assert learner.get('/b/word/' + word['id'] + '/f3').context['questions'] == questions
 

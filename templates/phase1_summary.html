@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1>学習前の知識：素性と文法形式</h1>
+  <h1>知識学習①：素性（10分）</h1>
   <p style="margin-top:12px;line-height:1.8;font-weight:500;">組み合わせを一つずつ覚えると，語や文法形式が増えるほど，覚える負担も大きくなります．</p>
   <p style="margin-top:12px;line-height:1.8;font-weight:500;">このシステムでは，語の特徴（素性）と文法形式の条件を照合する方法を学びます．</p>
 </div>
 
 <section class="card" id="study-scope">
   <h2>扱うオノマトペ</h2>
-  <p class="lesson-instruction">この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．それぞれの例で，素性の判断から文法形式との組み合わせまでを見てみましょう．</p>
+  <p class="lesson-instruction">この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．音の形・意味・場面を手がかりに，それぞれの素性を考えてみましょう．</p>
 </section>
 
 {% include "_intro_example.html" %}
 
-<p class="knowledge-reminder">重要：この3つの知識を確認してから，学習を進めてください．</p>
+<p class="knowledge-reminder">学習時間は10分です．素性の一覧と，音の形から判断する手がかりを確認して覚えましょう．</p>
 <details class="card knowledge-index knowledge-important knowledge-features">
   <summary>素性の一覧（図） <span class="knowledge-tag">重要</span></summary>
   {% for key, title, values in [
@@ -40,9 +40,13 @@
   {% include "_phon_table.html" %}
 </details>
 
-{% include "_grammar_knowledge.html" %}
+<p class="lesson-instruction" id="grammar">前接条件の知識は，全6語のフェーズ1を終えたあとに学習します．</p>
 
 <div class="card" style="text-align:center;background:var(--blue-soft);">
-  <a href="{{ request.scope.get('study_prefix', '') }}/" class="btn btn-primary">ホーム画面に戻る</a>
+  <p style="margin-bottom:14px;">知識を確認したら，ホーム画面から6語のフェーズ1を学習しましょう．</p>
+  <form method="post" action="{{ request.scope.get('study_prefix', '') }}/reference/complete">
+    <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
+    <button class="btn btn-primary" type="submit">ホーム画面に戻る</button>
+  </form>
 </div>
 {% endblock %}

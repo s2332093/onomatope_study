@@ -8,10 +8,10 @@ from fastapi.testclient import TestClient
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
 import learning_state
-from verify_support import condition_answers
+from verify_support import condition_answers, ready_for_practice
 
-client = TestClient(main.app)
-base = '/a/word/iraira'
+client = ready_for_practice(TestClient(main.app))
+base = '/a/word/zukizuki'
 
 
 def submit(k, choice, review_for=None, attempt_id=None):
@@ -24,7 +24,7 @@ def submit(k, choice, review_for=None, attempt_id=None):
 
 # Repeated errors retain the selected diagram and show all generic reference diagrams, without marking the correct option.
 for word in main.WORDS:
-    fresh=TestClient(main.app)
+    fresh=ready_for_practice(TestClient(main.app))
     for k in range(1,6):
         fkey={3:'continuity',4:'action',5:'volition'}.get(k)
         correct=word['id'] if k==1 else word['phon'] if k==2 else main.get_category(word)[fkey]
@@ -63,7 +63,7 @@ for word in main.WORDS:
 r=submit(1,'bikkuri')
 assert '「突然のことに驚く」に近いオノマトペは「びっくり」です．\nもう一度選んでみましょう．' in r.text
 r=submit(2,'nri')
-assert '「ん＋り」型の並びと「いらいら」の並びは一致しません．' in r.text
+assert '「ん＋り」型の並びと「ずきずき」の並びは一致しません．' in r.text
 assert client.post(f'{base}/f1/4/continue',follow_redirects=False).headers['location']==f'{base}/f1/4'
 r=submit(4,'高');assert 'act_high.svg' in r.text and 'act_mid.svg' in r.text
 r=submit(3,'ー',review_for=4);assert f'href="{base}/f1/2?review_for=4"' in r.text
@@ -74,8 +74,8 @@ assert submit(4,'高').context['failures']==1
 for suffix in ['f1/1','f1/2','f1/3','f1/4','f1/5','f1/done']:
     page=client.get(base+'/'+suffix).text
     assert all(label not in page for label in ['迷ったら','判断の手順','似た語との違い','別の語で練習'])
-b=client.post('/b/word/iraira/meaning/check',data={'choice':'bikkuri'})
-assert '近いオノマトペは「びっくり」' in b.text and '正しい意味' not in b.text and '/b/word/iraira/f3' not in b.text
+b=client.post('/b/word/zukizuki/meaning/check',data={'choice':'bikkuri'})
+assert '近いオノマトペは「びっくり」' in b.text and '正しい意味' not in b.text and '/b/word/zukizuki/f3' not in b.text
 
 
 # Five choices, target-free feedback tables, and omission of the feature being retried.
@@ -143,7 +143,7 @@ for word in main.WORDS:
     wrong = '動作' if kind == '感情・感覚' else '感情・感覚'
     response = client.post(base_word + '/f1/4/kind/check', data={'choice': wrong, 'review_for': '5'})
     assert not response.context['feedback']['ok'] and '× 不正解です' in response.text
-    assert f'href="{base_word}/f1/4?review_for=5"' not in response.text
+    assert (f'href="{base_word}/f1/4?review_for=5"' in response.text) == (word["id"] == "iraira")
     assert 'class="feedback-guidance"' in response.text
     response = client.post(base_word + '/f1/4/kind/check', data={'choice': kind, 'review_for': '5'})
     assert response.context['feedback']['ok'] and f'href="{base_word}/f1/4?review_for=5"' in response.text
@@ -157,9 +157,9 @@ for word in main.WORDS:
 
 # Main feedback instructions use prominent, multi-line text in both systems.
 for k, choice in [(1, 'bikkuri'), (2, 'nri'), (3, 'ー'), (4, '高'), (5, '＋')]:
-    response = client.post('/a/word/iraira/f1/' + str(k) + '/check', data={'choice': choice})
+    response = client.post('/a/word/zukizuki/f1/' + str(k) + '/check', data={'choice': choice})
     assert 'class="feedback-guidance"' in response.text
-response = client.post('/b/word/iraira/meaning/check', data={'choice': 'bikkuri'})
+response = client.post('/b/word/zukizuki/meaning/check', data={'choice': 'bikkuri'})
 assert 'class="feedback-guidance"' in response.text
 assert main.feedback_lines('意味を確かめ，もう一度考えましょう．') == '意味を確かめ，\nもう一度考えましょう．'
 
@@ -171,34 +171,34 @@ for prefix in ('/a', '/b'):
 assert '感情・感覚' not in client.get('/a/').text
 assert 'groups' not in client.get('/a/').context
 assert set(re.findall(r'href="/a/word/([^"/]+)"', client.get('/a/').text)) == set(main.WORD_BY_ID)
-intro_page = client.get('/a/reference').text
+intro_page = client.get('/a/reference').text + client.get('/a/reference/grammar').text
 assert intro_page.index('<summary>素性の一覧') < intro_page.index('<summary>音の形') < intro_page.index('<summary>文法形式')
 assert '素性の組み合わせと8つのカテゴリー' not in intro_page
 assert 'id="study-scope"' in intro_page
 assert intro_page.count('class="knowledge-tag"') == 3
-assert 'この3つの知識を確認してから' in intro_page
+assert '学習時間は10分です' in intro_page and '前接条件（5分）' in intro_page
 grammar = re.search(r'<section id="grammar".*?</section>', intro_page, re.S)[0]
 assert '<th>例</th>' not in grammar
 assert all(e['ok_example'] not in grammar for e in main.EXPRESSIONS)
 
 assert 'この研究では，感情・感覚を表すオノマトペと，動作を表すオノマトペを扱います．' in intro_page
-assert '結びつく形式を，理由を考えて選ぶ練習です．' not in client.get('/a/word/iraira/f2').text
-assert 'learning-scene' in client.get('/a/word/iraira/f1/1').text
-assert 'learning-scene' in client.get('/b/word/iraira').text
+assert '結びつく形式を，理由を考えて選ぶ練習です．' not in client.get('/a/word/zukizuki/f2').text
+assert 'learning-scene' in client.get('/a/word/zukizuki/f1/1').text
+assert 'learning-scene' in client.get('/b/word/zukizuki').text
 
 # Grammar knowledge is introductory content; phase 2 starts directly with matching.
 intro = client.get('/a/reference')
-assert '学習前の知識：素性と文法形式' in intro.text
+assert '知識学習①：素性（10分）' in intro.text
 assert 'id="grammar"' in intro.text and '例題：「いらいら」の素性を考える' in intro.text
 assert len(intro.context['expr_cards']) == len(main.EXPRESSIONS)
-assert 'フェーズ2' not in intro.text
+assert '文法形式の前接条件（全' not in intro.text
 assert 'フェーズ1で学んだ判断' not in intro.text
 summary = client.get(f'{base}/f1/done')
-assert 'expr_explain' not in summary.text and main.get_category(main.WORD_BY_ID['iraira'])['expr_explain'] not in summary.text
+assert 'expr_explain' not in summary.text and main.get_category(main.WORD_BY_ID['zukizuki'])['expr_explain'] not in summary.text
 assert '迷ったら：' not in summary.text and 'done-guides' not in summary.text
 assert f'href="{base}/f2"' in summary.text and '/f2/learn' not in summary.text
 legacy = client.get(f'{base}/f2/learn', follow_redirects=False)
-assert legacy.status_code == 303 and legacy.headers['location'] == '/a/reference#grammar'
+assert legacy.status_code == 303 and legacy.headers['location'] == '/a/reference/grammar'
 assert '/f2/learn' not in client.get(base).text
 
 # Initial entry, unsubmitted context questions and legacy stored errors do not show a return notice.
@@ -206,12 +206,12 @@ notice = '線結びで、条件を確かめ直しましょう'
 assert notice not in client.get(f'{base}/f2?review=not-issued').text
 client.get(f'{base}/f3')
 assert notice not in client.get(f'{base}/f2').text
-learning_state.update(client.cookies['study_participant'], 'experiment', 'iraira',
+learning_state.update(client.cookies['study_participant'], 'experiment', 'zukizuki',
     lambda s: s.update(context_review=[{'no': 1, 'frame': 'old', 'choice': 'old', 'reason': 'old'}]))
 assert notice not in client.get(f'{base}/f2').text
 
 # A missing line produces only a generic reminder, without listing its identity.
-word = main.WORD_BY_ID['iraira']
+word = main.WORD_BY_ID['zukizuki']
 correct = {**condition_answers(), **{k: '○' for k in main.CAT_EXPRS[word['category_id']]}}
 r = client.post(f'{base}/f2/check', data={})
 assert 'まだ結べていない形式があります' in r.text
@@ -225,7 +225,7 @@ r = client.post(f'{base}/f2/check', data=submitted)
 assert [e['key'] for e in r.context['selected_results']] == [invalid['key']]
 assert r.text.count('<table') == 1
 assert 'が合わない理由' not in r.text
-assert '<th scope="col">「いらいら」の素性</th>' in r.text
+assert '<th scope="col">「ずきずき」の素性</th>' in r.text
 assert '× 合わない' not in r.text
 assert r.text.count('class="comparison-choices"') == 3
 assert '<input type="radio" name="compare_' in r.text
@@ -242,10 +242,10 @@ retry = client.get(retry_url)
 assert f'id="input-{invalid["key"]}" value="○"' in retry.text
 assert 'matching_retry_token' not in retry.text
 assert '>消す</button>' in retry.text and '>✕</button>' not in retry.text
-other = TestClient(main.app).get(f'{base}/f2')
+other = ready_for_practice(TestClient(main.app)).get(f'{base}/f2')
 assert f'id="input-{invalid["key"]}" value="×"' in other.text
 assert '線結びで、条件を確かめ直しましょう' not in other.text
-assert client.get('/b/word/iraira/f2').status_code == 404
+assert client.get('/b/word/zukizuki/f2').status_code == 404
 new_start = client.get(f'{base}/f2')
 assert not new_start.context['saved_connections']
 assert not client.get(retry_url).context['saved_connections']
@@ -315,7 +315,7 @@ for w in main.WORDS:
         data={**condition_answers(), **{e['key']: '○' for e in connected}}, headers=json_headers)
     judgment = response.json()
     assert 'feedback_html' not in judgment and not judgment['all_correct']
-    assert judgment['context_url'] is None
+    assert judgment['context_url'] == (f'/a/word/{w["id"]}/f3' if w['id'] == 'iraira' else None)
     feedback = client.get(judgment['feedback_url'])
     assert feedback.status_code == 200 and 'step3Form' not in feedback.text
     assert feedback.text.count('matching-comparison') == len(connected)
@@ -336,15 +336,15 @@ initial = client.get('/a/word/bikkuri/f2').text
 assert 'id="matchingFeedback"' not in initial and 'feedback.innerHTML' not in initial
 assert 'feedbackButton.href = result.feedback_url' in initial and 'answerLocked = true' in initial
 assert '各文法形式の「判定」' in initial
-assert client.post('/b/word/iraira/f2/check', data=correct, headers=json_headers).status_code == 404
+assert client.post('/b/word/zukizuki/f2/check', data=correct, headers=json_headers).status_code == 404
 
 # All five sound-shape rows now include a continuity forecast in continuity feedback.
-r = client.post('/a/word/iraira/f1/3/check', data={'choice':'ー'})
+r = client.post('/a/word/zukizuki/f1/3/check', data={'choice':'ー'})
 table = re.search(r'<table class="dtable phon-reference-table".*?</table>', r.text, re.S)[0]
 assert table.count('<tr>') == 6
 assert '<th>継続性の予測</th>' in table and '<th>動作性の予測</th>' not in table
 assert set(row['form']['key'] for row in r.context['feedback_phon_table']) == set(main.PHON_BY_KEY)
-assert 'いらいら' not in table
+assert 'ずきずき' not in table
 # Shidasu no longer restricts volition in either grading or feedback.
 assert main.EXPR_BY_KEY['shidasu']['req_vol'] == ''
 assert '関与しない' not in client.get('/a/reference').text

@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block content %}<div class="card"><h1>「{{ word.word }}」の学習を終えました</h1><p style="margin-top:12px;">ホーム画面に戻り，次に学習する語を選びましょう．</p></div>
+<a class="btn btn-primary" href="{{ request.scope.get('study_prefix', '') }}/">ホーム画面に戻る</a>{% endblock %}

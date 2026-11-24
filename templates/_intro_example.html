@@ -34,7 +34,7 @@
       </div>
       <img src="/static/{{ figs.volition['ー'] }}" alt="自分の意志で起こせない：意志性ー">
     </li>
-    <li>
+    {% if include_grammar|default(false) %}<li>
       <div>
         <h3><span class="badge badge-blue">5</span> 文法形式の条件と照合する</h3>
       <div class="infobox" style="margin-top:16px;">
@@ -52,10 +52,12 @@
         </tbody>
       </table></div>
       </div>
-    </li>
+    </li>{% endif %}
   </ol>
 </section>
 {% include "_action_example.html" %}
+
+{% if include_grammar|default(false) %}
 
 
 <section class="card" id="example-transfer">
@@ -66,3 +68,5 @@
     <li><div><p>初めての組み合わせも，使えるかどうかを自分で考えられます．</p></div></li>
   </ol>
 </section>
+
+{% endif %}

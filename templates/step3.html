@@ -3,7 +3,7 @@
 {% block content %}
 
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-  <a href="{{ request.scope.get('study_prefix', '') }}/reference#grammar" class="muted small" style="text-decoration:none;">← 学習前の知識で前接条件を確認する</a>
+  <a href="{{ request.scope.get('study_prefix', '') }}/reference/grammar" class="muted small" style="text-decoration:none;">← 前接条件の知識を確認する</a>
   <div style="margin-left:auto; display:flex; gap:4px;">
     <span class="badge badge-green">フェーズ1</span>
     <span class="badge badge-purple">フェーズ2</span>
@@ -116,7 +116,7 @@
 <div id="matchingStatus" class="feedback-banner" role="status" hidden style="margin-top:18px;"></div>
 <div id="matchingActions" class="feedback-actions" hidden style="margin:14px 0;">
   <a class="btn btn-secondary" id="showMatchingFeedback" hidden>フィードバックを見る</a>
-  <a class="btn btn-primary" id="matchingNext" hidden>{% if context_review %}文脈問題に戻る{% else %}場面・文脈の問題へ進む{% endif %} →</a>
+  <a class="btn btn-primary" id="matchingNext" hidden>{% if context_review %}文脈問題に戻る{% else %}次へ：場面・文脈の問題{% endif %} →</a>
 </div>
 
 <style>
@@ -574,8 +574,8 @@ document.addEventListener("DOMContentLoaded", () => {
       feedbackButton.hidden = result.all_correct;
       if (result.feedback_url) feedbackButton.href = result.feedback_url;
       else feedbackButton.removeAttribute('href');
-      nextLink.hidden = !result.all_correct;
-      if (result.all_correct) nextLink.href = result.context_url;
+      nextLink.hidden = !result.context_url;
+      if (result.context_url) nextLink.href = result.context_url;
       else nextLink.removeAttribute("href");
       actions.hidden = false;
       answerLocked = true;

@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
-from verify_support import condition_answers
+from verify_support import condition_answers, ready_for_practice
 from main import app, WORDS, EXPRESSIONS, CAT_EXPRS, CAT_BY_ID, PRACTICE, EXPR_BY_KEY
 
-client = TestClient(app)
+client = ready_for_practice(TestClient(app))
 fails = []
 
 

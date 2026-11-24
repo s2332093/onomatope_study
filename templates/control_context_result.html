@@ -17,8 +17,8 @@
 </div>
 {% endfor %}
 <div style="display:flex; gap:12px; flex-wrap:wrap;">
-  {% if n_correct == total %}
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary">この語の学習を終える →</a>
+  {% if n_correct == total or demo_can_continue %}
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary">次へ：この語の学習を終える →</a>
   {% else %}
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-primary">もう一度選ぶ</a>
   {% endif %}

@@ -1,11 +1,12 @@
 # main.py
 # オノマトペ学習支援システム
-#   語を1つ選んだら、その語でフェーズ1〜3を通して学ぶ。
+#   A: 素性の知識10分 → 全6語のフェーズ1 → 前接条件の知識5分 → 各語のフェーズ2・3。
 #     /                       出題対象6語の一覧（語を選ぶのはここだけ）
 #     /word/{id}              その語の学習マップ（3フェーズの現在地）
 #     /word/{id}/f1/1〜5      フェーズ1：意味 → 音の形 → 継続性 → 動作性 → 意志性
 #     /word/{id}/f1/done      フェーズ1のまとめ（カテゴリー確定）
-#     /reference             学習前：素性・表現形式・前接条件を学ぶ
+#     /reference             素性の知識（10分）
+#     /reference/grammar     全6語のフェーズ1後：前接条件の知識（5分）
 #     /word/{id}/f2           フェーズ2：線結び
 #     /word/{id}/f3           フェーズ3：例文の練習
 #     /word/{id}/complete     この語の学習完了
@@ -111,6 +112,20 @@ async def study_context(request: Request, call_next):
             if "application/json" in request.headers.get("accept", ""):
                 return JSONResponse({"error":"participant changed", "message":"利用者が変わりました。画面を読み込み直してください。"},status_code=409)
             return research.private(HTMLResponse('利用者が変わりました。画面を読み込み直してください。<a href="'+prefix+'/">ホームから開き直す</a>',status_code=409))
+    if request.state.study_group == "experiment" and current_path.startswith("/word/"):
+        parts = current_path.strip('/').split('/')
+        if len(parts) >= 2 and parts[1] in WORD_BY_ID:
+            course = course_progress(request)
+            blocked = None
+            if not course['features_known']:
+                blocked = '/reference'
+            elif len(parts) >= 3 and parts[2] in ('f2', 'f3', 'complete'):
+                if not course['features_finished']:
+                    blocked = '/'
+                elif not course['grammar_known']:
+                    blocked = '/reference/grammar'
+            if blocked:
+                return RedirectResponse(prefix + blocked, status_code=303)
     submission = None
     if prefix and request.method == "POST" and request.scope["path"].endswith("/check"):
         # Save submitted selections, never arbitrary form text or personal information.
@@ -118,10 +133,11 @@ async def study_context(request: Request, call_next):
         form = await request.form()
         choices = {k: str(v)[:200] for k, v in form.multi_items()
                    if k == "choice" or k.startswith(("choice_", "opt_keys_", "spec_", "q_", "condition_")) or k in EXPR_BY_KEY}
-        result = {"answers": choices, "curriculum_version": "2026-11-16-fixed-options"}
+        result = {"answers": choices, "curriculum_version": "2026-11-24-staged-learning"}
         parts = request.scope["path"].strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "word" and parts[1] in WORD_BY_ID:
             word = WORD_BY_ID[parts[1]]
+            result['demo_word'] = is_demo_word(word)
             cat = get_category(word)
             if parts[2] == "meaning":
                 result["correct"] = choices.get("choice") == word["id"]
@@ -475,12 +491,44 @@ def home_word_rows():
     return rows
 
 
+def is_demo_word(word):
+    return word['id'] == 'iraira'
+
+
+def course_progress(request, refresh=False):
+    cached = getattr(request.state, 'course_progress_cache', None)
+    if cached is not None and not refresh:
+        return cached
+    pid, group = request.state.participant, request.state.study_group
+    state = learning_state.read(pid, group, '__course__')
+    done = learning_state.phase1_words(pid, group) & set(WORD_BY_ID)
+    result = dict(features_known=bool(state.get('features_known')),
+                  grammar_known=bool(state.get('grammar_known')),
+                  phase1_words=done, features_finished=len(done) == len(WORDS), total=len(WORDS))
+    request.state.course_progress_cache = result
+    return result
+
+
+def confirm_feature(request, word_id, step, accepted):
+    if accepted:
+        update_learner(request, word_id, lambda s: s.setdefault('feature_confirmed', {}).update({str(step): True}))
+
+
+def valid_feature_choice(word, k, choice):
+    if k == 1:
+        return choice in WORD_BY_ID
+    if k == 2:
+        return choice in PHON_BY_KEY
+    return choice in FEATURE_FIGS[{3: 'continuity', 4: 'action', 5: 'volition'}[k]]
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(request, "control_index.html" if request.state.study_group == "control" else "index.html", {
         "total": len(WORDS), "chain": CHAIN, "words": WORDS,
         "word_rows": home_word_rows(),
         "completed_words": learning_state.completed_words(request.state.participant, request.state.study_group),
+        "course": course_progress(request) if request.state.study_group == 'experiment' else None,
     })
 
 
@@ -787,6 +835,7 @@ async def word_map(request: Request, word_id: str):
     idx = [x["id"] for x in WORDS].index(w["id"])
     return templates.TemplateResponse(request, "word_map.html", {
         "word": w, "chain": CHAIN,
+        "course": course_progress(request),
         "n": idx + 1, "total": len(WORDS),
         "next_word": WORDS[idx + 1] if idx + 1 < len(WORDS) else None,
     })
@@ -802,6 +851,7 @@ async def control_meaning_check(request: Request, word_id: str):
     return templates.TemplateResponse(request, "control_meaning.html", {
         "word": w, "question": None,
         "feedback": feedback, "hide_learning_navigation": not feedback["ok"],
+        "demo_can_continue": is_demo_word(w) and form.get('choice') in WORD_BY_ID,
         "retry_feedback": chain_retry_feedback(w, 1, form.get("choice", ""))})
 
 @app.get("/reference", response_class=HTMLResponse)
@@ -814,7 +864,41 @@ async def reference(request: Request):
         "expr_cards": expression_cards(),
         "expr_guide": KNOWLEDGE["expr_guide"],
         "expr_note": KNOWLEDGE["expr_note"],
+        "include_grammar": False,
+        "course": course_progress(request),
     })
+
+
+@app.post('/reference/complete')
+async def feature_knowledge_complete(request: Request):
+    form = await request.form()
+    if form.get('_study_participant') != request.state.participant:
+        return HTMLResponse('利用者が変わりました．画面を読み込み直してください．', status_code=409)
+    update_learner(request, '__course__', lambda s: s.update(features_known=True))
+    return RedirectResponse('/', status_code=303)
+
+
+@app.get('/reference/grammar', response_class=HTMLResponse)
+async def grammar_reference(request: Request):
+    course = course_progress(request)
+    if not course['features_finished']:
+        return RedirectResponse('/', status_code=303)
+    return templates.TemplateResponse(request, 'grammar_reference.html', {
+        'course': course, 'expr_cards': expression_cards(), 'figs': FEATURE_FIGS,
+        'include_grammar': True,
+    })
+
+
+@app.post('/reference/grammar/complete')
+async def grammar_knowledge_complete(request: Request):
+    form = await request.form()
+    if form.get('_study_participant') != request.state.participant:
+        return HTMLResponse('利用者が変わりました．画面を読み込み直してください．', status_code=409)
+    course = course_progress(request)
+    if not course['features_finished']:
+        return RedirectResponse('/', status_code=303)
+    update_learner(request, '__course__', lambda s: s.update(grammar_known=True))
+    return RedirectResponse('/', status_code=303)
 
 
 @app.get("/word/{word_id}/f1/done", response_class=HTMLResponse)
@@ -822,6 +906,8 @@ async def phase1_chain_done(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/phase1")
+    if not learning_state.phase1_complete(learner_state(request, word_id)):
+        return RedirectResponse(f'/word/{word_id}/f1/1', status_code=303)
     cat = get_category(w)
     idx = [x["id"] for x in WORDS].index(w["id"])
     nxt = WORDS[idx + 1] if idx + 1 < len(WORDS) else None
@@ -832,6 +918,7 @@ async def phase1_chain_done(request: Request, word_id: str):
         "phon": PHON_BY_KEY[w["phon"]],
         "figs": FEATURE_FIGS,
         "next_word": nxt,
+        "course": course_progress(request),
     })
 
 
@@ -935,11 +1022,14 @@ async def phase1_kind_check(request: Request, word_id: str):
     form = await request.form()
     choice = form.get("choice", "")
     ok = choice == get_category(w)["kind"]
+    demo_can_continue = is_demo_word(w) and choice in ('感情・感覚', '動作')
     learning_state.feature_attempt(request.state.participant, request.state.study_group,
         word_id, "kind", ok, str(form.get("attempt_id") or uuid.uuid4())[:80] + ":" + str(choice)[:80])
+    confirm_feature(request, word_id, 'kind', ok or demo_can_continue)
     return templates.TemplateResponse(request, "phase1_kind.html", {
         "word": w, "feedback": {"ok": ok, "user": choice if choice in ("感情・感覚", "動作") else "未選択"},
         "review_for": review_target(form.get("review_for"), 4),
+        "demo_can_continue": demo_can_continue,
     })
 
 
@@ -969,6 +1059,8 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
         word_id, k, fb["ok"], str(form.get("attempt_id") or uuid.uuid4())[:80] + ":" + str(choice)[:80])
     # A browser refresh of the same POST is not another failed attempt.
     fb["ok"] = outcome["ok"]
+    demo_can_continue = is_demo_word(w) and valid_feature_choice(w, k, choice)
+    confirm_feature(request, word_id, k, fb['ok'] or demo_can_continue)
     review_for = review_target(form.get("review_for"), k)
     retry_url = f"/word/{word_id}/f1/{k}" + (f"?review_for={review_for}" if review_for else "")
     review_k = max(1, k - 1)
@@ -992,6 +1084,7 @@ async def phase1_chain_check(request: Request, word_id: str, k: int):
         "review_title": CHAIN_BY_K[review_k]["title"] if k > 1 else "場面",
         "next_url": chain_next_url(word_id, k, review_for),
         "next_k": k + 1 if k < len(CHAIN) else None,
+        "demo_can_continue": demo_can_continue,
     })
 
 
@@ -1133,7 +1226,7 @@ async def f2_learn(word_id: str):
     """Keep old bookmarks pointing at the relocated introductory knowledge."""
     if not get_word(word_id):
         return RedirectResponse("/")
-    return RedirectResponse("/reference#grammar", status_code=303)
+    return RedirectResponse("/reference/grammar", status_code=303)
 
 
 # ---------------------------------------------------------------------
@@ -1341,6 +1434,7 @@ async def f2_check(request: Request, word_id: str):
         "n_expr_correct": n_expr_correct, "total_expr": len(EXPRESSIONS),
         "expr_explain": cat["expr_explain"],
         "all_correct": all_correct,
+        "demo_can_continue": is_demo_word(w),
         "condition_errors": [r for r in condition_results if not r["ok"]],
         "selected_results": [r for r in expr_results if r["connected"]],
         "has_missing": any(r["should"] and not r["connected"] for r in expr_results),
@@ -1357,7 +1451,7 @@ async def f2_check(request: Request, word_id: str):
         from fastapi.responses import JSONResponse
         return JSONResponse({
             "all_correct": all_correct, "has_missing": feedback_context["has_missing"],
-            "context_url": request.scope.get("study_prefix", "") + feedback_context["context_url"] if all_correct else None,
+            "context_url": request.scope.get("study_prefix", "") + feedback_context["context_url"] if all_correct or is_demo_word(w) else None,
             "has_condition_errors": bool(feedback_context["condition_errors"]),
             "feedback_url": request.scope.get("study_prefix", "") + f"/word/{word_id}/f2/feedback?attempt={retry_token}" if not all_correct else None,
         })
@@ -1462,11 +1556,13 @@ async def f3_check(request: Request, word_id: str):
                 "completed": q["frame"].replace("[ ？ ]", "〈" + correct[col] + "〉"),
             })
         passed = bool(results) and all(r["ok"] for r in results)
-        update_learner(request, word_id, lambda s: s.update(context_passed=passed))
+        demo_can_continue = is_demo_word(w) and all(form.get(f'choice_{q["ord"]}') in EXPR_BY_KEY for q in PRACTICE[w['id']])
+        update_learner(request, word_id, lambda s: s.update(context_passed=passed, demo_context_reviewed=demo_can_continue))
         return templates.TemplateResponse(request, "control_context_result.html", {
             "word": w, "results": results,
             "n_correct": sum(r["ok"] for r in results), "total": len(results),
             "hide_learning_navigation": not passed,
+            "demo_can_continue": demo_can_continue,
         })
     cat = get_category(w)
     form = await request.form()
@@ -1492,18 +1588,20 @@ async def f3_check(request: Request, word_id: str):
             "no": i + 1, "ok": ok,
             "completed": q["frame"].replace("[ ？ ]", "〈" + correct[col] + "〉"),
             "label": correct[col], "phase": correct["phase"],
+            "user_label": selected[col] if selected else '未選択',
         })
     review_token = str(uuid.uuid4()) if review else ""
+    demo_can_continue = is_demo_word(w) and all(form.get(f'choice_{q["ord"]}') in EXPR_BY_KEY for q in PRACTICE[w['id']])
     update_learner(request, word_id, lambda s: s.update(
         context_review=review, context_review_token=review_token, context_choices=saved_choices,
-        connections=[], matching_retry_token="", context_passed=not review))
-    if review:
+        connections=[], matching_retry_token="", context_passed=not review, demo_context_reviewed=demo_can_continue))
+    if review and not demo_can_continue:
         # No completed sentence or correct option is rendered on an error.
         return RedirectResponse(f"/word/{word_id}/f2?review={review_token}", status_code=303)
     return templates.TemplateResponse(request, "step4_result.html", {
         "word": w, "category": cat, "profile": profile_str(cat),
-        "all_correct": True,
-        "n_correct": len(results), "total": len(results),
+        "all_correct": not review,
+        "n_correct": sum(r['ok'] for r in results), "total": len(results),
         "results": results,
     })
 
@@ -1516,9 +1614,12 @@ async def word_complete(request: Request, word_id: str):
     w = get_word(word_id)
     if not w:
         return RedirectResponse("/")
-    if not learner_state(request, word_id).get("context_passed"):
+    state = learner_state(request, word_id)
+    if not state.get("context_passed") and not (is_demo_word(w) and state.get('demo_context_reviewed')):
         return RedirectResponse(f"/word/{word_id}/f3", status_code=303)
-    update_learner(request, word_id, lambda s: s.update(completed=True))
+    update_learner(request, word_id, lambda s: s.update(completed=True, completed_via_demo=not state.get('context_passed')))
+    if not state.get('context_passed'):
+        return templates.TemplateResponse(request, 'demo_complete.html', {'word': w})
     if request.state.study_group == "control":
         idx = [x["id"] for x in WORDS].index(w["id"])
         return templates.TemplateResponse(request, "control_complete.html", {

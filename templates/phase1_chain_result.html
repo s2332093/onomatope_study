@@ -43,11 +43,12 @@
 {% include "_action_example.html" %}
 {% endif %}
 <div class="feedback-actions">
-  {% if fb.ok %}
+  {% if fb.ok or demo_can_continue %}
   <a href="{{ prefix }}{{ next_url }}" class="btn btn-primary">{% if next_k %}{% if review_for %}戻る：{% else %}次へ：{% endif %}{{ 'オノマトペの種類' if k == 3 else chain[next_k - 1].title }} →{% else %}フェーズ1のまとめへ →{% endif %}</a>
-  {% elif k <= 2 or k == 5 %}
+  {% endif %}
+  {% if not fb.ok and (k <= 2 or k == 5) %}
   <a href="{{ prefix }}{{ retry_url }}" class="btn btn-primary">もう一度選ぶ</a>
-  {% else %}
+  {% elif not fb.ok %}
   <a href="{{ prefix }}{{ review_url }}" class="btn btn-primary">← {{ review_title }}から見直す</a>
   {% endif %}
 </div>

@@ -14,8 +14,8 @@
   {% if not feedback.ok %}<p class="feedback-guidance">{{ ('「' ~ word.word ~ '」の意味をもう一度確認し，気持ち・感覚なのか，動作なのかを考えてみましょう．')|feedback_lines }}</p>{% endif %}
 </div>
 <div class="feedback-actions">
-  {% if feedback.ok %}<a href="{{ prefix }}/word/{{ word.id }}/f1/4{{ review_query }}" class="btn btn-primary">次へ：動作性 →</a>
-  {% else %}<a href="{{ prefix }}/word/{{ word.id }}/f1/4/kind{{ review_query }}" class="btn btn-primary">もう一度選ぶ</a>{% endif %}
+  {% if feedback.ok or demo_can_continue %}<a href="{{ prefix }}/word/{{ word.id }}/f1/4{{ review_query }}" class="btn btn-primary">次へ：動作性 →</a>
+  {% endif %}{% if not feedback.ok %}<a href="{{ prefix }}/word/{{ word.id }}/f1/4/kind{{ review_query }}" class="btn btn-primary">もう一度選ぶ</a>{% endif %}
 </div>
 {% else %}
 <form method="post" action="{{ prefix }}/word/{{ word.id }}/f1/4/kind/check">

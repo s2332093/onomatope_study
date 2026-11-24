@@ -7,9 +7,9 @@ os.environ.update(STUDY_REQUIRE_NAME='0',STUDY_LOG_PATH=str(Path(tempfile.mkdtem
 from fastapi.testclient import TestClient
 import main
 import study_logging
-from verify_support import condition_answers
+from verify_support import condition_answers, ready_for_practice
 
-c = TestClient(main.app)
+c = ready_for_practice(TestClient(main.app))
 c.get('/a/')
 answers = condition_answers()
 receipts = []
@@ -51,7 +51,7 @@ for group in ('a','b'):
 from verify_support import CONDITIONS
 display_values = {'none':'制限なし','plus':'＋','result':'変化結果＋',
                   'minus':'ー','mid':'中','high':'高','low':'低'}
-knowledge = c.get('/a/reference')
+knowledge = c.get('/a/reference/grammar')
 assert '関与しない' not in knowledge.text and 'vol_na.svg' not in knowledge.text
 assert set(dict(main.CONDITION_OPTIONS['volition'])) == {'plus','none'}
 assert [o['value'] for o in main.feature_options('volition')] == ['＋','ー']

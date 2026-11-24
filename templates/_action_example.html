@@ -35,7 +35,7 @@
       </div>
       <img src="/static/{{ figs.volition['＋'] }}" alt="自分で歩き始めたりやめたりできる：意志性＋">
     </li>
-    <li>
+    {% if include_grammar|default(false) %}<li>
       <div>
         <h3><span class="badge badge-blue">5</span> 文法形式の条件と照合する</h3>
       <div class="infobox" style="margin-top:16px;">
@@ -53,7 +53,7 @@
         </tbody>
       </table></div>
       </div>
-    </li>
+    </li>{% endif %}
   </ol>
   {% if not feedback_action_example %}<p class="intro-note">この2語は継続性が同じ「＋」でも，続く内容が違うため，動作性が異なります．</p>{% endif %}
 </section>

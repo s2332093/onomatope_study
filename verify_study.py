@@ -8,10 +8,10 @@ os.environ['STUDY_LOG_PATH'] = str(Path(tempfile.mkdtemp()) / 'events.db')
 from fastapi.testclient import TestClient
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
-from verify_support import condition_answers
+from verify_support import condition_answers, ready_for_practice
 import study_logging
 import deferred_logging
-client = TestClient(main.app)
+client = ready_for_practice(TestClient(main.app))
 receipts=[]
 original_post=client.post
 def buffered_post(*args,**kwargs):

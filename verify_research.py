@@ -5,7 +5,7 @@ from unittest.mock import patch
 os.environ.update(STUDY_REQUIRE_NAME='1',STUDY_ADMIN_PASSWORD='test-only-secret-password',STUDY_SESSION_SECRET='test-only-session-secret',STUDY_LOG_PATH=str(Path(tempfile.mkdtemp())/'research.db'))
 from fastapi.testclient import TestClient
 import main,research,study_logging
-from verify_support import condition_answers
+from verify_support import condition_answers, ready_for_practice
 client=TestClient(main.app);auth=('researcher','test-only-secret-password')
 for word_id, word in [('hotto','ほっ'), ('orooro','おろおろ'), ('gikushaku','ぎくしゃく'), ('daradara','だらだら'), ('bonyari','ぼんやり')]:
     assert word_id not in main.WORD_BY_ID
@@ -22,6 +22,7 @@ assert client.post('/a/registration',data={'name':'A'},headers={'Origin':'https:
 client.post('/a/registration',data={'name':'検証用 A','next':'https://outside.example'})
 pid=research.identity(type('R',(),{'cookies':client.cookies})())
 assert '検証用 A' in client.get('/a/').text
+ready_for_practice(client)
 receipts=[]
 def capture(r):
     token=r.headers.get('x-study-receipt');assert token;receipts.append(token);return r
@@ -76,6 +77,7 @@ with study_logging.connect() as db:assert db.execute("SELECT COUNT(*) FROM event
 kind_client = TestClient(main.app)
 kind_client.post('/a/registration', data={'name': '種類の回答確認_除外'})
 kind_pid = research.identity(type('R', (), {'cookies': kind_client.cookies})())
+ready_for_practice(kind_client)
 kind_receipts = []
 with patch.object(study_logging, 'connect', side_effect=AssertionError('analytics write before finish')):
     for choice in ('動作', '感情・感覚'):

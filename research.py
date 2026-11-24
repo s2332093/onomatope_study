@@ -114,8 +114,10 @@ def page_label(path):
         return 'ホーム：語の選択'
     if parts[0]=='registration':
         return '名前の登録'
+    if parts[0]=='reference' and len(parts)>1 and parts[1]=='grammar':
+        return '知識学習：前接条件（5分）'
     if parts[0]=='reference':
-        return '学習前の知識'
+        return '知識学習：素性（10分）'
     if parts[0]=='knowledge':
         return '知識学習：意味と文法形式'
     if parts[0]=='drill':

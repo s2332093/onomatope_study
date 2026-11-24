@@ -21,3 +21,21 @@ def condition_answers():
             for expression, requirements in CONDITIONS.items()
             for feature, codes in zip(('continuity', 'action', 'volition'), requirements)
             for code in codes.split()}
+
+
+def ready_for_practice(client):
+    """Start an isolated phase-2 fixture after the course's new prerequisites.
+
+    Course-order enforcement is exercised separately by verify_staged_learning.py.
+    """
+    from types import SimpleNamespace
+    import main
+    import learning_state
+    client.get('/a/')
+    pid = main.research.identity(SimpleNamespace(cookies=client.cookies)) if main.research.REQUIRE_NAME else client.cookies['study_participant']
+    if not pid:
+        raise AssertionError('Register the test participant before preparing course state')
+    learning_state.update(pid, 'experiment', '__course__', lambda s: s.update(features_known=True, grammar_known=True))
+    for word in main.WORDS:
+        learning_state.update(pid, 'experiment', word['id'], lambda s: s.update(feature_confirmed={k: True for k in learning_state.PHASE1_STEPS}))
+    return client
