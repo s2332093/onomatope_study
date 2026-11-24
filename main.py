@@ -873,15 +873,14 @@ async def feature_knowledge_complete(request: Request):
     form = await request.form()
     if form.get('_study_participant') != request.state.participant:
         return HTMLResponse('利用者が変わりました．画面を読み込み直してください．', status_code=409)
+    course = course_progress(request)
     update_learner(request, '__course__', lambda s: s.update(features_known=True))
-    return RedirectResponse('/reference/grammar', status_code=303)
+    return RedirectResponse('/' if course['grammar_known'] else '/reference/grammar', status_code=303)
 
 
 @app.get('/reference/grammar', response_class=HTMLResponse)
 async def grammar_reference(request: Request):
     course = course_progress(request)
-    if not course['features_known']:
-        return RedirectResponse('/reference', status_code=303)
     return templates.TemplateResponse(request, 'grammar_reference.html', {
         'course': course, 'expr_cards': expression_cards(), 'figs': FEATURE_FIGS,
         'include_grammar': True,
@@ -893,9 +892,6 @@ async def grammar_knowledge_complete(request: Request):
     form = await request.form()
     if form.get('_study_participant') != request.state.participant:
         return HTMLResponse('利用者が変わりました．画面を読み込み直してください．', status_code=409)
-    course = course_progress(request)
-    if not course['features_known']:
-        return RedirectResponse('/reference', status_code=303)
     update_learner(request, '__course__', lambda s: s.update(grammar_known=True))
     return RedirectResponse('/', status_code=303)
 

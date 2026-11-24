@@ -43,10 +43,10 @@
 <p class="lesson-instruction" id="grammar">素性の知識を確認したら，続けて前接条件の知識を学習します．</p>
 
 <div class="card" style="text-align:center;background:var(--blue-soft);">
-  <p style="margin-bottom:14px;">次は，文法形式が求める前接条件を確認しましょう．</p>
+  <p style="margin-bottom:14px;">{% if course.grammar_known %}確認したら，ホーム画面で学習する語を選びましょう．{% else %}次は，文法形式が求める前接条件を確認しましょう．{% endif %}</p>
   <form method="post" action="{{ request.scope.get('study_prefix', '') }}/reference/complete">
     <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
-    <button class="btn btn-primary" type="submit">前接条件の知識学習へ →</button>
+    <button class="btn btn-primary" type="submit">{% if course.grammar_known %}ホーム画面に戻る{% else %}前接条件の知識学習へ →{% endif %}</button>
   </form>
 </div>
 {% endblock %}

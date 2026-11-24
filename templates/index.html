@@ -5,14 +5,11 @@
   <h1>📚 オノマトペ学習支援システム</h1>
   <p class="home-intro">オノマトペとは，音や動き，状態，気持ちなどを表す言葉です．「いらいら」や「ぶらぶら」などがあります．</p>
   <p class="home-intro">このシステムは，オノマトペと文法形式の結びつきを学び，場面に合わせて<strong>オノマトペを自然に使えるようになること</strong>を目的としています．</p>
-  <a class="btn btn-primary" style="margin-top:18px;" href="{{ request.scope.get('study_prefix', '') }}/reference">学習前の知識を見る →</a>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;">
+    <a class="btn btn-primary" href="{{ request.scope.get('study_prefix', '') }}/reference">オノマトペの知識</a>
+    <a class="btn btn-primary" style="background:var(--purple);" href="{{ request.scope.get('study_prefix', '') }}/reference/grammar">文法形式の知識</a>
+  </div>
 </div>
-
-<div class="card"><h2>学習の流れ</h2><ol class="checklines">
-<li>素性の知識学習（10分）</li><li>前接条件の知識学習（5分）</li><li>語を選び，フェーズ1：素性を決める → フェーズ2：文法形式を判断する → フェーズ3：例文で使う</li></ol>
-{% if not course.features_known %}<p style="margin-top:16px;">まず「学習前の知識を見る」から，素性の知識を確認しましょう．</p>
-{% elif not course.grammar_known %}<p style="margin:16px 0;">素性の知識学習が終わりました．続けて前接条件の知識を学習しましょう．</p><a class="btn btn-primary" href="{{ request.scope.get('study_prefix', '') }}/reference/grammar">前接条件の知識学習（5分）へ →</a>
-{% else %}<p style="margin-top:16px;">知識学習を終えました．語を選び，その語のフェーズ1〜3を順に学習しましょう．</p>{% endif %}</div>
 
 <!-- 語の一覧 -->
 <h2 style="margin:28px 0 14px;">✏️ 学習する語を選ぶ（全{{ total }}語）</h2>

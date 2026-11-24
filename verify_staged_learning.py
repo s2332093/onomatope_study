@@ -13,9 +13,22 @@ c = TestClient(main.app)
 home = c.get('/a/')
 pid = c.cookies['study_participant']
 assert not home.context['course']['features_known']
+assert '学習の流れ' not in home.text and '学習前の知識を見る' not in home.text
+assert 'href="/a/reference">オノマトペの知識</a>' in home.text
+assert 'href="/a/reference/grammar">文法形式の知識</a>' in home.text
 assert c.get('/a/word/iraira/f1/1', follow_redirects=False).headers['location'] == '/a/reference'
-assert c.get('/a/reference/grammar', follow_redirects=False).headers['location'] == '/a/reference'
-assert c.post('/a/reference/grammar/complete', data={'_study_participant': pid}, follow_redirects=False).headers['location'] == '/a/reference'
+assert c.get('/a/reference/grammar', follow_redirects=False).status_code == 200
+# Each button opens its own content, including a grammar-first visit.
+grammar_first = TestClient(main.app)
+grammar_first.get('/a/')
+other_pid = grammar_first.cookies['study_participant']
+assert grammar_first.get('/a/reference/grammar').status_code == 200
+assert grammar_first.post('/a/reference/grammar/complete', data={'_study_participant': 'other'}).status_code == 409
+assert grammar_first.post('/a/reference/grammar/complete', data={'_study_participant': other_pid}, follow_redirects=False).headers['location'] == '/a/'
+assert grammar_first.get('/a/word/iraira', follow_redirects=False).headers['location'] == '/a/reference'
+assert 'ホーム画面に戻る' in grammar_first.get('/a/reference').text
+assert grammar_first.post('/a/reference/complete', data={'_study_participant': other_pid}, follow_redirects=False).headers['location'] == '/a/'
+assert grammar_first.get('/a/word/iraira').status_code == 200
 intro = c.get('/a/reference')
 assert '素性（10分）' in intro.text
 assert '文法形式の前接条件（全' not in intro.text
