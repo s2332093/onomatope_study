@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
-from verify_support import condition_answers, ready_for_practice
+from verify_support import condition_answers, ready_for_practice, checked_matching_answers
 from main import app, WORDS, EXPRESSIONS, CAT_EXPRS, CAT_BY_ID, PRACTICE, EXPR_BY_KEY
 
 client = ready_for_practice(TestClient(app))
@@ -175,13 +175,14 @@ for w in WORDS:
     get(f'/a/word/{w["id"]}/f2/learn')
     get(f'/a/word/{w["id"]}/f2')
     # 正解の線結び
-    data = {**condition_answers(), **{k: "○" for k in CAT_EXPRS[cat["id"]]}}
+    answers = checked_matching_answers(client, w["id"])
+    data = {**answers, **{k: "○" for k in CAT_EXPRS[cat["id"]]}}
     data["hint_level"] = "2"
     r = post(f'/a/word/{w["id"]}/f2/check', data)
     if f'{len(EXPRESSIONS)} / {len(EXPRESSIONS)} 正解' not in r.text:
         fails.append(f'Step3 正解入力が全問正解になりません：{w["word"]}')
     # 全部×でも動くか
-    post(f'/a/word/{w["id"]}/f2/check', {"hint_level": "0"})
+    post(f'/a/word/{w["id"]}/f2/check', {**answers, "hint_level": "0"})
 
     get(f'/a/word/{w["id"]}/f3')
     qs = main.step4_build(w)

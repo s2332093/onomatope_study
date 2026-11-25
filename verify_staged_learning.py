@@ -7,7 +7,7 @@ os.environ.update(STUDY_REQUIRE_NAME='0', STUDY_LOG_PATH=str(Path(tempfile.mkdte
 from fastapi.testclient import TestClient
 import main
 import learning_state
-from verify_support import condition_answers
+from verify_support import condition_answers, checked_matching_answers
 
 c = TestClient(main.app)
 home = c.get('/a/')
@@ -76,7 +76,7 @@ for index, word in enumerate(main.WORDS):
     assert 'フェーズ2へ進む' in summary.text and '6語のフェーズ1を学習しましょう' not in summary.text
     # This word can continue before the other five phase-1 lessons have finished.
     assert c.get(f'/a/word/{wid}/f2').status_code == 200
-    assert c.post(f'/a/word/{wid}/f2/check', data={}, headers={'Accept': 'application/json'}).status_code == 200
+    assert c.post(f'/a/word/{wid}/f2/check', data={}, headers={'Accept': 'application/json'}).status_code == 422
     if index < len(main.WORDS) - 1:
         other = main.WORDS[index + 1]['id']
         assert c.get(f'/a/word/{other}/f2', follow_redirects=False).headers['location'] == f'/a/word/{other}/f1/1'
@@ -91,7 +91,7 @@ for wid in main.WORD_BY_ID:
 
 # Incorrect matching remains incorrect, with a next step only for the demonstration word.
 for wid in main.WORD_BY_ID:
-    verdict = c.post(f'/a/word/{wid}/f2/check', data={}, headers={'Accept': 'application/json'}).json()
+    verdict = c.post(f'/a/word/{wid}/f2/check', data=checked_matching_answers(c, wid), headers={'Accept': 'application/json'}).json()
     assert not verdict['all_correct']
     assert bool(verdict['context_url']) == (wid == 'iraira')
     feedback = c.get(verdict['feedback_url'])
@@ -144,7 +144,7 @@ matching = c.get(review_url)
 assert len(matching.context['context_review']) == 2
 assert matching.context['review_token']
 assert '線結びを確認して文脈問題へ' in matching.text
-submitted = {**condition_answers(), **{e['key']: '○' if e['key'] in {'shihajimeru','shidasu','shitekuru','shiteirutokoroda','shiteshimau'} else '×' for e in main.EXPRESSIONS}, 'review_token': matching.context['review_token']}
+submitted = {**checked_matching_answers(c, 'iraira', page=matching), **{e['key']: '○' if e['key'] in {'shihajimeru','shidasu','shitekuru','shiteirutokoroda','shiteshimau'} else '×' for e in main.EXPRESSIONS}, 'review_token': matching.context['review_token']}
 checked = c.post('/a/word/iraira/f2/check',data=submitted,headers={'Accept':'application/json'}).json()
 assert checked['all_correct'] and '?review=' in checked['context_url']
 returned = c.get(checked['context_url'])

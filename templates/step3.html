@@ -27,21 +27,25 @@
 </div>
 {% endif %}
 
-<div class="card">
-  <h1>素性を使って，結びつく文法形式を選ぶ</h1>
-  <p class="lesson-instruction">「{{ word.word }}」の素性と文法形式の前接条件を比べ，条件がすべて合う形式に線を引いてください．</p>
-  <p class="lesson-instruction">横に並んだ3素性のプルダウンから前接条件を選び，各文法形式の「判定」で確かめましょう．複数当てはまるときはすべて選び，条件がない素性では「制限なし」を選びます．選択はすぐに反映され，別の欄や欄の外を押すと閉じます．</p>
-  <p class="muted small">間違った素性だけ選択が消え，赤く表示されます．選び直したら，もう一度「判定」を押してください．線を結び終えたら，下の「線結びを判定する」を押します．</p>
-</div>
+<section class="card matching-instructions" aria-labelledby="matchingTitle">
+  <h1 id="matchingTitle">素性を使って，結びつく文法形式を選ぶ</h1>
+  <ol>
+    <li><strong>前接条件を選んで，判定する</strong><p>右側の各文法形式について，継続性・動作性・意志性を選び，その形式の「判定」を押してください．複数当てはまるときはすべて選び，条件がない素性は「制限なし」を選びます．</p><p>間違った欄は選択が消えて赤くなります．選び直して再判定し，<strong>全{{ expressions|length }}形式を正解</strong>にしましょう．</p></li>
+    <li><strong>素性と前接条件を比べて，線を結ぶ</strong><p>左の「{{ word.word }}」の3素性と，右の前接条件を比べます．条件がすべて合う文法形式の●を押して，線を結んでください．線を押すと消せます．</p></li>
+    <li><strong>線結びを判定する</strong><p>全形式の前接条件が判定済みで正解になってから，下の「線結びを判定する」を押してください．前接条件を変更した場合は，その形式をもう一度判定します．</p></li>
+  </ol>
+  <p class="muted small">文法形式は毎回同じ順番で表示されます．</p>
+</section>
 
 <form method="post" action="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2/check" id="step3Form">
   <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
+  <input type="hidden" name="_study_matching_session" value="{{ matching_session }}">
   {% if review_token %}<input type="hidden" name="review_token" value="{{ review_token }}">{% endif %}
   {% if demo_matching_answers %}
   <div class="card">
     <button type="button" id="btnFillCorrect" class="btn btn-secondary">正解を一括入力</button>
-    <p class="muted small" style="margin-top:8px;">前接条件と線結びの正解をまとめて入力します．入力後は「線結びを判定する」を押してください．</p>
+    <p class="muted small" style="margin-top:8px;">前接条件と線結びの正解をまとめて入力します．入力後は各文法形式の「判定」を押し，全形式が正解になったら「線結びを判定する」を押してください．</p>
     <input type="hidden" name="demo_autofill_used" id="demoAutofillUsed" value="{{ '1' if demo_autofill_used else '0' }}">
   </div>
   {% endif %}
@@ -86,10 +90,10 @@
         {% for g in expr_groups %}
         <div class="muted small" style="font-weight:700; margin-top:8px; padding-left:14px;">◆ {{ g.name }}</div>
         {% for e in g.exprs %}
-        <div class="right-node" id="node-{{ e.key }}" data-key="{{ e.key }}">
+        <div class="right-node" id="node-{{ e.key }}" data-key="{{ e.key }}" data-conditions-passed="{{ '1' if e.key in checked_expressions else '0' }}">
           <button type="button" class="dot right-dot" aria-label="〜{{ e.label }}への線を切り替える" aria-pressed="false"></button>
           <div class="expression-body">
-            <div class="expression-title">〜{{ e.label }}</div>
+            <div class="expression-title"><span class="muted">{{ expression_numbers[e.key] }}．</span>〜{{ e.label }}</div>
             <div class="condition-toggles">
               {% for feature, options in condition_options.items() %}
               {% set condition_id = e.key ~ '_' ~ feature %}
@@ -115,7 +119,8 @@
     </div>
   </div>
 
-  <button type="submit" class="btn btn-primary" id="matchingSubmit">{% if context_review %}線結びを確認して文脈問題へ{% else %}線結びを判定する{% endif %} →</button>
+  <p id="conditionsProgress" class="condition-progress" role="status" style="margin:16px 0 10px;">前接条件の判定：{{ checked_expressions|length }} / {{ expressions|length }}形式が正解</p>
+  <button type="submit" class="btn btn-primary" id="matchingSubmit" aria-describedby="conditionsProgress" data-prerequisites-pending="{{ 'false' if checked_expressions|length == expressions|length else 'true' }}">{% if context_review %}線結びを確認して文脈問題へ{% else %}線結びを判定する{% endif %} →</button>
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f1/done" class="btn btn-secondary" style="margin-left:12px;">← この語の素性を確認する</a>
 </form>
 
@@ -126,6 +131,11 @@
 </div>
 
 <style>
+  .matching-instructions ol { padding-left:24px;margin:16px 0; }
+  .matching-instructions li { margin-top:16px;padding-left:4px;line-height:1.7; }
+  .matching-instructions li p { margin-top:5px; }
+  .condition-progress { font-weight:700; }
+  #matchingSubmit[data-prerequisites-pending="true"] { opacity:.6; }
   #matchingActions[hidden], #matchingNext[hidden], #showMatchingFeedback[hidden] { display:none; }
   #matchingContainer {
     position: relative; display: flex; justify-content: space-between;
@@ -251,6 +261,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let answerLocked = false;
   let pendingConditionChecks = 0;
   let wholeCheckPending = false;
+  const conditionsProgress = document.getElementById('conditionsProgress');
+  function updateConditionProgress() {
+    const count = [...rightNodes].filter(node => node.dataset.conditionsPassed === '1').length;
+    conditionsProgress.textContent = `前接条件の判定：${count} / ${rightNodes.length}形式が正解`;
+    submitButton.setAttribute('data-prerequisites-pending', String(count !== rightNodes.length));
+    return count === rightNodes.length;
+  }
 
   let isDragging = false;
   let activeLine = null;
@@ -469,6 +486,8 @@ document.addEventListener("DOMContentLoaded", () => {
           if (input !== chosen && (chosen.value === '制限なし' || input.value === '制限なし')) input.checked = false;
         });
         picker.classList.remove('is-correct');
+        node.dataset.conditionsPassed = '0';
+        updateConditionProgress();
         answerChanged();
         refreshCondition(node);
         conditionMessage(node, conditionReady(node) ? '「判定」を押して前接条件を確かめましょう．' : '3つの素性を選ぶと判定できます．');
@@ -499,7 +518,9 @@ document.addEventListener("DOMContentLoaded", () => {
           method:'POST', body:data, headers:{'Accept':'application/json'},
         });
         if (response.status === 409) {
-          conditionMessage(node, '利用者が変わりました．画面を読み込み直してください．', 'incorrect');
+          const error = await response.json();
+          node.dataset.conditionsPassed = '0';
+          conditionMessage(node, error.message || '画面を読み込み直してください．', 'incorrect');
           return;
         }
         if (!response.ok) throw new Error('condition check failed');
@@ -517,6 +538,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           picker.open = false;
         });
+        node.dataset.conditionsPassed = reset.length ? '0' : '1';
         if (reset.length) {
           answerChanged();
           conditionMessage(node, '× ' + reset.join('・') + 'を選び直してください．正しかった素性の選択は残しています．', 'incorrect');
@@ -524,6 +546,7 @@ document.addEventListener("DOMContentLoaded", () => {
           conditionMessage(node, '○ 3つの前接条件が合っています．', 'correct');
         }
       } catch (error) {
+        node.dataset.conditionsPassed = '0';
         conditionMessage(node, '判定できませんでした．選択を残しているので，もう一度「判定」を押してください．', 'incorrect');
       } finally {
         delete node.dataset.checking;
@@ -531,12 +554,17 @@ document.addEventListener("DOMContentLoaded", () => {
         node.querySelectorAll('input').forEach(input => input.disabled = answerLocked || wholeCheckPending);
         refreshCondition(node);
         submitButton.disabled = answerLocked || wholeCheckPending || pendingConditionChecks > 0;
+        updateConditionProgress();
         redrawLines();
       }
     });
+    if (node.dataset.conditionsPassed === '1') {
+      node.querySelectorAll('.condition-picker').forEach(picker => picker.classList.add('is-correct'));
+      conditionMessage(node, '○ 3つの前接条件が合っています．', 'correct');
+    } else if (conditionReady(node)) conditionMessage(node, '「判定」を押して前接条件を確かめましょう．');
     refreshCondition(node);
-    if (conditionReady(node)) conditionMessage(node, '「判定」を押して前接条件を確かめましょう．');
   });
+  updateConditionProgress();
 
   {% if demo_matching_answers %}
   const demoAnswers = {{ demo_matching_answers|tojson }};
@@ -546,6 +574,7 @@ document.addEventListener("DOMContentLoaded", () => {
     closeConditionPickers();
     const correctConditions = new Set(demoAnswers.conditions);
     rightNodes.forEach(node => {
+      node.dataset.conditionsPassed = '0';
       node.querySelectorAll('.condition-choice input').forEach(input => {
         input.checked = correctConditions.has(input.name);
       });
@@ -560,7 +589,8 @@ document.addEventListener("DOMContentLoaded", () => {
     demoAnswers.connections.forEach(key => createConnection(key, true));
     document.getElementById('demoAutofillUsed').value = '1';
     window.studyEvent?.('answer_change', {source:'demo_autofill', word:'iraira'});
-    showMatchingStatus('正解を入力しました．「線結びを判定する」を押してください．');
+    updateConditionProgress();
+    showMatchingStatus('正解を入力しました．各文法形式の「判定」を押し，全形式が正解になってから線結びを判定してください．');
     redrawLines();
   });
   {% endif %}
@@ -568,6 +598,11 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", async ev => {
     ev.preventDefault();
     if (submitButton.disabled || answerLocked || pendingConditionChecks > 0 || wholeCheckPending) return;
+    if (!updateConditionProgress()) {
+      answerChanged();
+      showMatchingStatus('前接条件の判定がまだ終わっていません．全' + rightNodes.length + '形式の「判定」を押し，すべて正解にしてください．');
+      return;
+    }
     if (connections.size === 0 &&
         !confirm("線を1本も引いていません。「どの表現とも結びつかない」という判断で提出しますか？")) {
       return;
@@ -585,6 +620,19 @@ document.addEventListener("DOMContentLoaded", () => {
         method:"POST", body:submittedData, headers:{"Accept":"application/json"},
       });
       if (response.status === 409) { alert("利用者が変わりました。画面を読み込み直してください。"); return; }
+      if (response.status === 422) {
+        const error = await response.json();
+        if (error.error === 'conditions_incomplete') {
+          rightNodes.forEach(node => {
+            node.dataset.conditionsPassed = '0';
+            node.querySelectorAll('.condition-picker').forEach(picker => picker.classList.remove('is-correct'));
+          });
+          updateConditionProgress();
+          answerChanged();
+          showMatchingStatus(error.message);
+          return;
+        }
+      }
       if (!response.ok) throw new Error("matching check failed");
       window.studyRecordReceipt?.(response.headers.get("X-Study-Receipt"));
       const result = await response.json();

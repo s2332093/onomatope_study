@@ -261,6 +261,20 @@ def grade_conditions(form, expression_key=None):
                             "selected": "・".join(selected) or "未選択", "ok": set(selected) == expected})
     return answers, results
 
+
+def checked_condition_values(answers, expression_key):
+    return {feature: answers.get(expression_key + '_' + feature, []) for feature in FEATURE_NAME}
+
+
+def pending_matching_conditions(state, form):
+    """Require an individual successful check of the current values in this lesson."""
+    answers, results = grade_conditions(form)
+    same_session = bool(state.get('matching_session')) and form.get('_study_matching_session') == state['matching_session']
+    confirmed = state.get('matching_condition_checks', {}) if same_session else {}
+    return [e['key'] for e in EXPRESSIONS
+            if confirmed.get(e['key']) != checked_condition_values(answers, e['key'])
+            or not all(r['ok'] for r in results if r['id'].startswith(e['key'] + '_'))]
+
 CONT_LABEL = {"＋": "＋継続性", "変化結果の＋": "＋変化結果の継続性", "ー": "ー継続性"}
 VOL_LABEL  = {"＋": "＋意志性", "ー": "ー意志性", "関与しない": "意志性は関与しない"}
 
@@ -1350,13 +1364,23 @@ async def f2_match(request: Request, word_id: str):
     retrying = bool(retry_token and retry_token == state.get("matching_retry_token"))
     if not retrying and (state.get("connections") or state.get("matching_retry_token")):
         state = update_learner(request, word_id, lambda s: s.update(connections=[], matching_conditions={}, matching_retry_token="", matching_feedback={}))
+    if not retrying or not state.get('matching_session'):
+        state = update_learner(request, word_id, lambda s: s.update(
+            matching_session=str(uuid.uuid4()), matching_condition_checks={}))
+    saved_conditions = state.get('matching_conditions', {}) if retrying else {}
+    checked_expressions = [e['key'] for e in EXPRESSIONS
+                           if state.get('matching_condition_checks', {}).get(e['key']) ==
+                           checked_condition_values(saved_conditions, e['key'])] if saved_conditions else []
     return templates.TemplateResponse(request, "step3.html", {
         "word": w,
         "word_hint": profile_str(cat),
         "expr_groups": groups,
         "expressions": EXPRESSIONS,
         "saved_connections": state.get("connections", []) if retrying else [],
-        "saved_conditions": state.get("matching_conditions", {}) if retrying else {},
+        "saved_conditions": saved_conditions,
+        "checked_expressions": checked_expressions,
+        "matching_session": state['matching_session'],
+        "expression_numbers": {e['key']: i + 1 for i, e in enumerate(EXPRESSIONS)},
         "demo_autofill_used": is_demo_word(w) and retrying and state.get("demo_autofill_used", False),
         "condition_options": CONDITION_OPTIONS, "feature_names": FEATURE_NAME,
         # Only the demonstration word receives an answer key in its page.
@@ -1379,7 +1403,22 @@ async def condition_check(request: Request, word_id: str, expression_key: str):
     if not get_word(word_id) or expression_key not in EXPR_BY_KEY:
         return JSONResponse({"error": "unknown exercise"}, status_code=404)
     form = await request.form()
-    _, results = grade_conditions(form, expression_key)
+    answers, results = grade_conditions(form, expression_key)
+    accepted = {}
+
+    def remember(s):
+        if not s.get('matching_session') or form.get('_study_matching_session') != s['matching_session']:
+            return
+        accepted['ok'] = True
+        checks = s.setdefault('matching_condition_checks', {})
+        if all(r['ok'] for r in results):
+            checks[expression_key] = checked_condition_values(answers, expression_key)
+        else:
+            checks.pop(expression_key, None)
+
+    update_learner(request, word_id, remember)
+    if not accepted:
+        return JSONResponse({'error': 'matching_session_changed', 'message': '学習画面が更新されています．画面を読み込み直してください．'}, status_code=409)
     return JSONResponse({
         "all_correct": all(r["ok"] for r in results),
         "correct_by_feature": {r["feature_key"]: r["ok"] for r in results},
@@ -1393,6 +1432,18 @@ async def f2_check(request: Request, word_id: str):
         return RedirectResponse("/")
     cat = get_category(w)
     form = await request.form()
+
+    state = learner_state(request, word_id)
+    pending = pending_matching_conditions(state, form)
+    if pending:
+        request.state.answer_receipt = ''
+        message = f'前接条件の判定がまだ終わっていません．全{len(EXPRESSIONS)}形式の前接条件を判定し，すべて正解にしてください．'
+        if 'application/json' in request.headers.get('accept', ''):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({'error': 'conditions_incomplete', 'message': message,
+                                 'remaining': len(pending)}, status_code=422)
+        return templates.TemplateResponse(request, 'matching_conditions_required.html',
+                                          {'word': w, 'message': message}, status_code=422)
 
     expr_results = []
     n_expr_correct = 0

@@ -6,7 +6,7 @@ from pathlib import Path
 os.environ.update(STUDY_REQUIRE_NAME='0', STUDY_LOG_PATH=str(Path(tempfile.mkdtemp())/'revision.db'))
 from fastapi.testclient import TestClient
 import main
-from verify_support import condition_answers, ready_for_practice
+from verify_support import condition_answers, ready_for_practice, checked_matching_answers
 
 c = ready_for_practice(TestClient(main.app))
 for group in ('a', 'b'):
@@ -46,14 +46,19 @@ wrong['condition_shiteshimau_action_high'] = '高'
 errors = [r['id'] for r in main.grade_conditions(wrong)[1] if not r['ok']]
 assert errors == ['shihajimeru_action','shiteshimau_action']
 lines = {key:'○' for key in main.CAT_EXPRS['emo_cont']}
-result = c.post('/a/word/zukizuki/f2/check',data={**lines,**wrong},headers={'Accept':'application/json'}).json()
-assert not result['all_correct'] and result['has_condition_errors'] and not result['has_missing']
+blocked = c.post('/a/word/zukizuki/f2/check',data={**lines,**wrong},headers={'Accept':'application/json'})
+assert blocked.status_code == 422 and blocked.json()['error'] == 'conditions_incomplete'
+assert 'feedback_url' not in blocked.json() and 'x-study-receipt' not in blocked.headers
+answer = checked_matching_answers(c, 'zukizuki')
+invalid = next(e['key'] for e in main.EXPRESSIONS if e['key'] not in lines)
+result = c.post('/a/word/zukizuki/f2/check',data={**lines,**answer,invalid:'○'},headers={'Accept':'application/json'}).json()
+assert not result['all_correct'] and not result['has_condition_errors']
 feedback = c.get(result['feedback_url'])
-assert len(feedback.context['condition_errors']) == 2
+assert not feedback.context['condition_errors']
 retry = c.get('/a'+feedback.context['retry_url'])
-assert retry.context['saved_conditions']['shihajimeru_action'] == ['中']
-assert retry.context['saved_conditions']['shiteshimau_action'] == ['高','制限なし']
-assert set(retry.context['saved_connections']) == set(lines)
+assert retry.context['saved_conditions']['shihajimeru_action'] == ['高','中']
+assert set(retry.context['saved_connections']) == {*lines,invalid}
+assert len(retry.context['checked_expressions']) == 10
 assert 'id="step3Form"' not in feedback.text
 assert '正解の線結び' not in feedback.text
 assert 'correct_by_condition' in main.deferred_logging.open_receipt(

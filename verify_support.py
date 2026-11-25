@@ -39,3 +39,17 @@ def ready_for_practice(client):
     for word in main.WORDS:
         learning_state.update(pid, 'experiment', word['id'], lambda s: s.update(feature_confirmed={k: True for k in learning_state.PHASE1_STEPS}))
     return client
+
+
+def checked_matching_answers(client, word_id, page=None):
+    """Use the actual individual checks before testing whole matching judgments."""
+    from types import SimpleNamespace
+    import main
+    page = page if page is not None else client.get(f'/a/word/{word_id}/f2')
+    assert page.status_code == 200
+    pid = main.research.identity(SimpleNamespace(cookies=client.cookies)) if main.research.REQUIRE_NAME else client.cookies['study_participant']
+    data = {**condition_answers(), '_study_matching_session': page.context['matching_session'], '_study_participant': pid}
+    for expression in main.EXPRESSIONS:
+        response = client.post(f"/a/word/{word_id}/f2/conditions/{expression['key']}/check", data=data)
+        assert response.status_code == 200 and response.json()['all_correct']
+    return data

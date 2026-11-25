@@ -7,11 +7,12 @@ os.environ.update(STUDY_REQUIRE_NAME='0',STUDY_LOG_PATH=str(Path(tempfile.mkdtem
 from fastapi.testclient import TestClient
 import main
 import study_logging
-from verify_support import condition_answers, ready_for_practice
+from verify_support import condition_answers, ready_for_practice, checked_matching_answers
 
 c = ready_for_practice(TestClient(main.app))
 c.get('/a/')
-answers = condition_answers()
+page = c.get('/a/word/iraira/f2')
+answers = {**condition_answers(), '_study_matching_session':page.context['matching_session']}
 receipts = []
 with patch.object(study_logging, 'connect', side_effect=AssertionError('analytics access during a drill')):
     for expression in main.EXPRESSIONS:
@@ -32,7 +33,7 @@ with patch.object(study_logging, 'connect', side_effect=AssertionError('analytic
     # The response names only correctness, not the missing permitted values.
     assert '高' not in response.text and '中' not in response.text and 'selected' not in response.text
     receipts.append(response.headers['x-study-receipt'])
-    empty = c.post('/a/word/iraira/f2/conditions/shidasu/check',data={}).json()
+    empty = c.post('/a/word/iraira/f2/conditions/shidasu/check',data={'_study_matching_session':page.context['matching_session']}).json()
     assert not empty['all_correct'] and not any(empty['correct_by_feature'].values())
     assert c.post('/a/word/iraira/f2/conditions/missing/check',data={}).status_code == 404
     assert c.post('/a/word/missing/f2/conditions/shidasu/check',data={}).status_code == 404
@@ -72,15 +73,17 @@ for word in main.WORDS:
 # A former answer is now wrong, and an intentional word can match shidasu.
 old = {k:v for k,v in answers.items() if k != 'condition_shidasu_volition_none'}
 old.update(condition_shidasu_volition_minus='ー',condition_shidasu_volition_unrelated='関与しない')
+old['_study_matching_session'] = c.get('/a/word/burabura/f2').context['matching_session']
 response = c.post('/a/word/burabura/f2/conditions/shidasu/check',data=old).json()
 assert response == {'all_correct':False,'correct_by_feature':{'continuity':True,'action':True,'volition':False}}
 right_lines = {key:'○' for key in ('surutokoroda','shiyoutosuru','shihajimeru','shidasu',
                                  'shitsuzukeru','shiteirutokoroda','shiteshimau')}
 assert set(main.CAT_EXPRS['act_high_vol']) == set(right_lines)
-result = c.post('/a/word/burabura/f2/check',data={**answers,**right_lines},headers={'Accept':'application/json'}).json()
+answers_b = checked_matching_answers(c, 'burabura')
+result = c.post('/a/word/burabura/f2/check',data={**answers_b,**right_lines},headers={'Accept':'application/json'}).json()
 assert result['all_correct'] and not result['has_missing']
 del right_lines['shidasu']
-result = c.post('/a/word/burabura/f2/check',data={**answers,**right_lines},headers={'Accept':'application/json'}).json()
+result = c.post('/a/word/burabura/f2/check',data={**answers_b,**right_lines},headers={'Accept':'application/json'}).json()
 assert not result['all_correct'] and result['has_missing'] and not result['has_condition_errors']
 lesson = next(x for x in c.get('/b/knowledge').context['lessons'] if x['word']['id'] == 'burabura')
 assert 'shidasu' in {e['key'] for e in lesson['expressions']}
@@ -88,6 +91,7 @@ assert 'shidasu' in {e['key'] for e in lesson['expressions']}
 # Shiteiku accepts unrestricted volition, rather than requiring non-volitional words.
 old_shiteiku = {k:v for k,v in answers.items() if k != 'condition_shiteiku_volition_none'}
 old_shiteiku['condition_shiteiku_volition_minus'] = 'ー'
+old_shiteiku['_study_matching_session'] = c.get('/a/word/ukauka/f2').context['matching_session']
 response = c.post('/a/word/ukauka/f2/conditions/shiteiku/check', data=old_shiteiku).json()
 assert response == {'all_correct':False,'correct_by_feature':{'continuity':True,'action':True,'volition':False}}
 assert main.EXPR_BY_KEY['shiteiku']['req_vol'] == ''
@@ -104,9 +108,9 @@ for word in main.WORDS:
         assert key is None and 'btnFillCorrect' not in page.text and 'const demoAnswers' not in page.text
         continue
     assert 'id="btnFillCorrect"' in page.text
-    assert set(key['conditions']) == set(answers)
+    assert set(key['conditions']) == set(condition_answers())
     assert set(key['connections']) == {'shihajimeru', 'shidasu', 'shitekuru', 'shiteirutokoroda', 'shiteshimau'}
-    submitted = {**answers, **{e['key']: '○' if e['key'] in key['connections'] else '×' for e in main.EXPRESSIONS}, 'demo_autofill_used': '1'}
+    submitted = {**checked_matching_answers(c, 'iraira', page=page), **{e['key']: '○' if e['key'] in key['connections'] else '×' for e in main.EXPRESSIONS}, 'demo_autofill_used': '1'}
     response = c.post('/a/word/iraira/f2/check', data=submitted, headers={'Accept':'application/json'})
     assert response.json()['all_correct']
     detail = main.deferred_logging.open_receipt(response.headers['x-study-receipt'],c.cookies['study_participant'],'experiment')['detail']

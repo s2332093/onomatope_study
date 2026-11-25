@@ -8,7 +8,7 @@ os.environ['STUDY_LOG_PATH'] = str(Path(tempfile.mkdtemp()) / 'events.db')
 from fastapi.testclient import TestClient
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
-from verify_support import condition_answers, ready_for_practice
+from verify_support import condition_answers, ready_for_practice, checked_matching_answers
 import study_logging
 import deferred_logging
 client = ready_for_practice(TestClient(main.app))
@@ -142,14 +142,14 @@ blocked = client.get('/b/reference')
 assert '統制群' not in blocked.text and '/b/' in blocked.text
 # Answer submitted through middleware still reaches route; compare wrong and correct cases.
 w=main.WORD_BY_ID['iraira']; cat=main.get_category(w)
-correct={**condition_answers(), **{k:'○' for k in main.CAT_EXPRS[cat['id']]}}
+correct={**checked_matching_answers(client, 'iraira'), **{k:'○' for k in main.CAT_EXPRS[cat['id']]}}
 r=client.post('/a/word/iraira/f2/check', data=correct)
 assert '10 / 10 正解' in r.text
 assert '○ 正解です！' in r.text
 assert '正解の線結び' not in r.text and '<line ' not in r.text
 r=client.post('/a/word/iraira/f2/check', data={})
-assert '<line ' not in r.text and '前接条件を見直しましょう' in r.text
-assert 'まだ結べていない形式があります' in r.text
+assert r.status_code == 422 and '前接条件の判定がまだ終わっていません' in r.text
+assert 'フィードバックを見る' not in r.text and 'x-study-receipt' not in r.headers
 # CSV exports are local commands, never HTTP resources.
 import subprocess
 subprocess.run([os.sys.executable, 'study_logging.py', str(study_logging.LOG_PATH.with_suffix('.csv'))], check=True)

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 os.environ['STUDY_REQUIRE_NAME'] = '0'
 import main
 import learning_state
-from verify_support import condition_answers, ready_for_practice
+from verify_support import condition_answers, ready_for_practice, checked_matching_answers
 
 client = ready_for_practice(TestClient(main.app))
 base = '/a/word/zukizuki'
@@ -213,14 +213,14 @@ assert notice not in client.get(f'{base}/f2').text
 # A missing line produces only a generic reminder, without listing its identity.
 word = main.WORD_BY_ID['zukizuki']
 correct = {**condition_answers(), **{k: '○' for k in main.CAT_EXPRS[word['category_id']]}}
-r = client.post(f'{base}/f2/check', data={})
+r = client.post(f'{base}/f2/check', data=checked_matching_answers(client, 'zukizuki'))
 assert 'まだ結べていない形式があります' in r.text
 assert not r.context['selected_results'] and not r.text.count('matching-comparison')
 assert '正解の線結び' not in r.text and '/f3"' not in r.text
 
 # Invalid selected links show only their prerequisites; correct forms stay undisclosed.
 invalid = next(e for e in main.EXPRESSIONS if e['key'] not in main.CAT_EXPRS[word['category_id']])
-submitted = {**condition_answers(), invalid['key']: '○'}
+submitted = {**checked_matching_answers(client, 'zukizuki'), invalid['key']: '○'}
 r = client.post(f'{base}/f2/check', data=submitted)
 assert [e['key'] for e in r.context['selected_results']] == [invalid['key']]
 assert r.text.count('<table') == 1
@@ -250,7 +250,7 @@ new_start = client.get(f'{base}/f2')
 assert not new_start.context['saved_connections']
 assert not client.get(retry_url).context['saved_connections']
 
-r = client.post(f'{base}/f2/check', data=correct)
+r = client.post(f'{base}/f2/check', data={**correct, **checked_matching_answers(client, 'zukizuki')})
 assert '10 / 10 正解' in r.text and f'href="{base}/f3"' in r.text
 assert '<table' not in r.text and 'class="comparison-choices"' not in r.text and '正解の線結び' not in r.text
 fresh_match = client.get(f'{base}/f2')
@@ -279,12 +279,13 @@ assert not review.context['saved_connections']
 for key in main.CAT_EXPRS[word['category_id']]:
     assert f'id="input-{key}" value="×"' in review.text
 # An incorrect matching answer can be edited within the current context-review flow.
-wrong_match = client.post(f'{base}/f2/check', data={**condition_answers(), invalid['key']: '○', 'review_token': review_token})
+review_answers = checked_matching_answers(client, 'zukizuki', page=review)
+wrong_match = client.post(f'{base}/f2/check', data={**review_answers, invalid['key']: '○', 'review_token': review_token})
 assert '<th scope="col">' + invalid['label'] + 'の条件</th>' in wrong_match.text
 repair = client.get('/a' + wrong_match.context['retry_url'])
 assert repair.context['review_token'] == review_token
 assert repair.context['saved_connections'] == [invalid['key']]
-r = client.post(f'{base}/f2/check', data={**correct, 'review_token': review_token})
+r = client.post(f'{base}/f2/check', data={**correct, **review_answers, 'review_token': review_token})
 assert '文脈問題に戻る' in r.text
 back = client.get('/a' + r.context['context_url'])
 assert [q['opt_keys'] for q in back.context['questions']] == [q['opt_keys'] for q in questions]
@@ -312,7 +313,7 @@ for w in main.WORDS:
     cat = main.get_category(w)
     connected = list(main.EXPRESSIONS)
     response = client.post(f'/a/word/{w["id"]}/f2/check',
-        data={**condition_answers(), **{e['key']: '○' for e in connected}}, headers=json_headers)
+        data={**checked_matching_answers(client, w['id']), **{e['key']: '○' for e in connected}}, headers=json_headers)
     judgment = response.json()
     assert 'feedback_html' not in judgment and not judgment['all_correct']
     assert judgment['context_url'] == (f'/a/word/{w["id"]}/f3' if w['id'] == 'iraira' else None)
@@ -324,18 +325,17 @@ for w in main.WORDS:
     for e in connected:
         assert f'「{w["word"]}」と「〜{e["label"]}」の比較' in feedback.text
     assert TestClient(main.app).get(judgment['feedback_url'], follow_redirects=False).status_code == 303
-right = client.post(f'{base}/f2/check', data=correct, headers=json_headers).json()
+right = client.post(f'{base}/f2/check', data={**correct, **checked_matching_answers(client, 'zukizuki')}, headers=json_headers).json()
 assert right['all_correct'] and not right['has_missing'] and not right['has_condition_errors']
 assert right['feedback_url'] is None and right['context_url'] == f'{base}/f3'
 missing_conditions = client.post(f'{base}/f2/check',
     data={k:'○' for k in main.CAT_EXPRS[word['category_id']]}, headers=json_headers).json()
-assert not missing_conditions['all_correct'] and missing_conditions['has_condition_errors']
-assert missing_conditions['context_url'] is None
-assert '未選択' in client.get(missing_conditions['feedback_url']).text
+assert missing_conditions['error'] == 'conditions_incomplete'
+assert 'feedback_url' not in missing_conditions and 'context_url' not in missing_conditions
 initial = client.get('/a/word/bikkuri/f2').text
 assert 'id="matchingFeedback"' not in initial and 'feedback.innerHTML' not in initial
 assert 'feedbackButton.href = result.feedback_url' in initial and 'answerLocked = true' in initial
-assert '各文法形式の「判定」' in initial
+assert '前接条件を選んで，判定する' in initial and '<ol>' in initial
 assert client.post('/b/word/zukizuki/f2/check', data=correct, headers=json_headers).status_code == 404
 
 # All five sound-shape rows now include a continuity forecast in continuity feedback.
@@ -349,7 +349,7 @@ assert 'ずきずき' not in table
 assert main.EXPR_BY_KEY['shidasu']['req_vol'] == ''
 assert '関与しない' not in client.get('/a/reference').text
 assert '意志的でないこと' not in client.get('/a/reference').text
-r = client.post('/a/word/bikkuri/f2/check', data={'shidasu':'○'}, headers=json_headers).json()
+r = client.post('/a/word/bikkuri/f2/check', data={**checked_matching_answers(client, 'bikkuri'), 'shidasu':'○'}, headers=json_headers).json()
 shidasu_feedback = client.get(r['feedback_url'])
 shidasu_row = next(row for row in shidasu_feedback.context['selected_results'] if row['key'] == 'shidasu')
 assert next(row['req'] for row in shidasu_row['comparison'] if row['key'] == 'volition') == '制限なし'

@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" role="status"><h1>前接条件の判定がまだ終わっていません</h1><p>{{ message }}</p></div>
+<a class="btn btn-primary" href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f2">線結びの画面に戻る</a>
+{% endblock %}
