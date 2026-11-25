@@ -38,6 +38,13 @@
   <input type="hidden" name="_study_participant" value="{{ request.state.participant }}">
   <input type="hidden" name="attempt_id" value="{{ request.state.form_attempt_id }}">
   {% if review_token %}<input type="hidden" name="review_token" value="{{ review_token }}">{% endif %}
+  {% if demo_matching_answers %}
+  <div class="card">
+    <button type="button" id="btnFillCorrect" class="btn btn-secondary">正解を一括入力</button>
+    <p class="muted small" style="margin-top:8px;">前接条件と線結びの正解をまとめて入力します．入力後は「線結びを判定する」を押してください．</p>
+    <input type="hidden" name="demo_autofill_used" id="demoAutofillUsed" value="{{ '1' if demo_autofill_used else '0' }}">
+  </div>
+  {% endif %}
 
   <div class="card" style="position:relative;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -530,6 +537,33 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshCondition(node);
     if (conditionReady(node)) conditionMessage(node, '「判定」を押して前接条件を確かめましょう．');
   });
+
+  {% if demo_matching_answers %}
+  const demoAnswers = {{ demo_matching_answers|tojson }};
+  document.getElementById('btnFillCorrect').addEventListener('click', () => {
+    if (answerLocked || wholeCheckPending || pendingConditionChecks > 0) return;
+    answerChanged();
+    closeConditionPickers();
+    const correctConditions = new Set(demoAnswers.conditions);
+    rightNodes.forEach(node => {
+      node.querySelectorAll('.condition-choice input').forEach(input => {
+        input.checked = correctConditions.has(input.name);
+      });
+      node.querySelectorAll('.condition-picker').forEach(picker => {
+        picker.classList.remove('is-correct', 'is-incorrect');
+        picker.querySelector('.condition-choice').removeAttribute('aria-invalid');
+      });
+      refreshCondition(node);
+      conditionMessage(node, '「判定」を押して前接条件を確かめましょう．');
+    });
+    Array.from(connections.keys()).forEach(removeConnection);
+    demoAnswers.connections.forEach(key => createConnection(key, true));
+    document.getElementById('demoAutofillUsed').value = '1';
+    window.studyEvent?.('answer_change', {source:'demo_autofill', word:'iraira'});
+    showMatchingStatus('正解を入力しました．「線結びを判定する」を押してください．');
+    redrawLines();
+  });
+  {% endif %}
 
   form.addEventListener("submit", async ev => {
     ev.preventDefault();

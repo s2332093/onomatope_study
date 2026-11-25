@@ -143,6 +143,8 @@ async def study_context(request: Request, call_next):
             elif parts[2] == "f2":
                 condition_drill = len(parts) == 6 and parts[3] == "conditions"
                 if not condition_drill:
+                    if is_demo_word(word):
+                        result["demo_autofill_used"] = form.get("demo_autofill_used") == "1"
                     result["correct_by_expression"] = {e["key"]: (choices.get(e["key"]) == "○") == expr_combines(cat, e) for e in EXPRESSIONS}
                 result["correct_by_condition"] = {r["id"]: r["ok"] for r in grade_conditions(form, parts[4] if condition_drill else None)[1]}
                 if condition_drill:
@@ -1355,7 +1357,17 @@ async def f2_match(request: Request, word_id: str):
         "expressions": EXPRESSIONS,
         "saved_connections": state.get("connections", []) if retrying else [],
         "saved_conditions": state.get("matching_conditions", {}) if retrying else {},
+        "demo_autofill_used": is_demo_word(w) and retrying and state.get("demo_autofill_used", False),
         "condition_options": CONDITION_OPTIONS, "feature_names": FEATURE_NAME,
+        # Only the demonstration word receives an answer key in its page.
+        "demo_matching_answers": {
+            "connections": [e["key"] for e in EXPRESSIONS if expr_combines(cat, e)],
+            "conditions": [f"condition_{e['key']}_{feature}_{code}"
+                           for e in EXPRESSIONS for feature, options in CONDITION_OPTIONS.items()
+                           for code, value in options
+                           if value in (e[CONDITION_FIELDS[feature]].split("|")
+                                        if e[CONDITION_FIELDS[feature]] else ["制限なし"])],
+        } if is_demo_word(w) else None,
         "context_review": state.get("context_review", []) if reviewing else [],
         "review_token": review_token if reviewing else "",
     })
@@ -1436,6 +1448,7 @@ async def f2_check(request: Request, word_id: str):
     update_learner(request, word_id, lambda s: s.update(
         connections=[r["key"] for r in expr_results if r["connected"]] if not all_correct else [],
         matching_conditions=conditions if not all_correct else {},
+        demo_autofill_used=is_demo_word(w) and form.get("demo_autofill_used") == "1",
         matching_retry_token=retry_token,
         matching_feedback={k: v for k, v in feedback_context.items() if k != "request"} if not all_correct else {}))
     if "application/json" in request.headers.get("accept", ""):

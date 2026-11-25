@@ -95,3 +95,28 @@ assert '意志的な行為（＋意志性）とは結びつきません' not in 
 assert 'shiteiku' in main.CAT_EXPRS['act_low_vol']
 assert set(main.CAT_EXPRS['act_low_vol']) == set(main.CAT_EXPRS['act_low_novol'])
 print('OK: ten individual grammar drills, three-feature grading, wrong-only result, A/B isolation, private receipts and finish-only saving')
+
+# The answer key is sent only for the demonstration word, and still uses normal grading.
+for word in main.WORDS:
+    page = c.get(f"/a/word/{word['id']}/f2")
+    key = page.context['demo_matching_answers']
+    if word['id'] != 'iraira':
+        assert key is None and 'btnFillCorrect' not in page.text and 'const demoAnswers' not in page.text
+        continue
+    assert 'id="btnFillCorrect"' in page.text
+    assert set(key['conditions']) == set(answers)
+    assert set(key['connections']) == {'shihajimeru', 'shidasu', 'shitekuru', 'shiteirutokoroda', 'shiteshimau'}
+    submitted = {**answers, **{e['key']: '○' if e['key'] in key['connections'] else '×' for e in main.EXPRESSIONS}, 'demo_autofill_used': '1'}
+    response = c.post('/a/word/iraira/f2/check', data=submitted, headers={'Accept':'application/json'})
+    assert response.json()['all_correct']
+    detail = main.deferred_logging.open_receipt(response.headers['x-study-receipt'],c.cookies['study_participant'],'experiment')['detail']
+    assert detail['demo_autofill_used'] is True
+    submitted['shihajimeru'] = '×'
+    wrong_response = c.post('/a/word/iraira/f2/check', data=submitted, headers={'Accept':'application/json'})
+    assert not wrong_response.json()['all_correct']
+    feedback = c.get(wrong_response.json()['feedback_url'])
+    retry = c.get('/a' + feedback.context['retry_url'])
+    assert retry.context['demo_autofill_used'] is True
+    assert 'id="demoAutofillUsed" value="1"' in retry.text
+assert 'btnFillCorrect' not in c.get('/b/word/iraira').text
+print('OK: iraira-only bulk input key, standard grading and assisted-answer receipt')
