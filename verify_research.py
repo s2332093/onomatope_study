@@ -1,4 +1,4 @@
-"""No analytics database access during lessons; authentic receipts and transactional finish."""
+"""Grading stays independent of analytics; autosave/finish safely store authentic receipts."""
 import os,tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -21,6 +21,7 @@ assert client.post('/a/registration',data={'name':' '}).status_code==400
 assert client.post('/a/registration',data={'name':'A'},headers={'Origin':'https://other.example'}).status_code==403
 client.post('/a/registration',data={'name':'検証用 A','next':'https://outside.example'})
 pid=research.identity(type('R',(),{'cookies':client.cookies})())
+original_cookies=dict(client.cookies)
 assert '検証用 A' in client.get('/a/').text
 ready_for_practice(client)
 receipts=[]
@@ -45,12 +46,17 @@ with study_logging.connect() as db:assert db.execute('SELECT COUNT(*) FROM event
 assert research.report(pid)['people']==[]
 events=[dict(event_id=f'visit:{i}',page_id='visit',elapsed_ms=e,event_type=k,detail={'path':'/a/word/iraira/f1/1','active_ms':a}) for i,(k,e,a) in enumerate([('page_view',0,0),('page_snapshot',6000,2000),('page_leave',7000,2500)])]
 payload=dict(participant_id=pid,events=events,receipts=receipts)
-assert client.post('/a/api/events',json=payload).status_code==409
-assert client.post('/a/api/finish',json=dict(payload,participant_id='other')).status_code==409
-assert client.post('/a/api/finish',json=dict(payload,receipts=[receipts[0][:-8]+'badtoken'])).status_code==400
-assert client.post('/a/api/finish',json=dict(payload,events=[dict(events[0],event_type='answer_submission')])).status_code==400
+for route in ('/a/api/events','/a/api/finish'):
+    assert client.post(route,json=payload,headers={'Origin':'https://other.example'}).status_code==403
+    assert client.post(route,json=dict(payload,participant_id='other')).status_code==409
+    assert client.post(route,json=dict(payload,receipts=[receipts[0][:-8]+'badtoken'])).status_code==400
+    assert client.post(route,json=dict(payload,events=[dict(events[0],event_type='answer_submission')])).status_code==400
 with study_logging.connect() as db:assert db.execute('SELECT COUNT(*) FROM events').fetchone()[0]==0
-with patch.object(study_logging,'save_batch',side_effect=RuntimeError('offline')):assert client.post('/a/api/finish',json=payload).status_code==503
+with patch.object(study_logging,'save_batch',side_effect=RuntimeError('offline')):
+    for route in ('/a/api/events','/a/api/finish'):assert client.post(route,json=payload).status_code==503
+for _ in range(2):
+    r=client.post('/a/api/events',json=payload)
+    assert r.json()=={'saved':len(events)+len(receipts),'completed':False}
 for _ in range(2):assert client.post('/a/api/finish',json=payload).status_code==200
 p=research.report(pid)['people'][0]
 assert (p['attempts'],p['correct'],p['incorrect'],p['rate'],p['items'],p['item_wrong'],p['seconds'])==(4,2,2,50.0,44,2,2.5),p
@@ -90,4 +96,21 @@ assert any(row[7] == 'answer_change' and 'compare_shitsuzukeru_action' in row[9]
 assert [r['correct'] for r in kind_report['attempts']] == [False, True]
 assert all(r['page_label'] == 'いらいら：オノマトペの種類' for r in kind_report['attempts'])
 assert [r['answer_label'] for r in kind_report['attempts']] == ['解答：動作', '解答：感情・感覚']
-print('OK: zero analytics DB access during lessons, encrypted receipts, JSON/redirect delivery, finish-only persistence, safe retry, A/B isolation and private reports')
+# Later immutable snapshots update page totals without accumulating time twice.
+snapshots=[dict(event_id=f'visit:snapshot:{i}',page_id='visit',elapsed_ms=elapsed,event_type='page_snapshot',detail={'path':'/a/word/iraira/f1/1','active_ms':active,'click_count':clicks}) for i,(elapsed,active,clicks) in enumerate([(30000,20000,10),(60000,40000,20)])]
+snapshot_client=TestClient(main.app)
+# Use the original participant cookie so the update belongs to the same page visit.
+snapshot_client.cookies.update(original_cookies)
+for event in reversed(snapshots):
+    for _ in range(2):assert snapshot_client.post('/a/api/events',json={'participant_id':pid,'events':[event]}).status_code==200
+p=research.report(pid)['people'][0]
+assert p['seconds']==40.0 and p['clicks']==20 and p['attempts']==4,p
+# Older open pages reuse ':snapshot'; different revisions must still update totals.
+for elapsed,active,clicks in [(90000,70000,30),(120000,100000,40)]:
+    old_snapshot=dict(snapshots[0],event_id='visit:snapshot',elapsed_ms=elapsed,detail={'path':'/a/word/iraira/f1/1','active_ms':active,'click_count':clicks})
+    for _ in range(2):assert snapshot_client.post('/a/api/events',json={'participant_id':pid,'events':[old_snapshot]}).status_code==200
+p=research.report(pid)['people'][0]
+assert p['seconds']==100.0 and p['clicks']==40 and p['attempts']==4,p
+with study_logging.connect() as db:
+    assert db.execute("SELECT COUNT(*) FROM events WHERE event_id LIKE ?",(pid+':experiment:visit:snapshot:%',)).fetchone()[0]==4
+print('OK: grading independent of analytics, encrypted receipts, periodic/final saves, safe retry, deduplicated time/clicks, A/B isolation and private reports')

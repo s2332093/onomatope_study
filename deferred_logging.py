@@ -1,4 +1,4 @@
-"""Encrypted grading receipts and one transactional upload at study completion."""
+"""Encrypted grading receipts and idempotent batched uploads during study."""
 import base64
 import hashlib
 import json
@@ -50,7 +50,13 @@ def batch_records(payload, participant, group, prefix):
         active=float(detail.get('active_ms',0))
         if not math.isfinite(active) or active<0:
             raise ValueError('invalid time')
-        rows.append((participant+':'+group+':'+str(event['event_id'])[:120],participant,group,
+        event_id=str(event['event_id'])[:120]
+        # Already-open v3 pages reuse one snapshot ID as time/clicks grow.
+        # Preserve each revision too, while identical retries remain idempotent.
+        if event_id.endswith(':snapshot'):
+            revision=hashlib.sha256(json.dumps(event,sort_keys=True).encode()).hexdigest()[:20]
+            event_id=event_id[:90]+':'+revision
+        rows.append((participant+':'+group+':'+event_id,participant,group,
                      study_logging.now(),str(event.get('client_time',''))[:40],str(event.get('page_id',''))[:80],
                      path,event['event_type'],elapsed,json.dumps(detail,ensure_ascii=False)))
     for token in receipts:
@@ -68,12 +74,8 @@ def install(app, templates):
         return templates.TemplateResponse(request,'finish.html',{})
 
     @app.post('/api/events')
-    async def old_events(request: Request):
-        # Never accept periodic uploads from a previously opened version.
-        return JSONResponse({'error':'finish required','message':'学習画面を読み込み直してください。終了時にまとめて保存します。'},status_code=409)
-
     @app.post('/api/finish')
-    async def finish_save(request: Request):
+    async def save_events(request: Request):
         if not research.same_origin(request):
             return JSONResponse({'error':'invalid origin'},status_code=403)
         raw=await request.body()
@@ -91,4 +93,4 @@ def install(app, templates):
         except Exception:
             # Keep browser records intact and allow a retry with identical event IDs.
             return JSONResponse({'error':'save unavailable'},status_code=503)
-        return {'saved':len(rows),'completed':True}
+        return {'saved':len(rows),'completed':request.url.path.endswith('/api/finish')}

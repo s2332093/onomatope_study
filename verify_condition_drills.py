@@ -98,7 +98,7 @@ assert main.EXPR_BY_KEY['shiteiku']['req_vol'] == ''
 assert '意志的な行為（＋意志性）とは結びつきません' not in knowledge.text
 assert 'shiteiku' in main.CAT_EXPRS['act_low_vol']
 assert set(main.CAT_EXPRS['act_low_vol']) == set(main.CAT_EXPRS['act_low_novol'])
-print('OK: ten individual grammar drills, three-feature grading, wrong-only result, A/B isolation, private receipts and finish-only saving')
+print('OK: ten individual grammar drills, three-feature grading, wrong-only result, A/B isolation and authenticated buffered receipts')
 
 # The answer key is sent only for the demonstration word, and still uses normal grading.
 for word in main.WORDS:
