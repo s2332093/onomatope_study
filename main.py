@@ -1362,12 +1362,17 @@ async def f2_match(request: Request, word_id: str):
         state = update_learner(request, word_id, clear_context_review)
     retry_token = request.query_params.get("retry", "")
     retrying = bool(retry_token and retry_token == state.get("matching_retry_token"))
+    preserve_conditions = retrying or reviewing
     if not retrying and (state.get("connections") or state.get("matching_retry_token")):
-        state = update_learner(request, word_id, lambda s: s.update(connections=[], matching_conditions={}, matching_retry_token="", matching_feedback={}))
-    if not retrying or not state.get('matching_session'):
+        def reset_lines(s):
+            s.update(connections=[], matching_retry_token="", matching_feedback={})
+            if not reviewing:
+                s['matching_conditions'] = {}
+        state = update_learner(request, word_id, reset_lines)
+    if not preserve_conditions or not state.get('matching_session'):
         state = update_learner(request, word_id, lambda s: s.update(
             matching_session=str(uuid.uuid4()), matching_condition_checks={}))
-    saved_conditions = state.get('matching_conditions', {}) if retrying else {}
+    saved_conditions = state.get('matching_conditions', {}) if preserve_conditions else {}
     checked_expressions = [e['key'] for e in EXPRESSIONS
                            if state.get('matching_condition_checks', {}).get(e['key']) ==
                            checked_condition_values(saved_conditions, e['key'])] if saved_conditions else []
@@ -1381,7 +1386,7 @@ async def f2_match(request: Request, word_id: str):
         "checked_expressions": checked_expressions,
         "matching_session": state['matching_session'],
         "expression_numbers": {e['key']: i + 1 for i, e in enumerate(EXPRESSIONS)},
-        "demo_autofill_used": is_demo_word(w) and retrying and state.get("demo_autofill_used", False),
+        "demo_autofill_used": is_demo_word(w) and preserve_conditions and state.get("demo_autofill_used", False),
         "condition_options": CONDITION_OPTIONS, "feature_names": FEATURE_NAME,
         # Only the demonstration word receives an answer key in its page.
         "demo_matching_answers": {
@@ -1498,7 +1503,7 @@ async def f2_check(request: Request, word_id: str):
     }
     update_learner(request, word_id, lambda s: s.update(
         connections=[r["key"] for r in expr_results if r["connected"]] if not all_correct else [],
-        matching_conditions=conditions if not all_correct else {},
+        matching_conditions=conditions,
         demo_autofill_used=is_demo_word(w) and form.get("demo_autofill_used") == "1",
         matching_retry_token=retry_token,
         matching_feedback={k: v for k, v in feedback_context.items() if k != "request"} if not all_correct else {}))

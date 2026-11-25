@@ -6,7 +6,7 @@ os.environ.update(STUDY_REQUIRE_NAME='0', STUDY_LOG_PATH=str(Path(tempfile.mkdte
 from fastapi.testclient import TestClient
 import main
 import learning_state
-from verify_support import condition_answers, ready_for_practice
+from verify_support import condition_answers, ready_for_practice, checked_matching_answers
 
 c = ready_for_practice(TestClient(main.app))
 page = c.get('/a/word/iraira/f2')
@@ -63,3 +63,36 @@ assert html.status_code == 422 and '前接条件の判定がまだ終わって�
 assert 'フィードバックを見る' not in html.text and 'data-study-receipt=""' in html.text
 assert c.post('/b/word/iraira/f2/check',data=answers).status_code == 404
 print('OK: no unchecked/incorrect/stale matching judgments or feedback; checked retries and learner isolation preserved')
+
+# Context remediation keeps the already checked prerequisite answers for all six words.
+for word in main.WORDS:
+    learner = ready_for_practice(TestClient(main.app))
+    wid = word['id']
+    base = f'/a/word/{wid}'
+    checked_answers = checked_matching_answers(learner, wid)
+    right_lines = {key:'○' for key in main.CAT_EXPRS[word['category_id']]}
+    response = learner.post(base + '/f2/check',data={**checked_answers,**right_lines},headers={'Accept':'application/json'})
+    assert response.json()['all_correct']
+    learner.get(response.json()['context_url'])
+    wrong_context = {f'choice_{q["ord"]}': next(e['key'] for e in main.EXPRESSIONS if e['key'] != q['correct_key']) for q in main.PRACTICE[wid]}
+    for attempt in range(2):
+        failed_context = learner.post(base + '/f3/check',data=wrong_context,follow_redirects=False)
+        review_url = '/a' + failed_context.context['matching_review_url'] if wid == 'iraira' else failed_context.headers['location']
+        review = learner.get(review_url)
+        assert review.context['matching_session'] == checked_answers['_study_matching_session']
+        assert len(review.context['checked_expressions']) == 10
+        expected = main.grade_conditions(condition_answers())[0]
+        assert review.context['saved_conditions'] == expected
+        assert review.text.count('data-conditions-passed="1"') == 10
+        assert '前接条件の判定：10 / 10形式が正解' in review.text
+        assert not review.context['saved_connections']
+        # No second round of individual condition checks is necessary.
+        resubmitted = {**checked_answers,**right_lines,'review_token':review.context['review_token']}
+        matched = learner.post(base + '/f2/check',data=resubmitted,headers={'Accept':'application/json'})
+        assert matched.status_code == 200 and matched.json()['all_correct']
+        back = learner.get(matched.json()['context_url'])
+        assert back.context['returning'] and back.context['saved_choices'] == {k.removeprefix('choice_'):v for k,v in wrong_context.items()}
+    restarted = learner.get(base + '/f2')
+    assert not restarted.context['saved_conditions'] and not restarted.context['checked_expressions']
+    assert restarted.context['matching_session'] != checked_answers['_study_matching_session']
+print('OK: all six context-review flows retain selected and checked prerequisites; normal fresh starts reset')
