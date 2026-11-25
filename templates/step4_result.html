@@ -10,6 +10,7 @@
   {% else %}<p>あなたの回答：{{ r.user_label }}</p><p style="margin-top:12px;">文中の時間表現と，語の素性・前接条件を確認しましょう．</p>{% endif %}
 </div>{% endfor %}
 <div class="feedback-actions">
-  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn btn-primary">次へ：この語の学習を終える →</a>
+  {% if matching_review_url %}<a href="{{ request.scope.get('study_prefix', '') }}{{ matching_review_url }}" class="btn btn-primary">線結びに戻って見直す</a>{% endif %}
+  <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/complete" class="btn {{ 'btn-secondary' if matching_review_url else 'btn-primary' }}">次へ：この語の学習を終える →</a>
   <a href="{{ request.scope.get('study_prefix', '') }}/word/{{ word.id }}/f3" class="btn btn-secondary">文脈問題をもう一度</a>
 </div>{% endblock %}

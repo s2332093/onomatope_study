@@ -130,3 +130,28 @@ assert not fresh.get('/a/').context['course']['features_known']
 assert not fresh.get('/a/').context['course']['grammar_known']
 assert 'href="/b/knowledge"' not in fresh.get('/b/word/iraira').text
 print('OK: optional home knowledge; no knowledge links or redirects during word lessons; per-word progression and honest grading preserved')
+
+# The demonstration bypass must retain the error → matching → same context review route.
+c.get('/a/word/iraira/f3')
+wrong = {f'choice_{q["ord"]}': next(e['key'] for e in main.EXPRESSIONS if e['key'] != q['correct_key']) for q in main.PRACTICE['iraira']}
+response = c.post('/a/word/iraira/f3/check', data=wrong, follow_redirects=False)
+assert response.status_code == 200 and not response.context['all_correct']
+assert '線結びに戻って見直す' in response.text
+review_url = '/a' + response.context['matching_review_url']
+assert 'href="' + review_url + '"' in response.text
+assert 'href="/a/word/iraira/complete"' in response.text
+matching = c.get(review_url)
+assert len(matching.context['context_review']) == 2
+assert matching.context['review_token']
+assert '線結びを確認して文脈問題へ' in matching.text
+submitted = {**condition_answers(), **{e['key']: '○' if e['key'] in {'shihajimeru','shidasu','shitekuru','shiteirutokoroda','shiteshimau'} else '×' for e in main.EXPRESSIONS}, 'review_token': matching.context['review_token']}
+checked = c.post('/a/word/iraira/f2/check',data=submitted,headers={'Accept':'application/json'}).json()
+assert checked['all_correct'] and '?review=' in checked['context_url']
+returned = c.get(checked['context_url'])
+assert returned.context['returning']
+assert returned.context['saved_choices'] == {k.removeprefix('choice_'):v for k,v in wrong.items()}
+correct = {f'choice_{q["ord"]}': q['correct_key'] for q in main.PRACTICE['iraira']}
+passed = c.post('/a/word/iraira/f3/check',data=correct)
+assert passed.context['all_correct'] and not passed.context['matching_review_url']
+assert '線結びに戻って見直す' not in passed.text
+print('OK: incorrect iraira context retains matching review, restored context answers and optional next')

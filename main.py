@@ -1605,6 +1605,7 @@ async def f3_check(request: Request, word_id: str):
     return templates.TemplateResponse(request, "step4_result.html", {
         "word": w, "category": cat, "profile": profile_str(cat),
         "all_correct": not review,
+        "matching_review_url": f"/word/{word_id}/f2?review={review_token}" if review else "",
         "n_correct": sum(r['ok'] for r in results), "total": len(results),
         "results": results,
     })
